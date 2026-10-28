@@ -133,8 +133,11 @@ export default function Camera() {
 
       if (activeFilter === 'fisheye') {
         // Fish Eye fungerar helt utan face tracking.
-        drawFishEye(sourceCanvas, context, 0.98)
-      } else if (activeFilter === 'big-eyes') {
+        drawFishEye(sourceCanvas, context)
+      } else if (
+        activeFilter === 'big-eyes' ||
+        activeFilter === 'glam'
+      ) {
         const now = performance.now()
 
         if (now - lastDetectionTime >= DETECTION_INTERVAL) {
@@ -162,17 +165,19 @@ export default function Camera() {
           })
         }
 
-        if (latestFace) {
-          drawBigEyes(sourceCanvas, context, latestFace)
+        if (activeFilter === 'big-eyes') {
+          if (latestFace) {
+            drawBigEyes(sourceCanvas, context, latestFace)
+          } else {
+            context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
+          }
+        } else if (latestFace) {
+          drawGlam(sourceCanvas, context, latestFace)
         } else {
           context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
         }
       } else if (activeFilter === 'alien') {
         drawAlien(sourceCanvas, context)
-
-      } else if (activeFilter === 'glam') {
-          drawGlam(sourceCanvas, context, latestFace)
-
       } else {
         // Dreamy och No filter behåller den befintliga bildvisningen.
         context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)

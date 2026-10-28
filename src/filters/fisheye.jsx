@@ -1,5 +1,5 @@
 
-const DEFAULT_STRENGTH = 1.8
+const DEFAULT_STRENGTH = 2.8
 
 export function drawFishEye(sourceCanvas, context, strength = DEFAULT_STRENGTH) {
   const width = sourceCanvas.width
