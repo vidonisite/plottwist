@@ -1,0 +1,99 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Huvudfärger */
+  --background: #ffffff;
+  --surface: #f5f5f5;
+  --surface-soft: #faf7fc;
+  --surface-hover: #f5eefb;
+
+  /* Text */
+  --text: #320e3b;
+  --text-muted: #796a80;
+  --text-subtle: #95859b;
+  --text-on-accent: #320e3b;
+  --text-on-dark: #fff9ff;
+
+  /* Accentfärger */
+  --pink: #ff72b6;
+  --pink-light: #ffb0d4;
+  --pink-hover: #ff91c6;
+  --pink-soft: rgba(255, 114, 182, 0.12);
+  --pink-border: rgba(255, 114, 182, 0.2);
+
+  --purple: #a66bff;
+  --purple-dark: #7135c7;
+  --purple-hover: #9151f0;
+  --purple-soft: rgba(166, 107, 255, 0.12);
+  --purple-border: rgba(166, 107, 255, 0.2);
+
+  /* Kanter och skuggor */
+  --border: #eee5f0;
+  --border-strong: #e8ddea;
+  --focus: #ff72b6;
+
+  /* Genomskinliga färger */
+  --white-04: rgba(255, 255, 255, 0.04);
+  --white-07: rgba(255, 255, 255, 0.07);
+  --white-10: rgba(255, 255, 255, 0.1);
+  --white-16: rgba(255, 255, 255, 0.16);
+  --white-90: rgba(255, 255, 255, 0.9);
+
+  --pink-28: rgba(255, 114, 182, 0.28);
+  --purple-18: rgba(166, 107, 255, 0.18);
+  --purple-34: rgba(166, 107, 255, 0.34);
+
+  --dark-purple: #320e3b;
+  --dark-card: #33283f;
+  --dark-card-end: #282033;
+
+  /* Status */
+  --status-online: #ff72b6;
+  --selection-background: #ff72b6;
+  --selection-text: #320e3b;
+
+  color: var(--text);
+  background: var(--background);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  min-height: 100%;
+  background: var(--background);
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--text);
+  background: var(--background);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+::selection {
+  color: var(--selection-text);
+  background: var(--selection-background);
+}

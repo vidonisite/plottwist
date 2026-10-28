@@ -1,0 +1,118 @@
+.chat-panel {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 25px;
+  background: var(--panel);
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 17px;
+  border-bottom: 1px solid var(--line);
+}
+
+.chat-avatar {
+  display: grid;
+  place-items: center;
+  width: 43px;
+  height: 43px;
+  border-radius: 15px;
+  color: var(--ink);
+  background: var(--pink);
+  font-size: 24px;
+}
+
+.chat-person { display: flex; flex: 1; flex-direction: column; gap: 5px; }
+.chat-person strong { font-size: 13px; }
+.chat-person small { color: var(--muted); font-size: 10px; }
+.chat-menu { color: var(--muted); letter-spacing: 2px; }
+
+.messages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 320px;
+  padding: 18px 13px;
+}
+
+.day-divider {
+  align-self: center;
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.message-row { display: flex; }
+.message-row.mine { justify-content: flex-end; }
+.message-row.theirs { justify-content: flex-start; }
+
+.message-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-width: 82%;
+  padding: 12px 14px 8px;
+  border-radius: 17px 17px 17px 5px;
+  color: var(--text);
+  background: #3a3046;
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.mine .message-bubble {
+  border-radius: 17px 17px 5px 17px;
+  color: var(--ink);
+  background: var(--lime);
+}
+
+.message-time { align-self: flex-end; opacity: .58; font-size: 9px; }
+
+.demo-warning {
+  margin: 8px 0 0;
+  padding: 10px;
+  border-radius: 11px;
+  color: var(--muted);
+  background: rgba(255,255,255,.035);
+  font-size: 10px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.message-form {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.message-form input {
+  min-width: 0;
+  flex: 1;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  outline: 0;
+  color: var(--text);
+  background: #211b2b;
+  font: inherit;
+  font-size: 12px;
+}
+
+.message-form input::placeholder { color: #8d849b; }
+
+.message-form button {
+  flex: 0 0 45px;
+  border: 0;
+  border-radius: 14px;
+  color: var(--ink);
+  background: var(--pink);
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.message-form button:disabled { opacity: .4; }
