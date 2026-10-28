@@ -1,4 +1,4 @@
-const DEFAULT_STRENGTH = 0.38
+const DEFAULT_STRENGTH = 8.38
 
 let cachedWidth = 0
 let cachedHeight = 0

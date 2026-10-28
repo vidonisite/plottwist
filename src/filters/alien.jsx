@@ -1,4 +1,5 @@
-const VERTICAL_STRENGTH = 1.65
+
+const VERTICAL_STRENGTH = 5.65
 const GREEN_STRENGTH = 0.8
 
 let cachedWidth = 0
@@ -15,8 +16,6 @@ function createVerticalMap(width, height, strength) {
   for (let y = 0; y < height; y++) {
     const position = y / Math.max(1, height - 1)
 
-    // Mer av bildens höjd hamnar i den nedre delen.
-    // Det får innehåll nära toppen att se större ut.
     sourceYMap[y] =
       Math.pow(position, strength) * (height - 1)
   }
@@ -52,22 +51,6 @@ function ensureBuffers(width, height) {
   }
 }
 
-function isLikelySkin(r, g, b) {
-  // En enkel uppskattning av hudton med YCbCr-färgkomponenter.
-  // Det är inte en exakt hud- eller ansiktssegmentering.
-  const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b
-  const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b
-
-  return (
-    cb >= 70 &&
-    cb <= 135 &&
-    cr >= 125 &&
-    cr <= 185 &&
-    r > 45 &&
-    r > b * 0.85
-  )
-}
-
 export function drawAlien(
   source,
   outputContext,
@@ -81,8 +64,8 @@ export function drawAlien(
   if (!width || !height) return
 
   verticalStrength = Math.max(
-    1,
-    Math.min(2.5, verticalStrength)
+    0,
+    Math.min(8, verticalStrength)
   )
 
   ensureBuffers(width, height)
@@ -95,7 +78,6 @@ export function drawAlien(
     createVerticalMap(width, height, verticalStrength)
   }
 
-  // Rita originalbilden till en intern canvas.
   sourceContext.drawImage(source, 0, 0, width, height)
 
   const inputImage = sourceContext.getImageData(
@@ -119,41 +101,44 @@ export function drawAlien(
       const topIndex = (y0 * width + x) * 4
       const bottomIndex = (y1 * width + x) * 4
 
-      // Mjuk interpolation mellan två rader.
-      let r =
+      const r =
         input[topIndex] * (1 - fy) +
         input[bottomIndex] * fy
 
-      let g =
+      const g =
         input[topIndex + 1] * (1 - fy) +
         input[bottomIndex + 1] * fy
 
-      let b =
+      const b =
         input[topIndex + 2] * (1 - fy) +
         input[bottomIndex + 2] * fy
 
-      if (isLikelySkin(r, g, b)) {
-        const luminance =
-          0.299 * r + 0.587 * g + 0.114 * b
+      // Grönt färgfilter över ALLA pixlar.
+      const luminance =
+        0.299 * r + 0.587 * g + 0.114 * b
 
-        // Grön ton som behåller en del av ljus och skuggor.
-        const greenR = luminance * 0.12
-        const greenG = luminance * 0.85 + 35
-        const greenB = luminance * 0.12
+      const greenR = luminance * 0.12
+      const greenG = luminance * 0.85 + 35
+      const greenB = luminance * 0.12
 
-        r = r * (1 - GREEN_STRENGTH) +
+      output[index] =
+        Math.min(255, Math.max(0,
+          r * (1 - GREEN_STRENGTH) +
           greenR * GREEN_STRENGTH
+        ))
 
-        g = g * (1 - GREEN_STRENGTH) +
+      output[index + 1] =
+        Math.min(255, Math.max(0,
+          g * (1 - GREEN_STRENGTH) +
           greenG * GREEN_STRENGTH
+        ))
 
-        b = b * (1 - GREEN_STRENGTH) +
+      output[index + 2] =
+        Math.min(255, Math.max(0,
+          b * (1 - GREEN_STRENGTH) +
           greenB * GREEN_STRENGTH
-      }
+        ))
 
-      output[index] = Math.min(255, Math.max(0, r))
-      output[index + 1] = Math.min(255, Math.max(0, g))
-      output[index + 2] = Math.min(255, Math.max(0, b))
       output[index + 3] = 255
     }
   }

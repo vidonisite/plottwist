@@ -1,4 +1,4 @@
-const EYE_SCALE = 4.5
+const EYE_SCALE = 5.5
 const MOUTH_SCALE = 2.5
 const EDGE_BLUR = 0
 const EYE_PADDING = 0.2
