@@ -50,39 +50,74 @@ function traceShape(ctx, landmarks, indices, width, height) {
   ctx.closePath()
 }
 
+function tracePlumpedLips(ctx, landmarks, width, height) {
+  const left = point(landmarks, 61, width, height)
+  const right = point(landmarks, 291, width, height)
+  const upper = point(landmarks, 13, width, height)
+  const lower = point(landmarks, 14, width, height)
+  const center = {
+    x: (left.x + right.x) / 2,
+    y: (upper.y + lower.y) / 2
+  }
+
+  ctx.beginPath()
+
+  OUTER_LIPS.forEach((index, i) => {
+    const lipPoint = point(landmarks, index, width, height)
+    const x = center.x + (lipPoint.x - center.x) * 1.1
+    const y = center.y + (lipPoint.y - center.y) * 1.3
+
+    if (i === 0) {
+      ctx.moveTo(x, y)
+    } else {
+      ctx.lineTo(x, y)
+    }
+  })
+
+  ctx.closePath()
+}
+
 function drawLipGloss(ctx, landmarks, width, height) {
-  // Överdrivet rosa läppstift.
-  traceShape(ctx, landmarks, OUTER_LIPS, width, height)
+  // Extend the lip color beyond the natural outline for a plumper look.
+  tracePlumpedLips(ctx, landmarks, width, height)
+
+  const upper = point(landmarks, 13, width, height)
+  const lower = point(landmarks, 14, width, height)
 
   ctx.save()
-  ctx.fillStyle = 'rgba(255, 30, 160, 0.96)'
-  ctx.shadowColor = 'rgba(255, 90, 180, 0.9)'
-  ctx.shadowBlur = width * 0.06
+  const lipGradient = ctx.createLinearGradient(
+    0,
+    upper.y - height * 0.03,
+    0,
+    lower.y + height * 0.03
+  )
+  lipGradient.addColorStop(0, 'rgba(255, 30, 160, 0.98)')
+  lipGradient.addColorStop(0.55, 'rgba(255, 55, 175, 0.97)')
+  lipGradient.addColorStop(1, 'rgba(186, 12, 104, 0.98)')
+  ctx.fillStyle = lipGradient
+  ctx.shadowColor = 'rgba(255, 55, 175, 0.95)'
+  ctx.shadowBlur = width * 0.055
   ctx.fill()
   ctx.restore()
 
-  // Lite mörkare kontur runt läpparna.
-  traceShape(ctx, landmarks, OUTER_LIPS, width, height)
-
+  tracePlumpedLips(ctx, landmarks, width, height)
   ctx.save()
-  ctx.strokeStyle = 'rgba(125, 0, 70, 0.98)'
-  ctx.lineWidth = Math.max(2.5, width / 120)
+  ctx.strokeStyle = 'rgba(125, 0, 70, 0.92)'
+  ctx.lineWidth = Math.max(2, width / 150)
   ctx.stroke()
   ctx.restore()
 
-  // Ljusare färg på insidan för fylligare läppar.
+  // Keep the center brighter to give the enlarged lips a glossy, rounded look.
   traceShape(ctx, landmarks, INNER_LIPS, width, height)
 
   ctx.save()
-  ctx.fillStyle = 'rgba(255, 135, 210, 0.9)'
-  ctx.shadowColor = 'rgba(255, 170, 220, 0.8)'
-  ctx.shadowBlur = width * 0.04
+  ctx.fillStyle = 'rgba(255, 135, 210, 0.94)'
+  ctx.shadowColor = 'rgba(255, 170, 220, 0.9)'
+  ctx.shadowBlur = width * 0.045
   ctx.fill()
   ctx.restore()
 
   // Glans på över- och underläppen.
-  const upper = point(landmarks, 13, width, height)
-  const lower = point(landmarks, 14, width, height)
   const left = point(landmarks, 82, width, height)
   const right = point(landmarks, 312, width, height)
 
@@ -243,8 +278,8 @@ function drawBlush(ctx, landmarks, width, height) {
       p.x, p.y, width * 0.13
     )
 
-    gradient.addColorStop(0, 'rgba(255, 45, 145, 0.9)')
-    gradient.addColorStop(0.45, 'rgba(255, 70, 170, 0.55)')
+    gradient.addColorStop(0, 'rgba(255, 25, 125, 0.96)')
+    gradient.addColorStop(0.45, 'rgba(255, 45, 150, 0.7)')
     gradient.addColorStop(1, 'rgba(255, 70, 155, 0)')
 
     ctx.fillStyle = gradient
