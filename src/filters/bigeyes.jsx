@@ -1,4 +1,4 @@
-const EYE_SCALE = 2.5
+const EYE_SCALE = 16.5
 const EDGE_BLUR = 1.5
 
 // Konturpunkter för ögonen i MediaPipes Face Landmarker-modell.
