@@ -1,4 +1,4 @@
-const EYE_SCALE = 8.5
+const EYE_SCALE = 4.5
 const EDGE_BLUR = 1.5
 const EYE_PADDING = 0.2
 
@@ -73,6 +73,9 @@ function drawTransparentEye(source, layer, eye) {
   const { canvas, mask, } = layer
   const context = layer.context
   const maskContext = layer.maskContext
+
+  context.imageSmoothingEnabled = true
+  context.imageSmoothingQuality = 'high'
 
   if (!context || !maskContext) return false
 
@@ -157,6 +160,8 @@ export function drawBigEyes(source, outputContext, landmarks) {
   // Börja alltid med den vanliga kamerabilden.
   outputContext.clearRect(0, 0, width, height)
   outputContext.drawImage(source, 0, 0, width, height)
+  outputContext.imageSmoothingEnabled = true
+  outputContext.imageSmoothingQuality = 'high'
 
   const layers = getEyeLayers()
 
