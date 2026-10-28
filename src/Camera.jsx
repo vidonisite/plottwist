@@ -3,6 +3,7 @@ import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
 import { drawBigEyes } from './filters/bigeyes.jsx'
 import { drawFishEye } from './filters/fisheye.jsx'
 import { drawAlien } from './filters/alien.jsx'
+import { drawGlam } from './filters/glam.jsx'
 import './Camera.css'
 
 const FILTERS = [
@@ -11,6 +12,7 @@ const FILTERS = [
   { id: 'dreamy', label: 'Dreamy', symbol: '✦' },
   { id: 'mono', label: 'No filter', symbol: '◐' },
   { id: 'alien', label: 'Alien', symbol: '👽' },
+  { id: 'glam', label: 'Glam Makeup', symbol: '💄' },
 ]
 
 const SIZE = 320
@@ -167,6 +169,10 @@ export default function Camera() {
         }
       } else if (activeFilter === 'alien') {
         drawAlien(sourceCanvas, context)
+
+      } else if (activeFilter === 'glam') {
+          drawGlam(sourceCanvas, context, latestFace)
+
       } else {
         // Dreamy och No filter behåller den befintliga bildvisningen.
         context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
