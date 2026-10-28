@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
 import { drawBigEyes } from './filters/bigeyes.jsx'
+import { drawFishEye } from './filters/fisheye.jsx'
+import { drawAlien } from './filters/alien.jsx'
 import './Camera.css'
 
 const FILTERS = [
   { id: 'big-eyes', label: 'Big eyes', symbol: '◉' },
+  { id: 'fisheye', label: 'Fish Eye', symbol: '🐟' },
   { id: 'dreamy', label: 'Dreamy', symbol: '✦' },
-  { id: 'mono', label: 'No filter', symbol: '◐' }
+  { id: 'mono', label: 'No filter', symbol: '◐' },
+  { id: 'alien', label: 'Alien', symbol: '👽' },
 ]
 
 const SIZE = 320
@@ -45,9 +49,8 @@ export default function Camera() {
 
     const video = videoRef.current
     const canvas = canvasRef.current
-    const landmarker = landmarkerRef.current
 
-    if (!video || !canvas || !landmarker) return
+    if (!video || !canvas) return
 
     canvas.width = SIZE
     canvas.height = SIZE
@@ -56,7 +59,6 @@ export default function Camera() {
 
     if (!context) return
 
-    // Den ofiltrerade bilden används som källa till alla effekter.
     const sourceCanvas = document.createElement('canvas')
     sourceCanvas.width = SIZE
     sourceCanvas.height = SIZE
@@ -68,6 +70,51 @@ export default function Camera() {
     let lastDetectionTime = 0
     let latestFace = null
     let stopped = false
+    let landmarkerPromise = null
+    let landmarkerFailed = false
+
+    // Ladda ansiktsigenkänning först när Big eyes behövs.
+    async function getLandmarker() {
+      if (landmarkerRef.current) {
+        return landmarkerRef.current
+      }
+
+      if (landmarkerFailed) return null
+
+      if (!landmarkerPromise) {
+        landmarkerPromise = (async () => {
+          const vision = await FilesetResolver.forVisionTasks(
+            'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+          )
+
+          const landmarker = await FaceLandmarker.createFromOptions(
+            vision,
+            {
+              baseOptions: {
+                modelAssetPath:
+                  'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
+              },
+              runningMode: 'VIDEO',
+              numFaces: 1
+            }
+          )
+
+          if (stopped) {
+            landmarker.close()
+            return null
+          }
+
+          landmarkerRef.current = landmarker
+          return landmarker
+        })().catch((error) => {
+          console.error('Kunde inte ladda ansiktsigenkänning:', error)
+          landmarkerFailed = true
+          return null
+        })
+      }
+
+      return landmarkerPromise
+    }
 
     function drawFrame() {
       if (stopped) return
@@ -77,25 +124,40 @@ export default function Camera() {
         return
       }
 
-      // Samma kvadratiska utsnitt som kamerafönstret.
+      // Rita den ofiltrerade kamerabilden som filterkälla.
       sourceContext.drawImage(video, 0, 0, SIZE, SIZE)
 
       const activeFilter = filterRef.current
 
-      if (activeFilter === 'big-eyes') {
+      if (activeFilter === 'fisheye') {
+        // Fish Eye fungerar helt utan face tracking.
+        drawFishEye(sourceCanvas, context, 0.38)
+      } else if (activeFilter === 'big-eyes') {
         const now = performance.now()
 
-        // Ansiktsdetektering behöver inte köras i varje bildruta.
         if (now - lastDetectionTime >= DETECTION_INTERVAL) {
           lastDetectionTime = now
 
-          try {
-            const result = landmarker.detectForVideo(video, now)
-            latestFace = result.faceLandmarks?.[0] ?? null
-          } catch (error) {
-            console.error('Kunde inte läsa ansiktslandmärken:', error)
-            latestFace = null
-          }
+          // Starta laddningen vid behov utan att stoppa kameran.
+          getLandmarker().then((landmarker) => {
+            if (stopped || !landmarker) return
+
+            try {
+              const result = landmarker.detectForVideo(
+                video,
+                performance.now()
+              )
+
+              latestFace = result.faceLandmarks?.[0] ?? null
+            } catch (error) {
+              console.error(
+                'Kunde inte läsa ansiktslandmärken:',
+                error
+              )
+
+              latestFace = null
+            }
+          })
         }
 
         if (latestFace) {
@@ -103,8 +165,10 @@ export default function Camera() {
         } else {
           context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
         }
+      } else if (activeFilter === 'alien') {
+        drawAlien(sourceCanvas, context)
       } else {
-        // Dreamy och No filter fortsätter använda den befintliga CSS-stilen.
+        // Dreamy och No filter behåller den befintliga bildvisningen.
         context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
       }
 
@@ -150,23 +214,8 @@ export default function Camera() {
       video.srcObject = stream
       await video.play()
 
-      const vision = await FilesetResolver.forVisionTasks(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
-      )
-
-      const landmarker = await FaceLandmarker.createFromOptions(
-        vision,
-        {
-          baseOptions: {
-            modelAssetPath:
-              'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
-          },
-          runningMode: 'VIDEO',
-          numFaces: 1
-        }
-      )
-
-      landmarkerRef.current = landmarker
+      // Starta kameran direkt. MediaPipe laddas först
+      // om användaren väljer Big eyes.
       setCameraState('live')
     } catch (error) {
       streamRef.current?.getTracks().forEach((track) => track.stop())
@@ -184,7 +233,7 @@ export default function Camera() {
       setErrorMessage(
         error?.message?.includes('HTTPS')
           ? error.message
-          : 'Vi kunde inte starta kameran eller ladda ansiktsfiltret. Kontrollera kameratillståndet och internetanslutningen och försök igen.'
+          : 'Vi kunde inte starta kameran. Kontrollera kameratillståndet och försök igen.'
       )
 
       setCameraState('error')
@@ -225,6 +274,7 @@ export default function Camera() {
               ref={canvasRef}
               className="camera-canvas"
             />
+
             <span className="live-label">
               <span />
               LIVE
