@@ -1,4 +1,4 @@
-const DEFAULT_STRENGTH = 8.38
+const DEFAULT_STRENGTH = 0.85
 
 let cachedWidth = 0
 let cachedHeight = 0
@@ -15,35 +15,24 @@ function createMapping(width, height, strength) {
   mapX = new Float32Array(size)
   mapY = new Float32Array(size)
 
-  const centerX = width / 2
-  const centerY = height / 2
-
-  // Normalisera så att effekten fungerar även
-  // när kamerabilden inte är kvadratisk.
-  const radius = Math.min(centerX, centerY)
+  const centerX = (width - 1) / 2
+  const centerY = (height - 1) / 2
+  const radius = Math.min(width, height) / 2
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const dx = (x - centerX) / radius
       const dy = (y - centerY) / radius
+      const distance = Math.sqrt(dx * dx + dy * dy)
 
-      const distanceSquared = dx * dx + dy * dy
-
-      // Radial förvrängning:
-      // mitten förstoras och kanterna böjs.
+      // Förstorad mitt och kraftig böjning mot kanterna.
       const factor =
-        1 + strength * distanceSquared
-
-      const sourceX =
-        centerX + dx * factor * radius
-
-      const sourceY =
-        centerY + dy * factor * radius
+        1 + strength * distance * distance
 
       const index = y * width + x
 
-      mapX[index] = sourceX
-      mapY[index] = sourceY
+      mapX[index] = centerX + dx * factor * radius
+      mapY[index] = centerY + dy * factor * radius
     }
   }
 
@@ -90,7 +79,7 @@ export function drawFishEye(
 
   if (!width || !height) return
 
-  strength = Math.max(0, Math.min(0.8, strength))
+  strength = Math.max(0, Math.min(1.5, strength))
 
   ensureBuffers(width, height)
 
@@ -104,14 +93,10 @@ export function drawFishEye(
 
   sourceContext.drawImage(source, 0, 0, width, height)
 
-  const inputImage = sourceContext.getImageData(
-    0,
-    0,
-    width,
-    height
-  )
+  const input = sourceContext.getImageData(
+    0, 0, width, height
+  ).data
 
-  const input = inputImage.data
   const output = outputImage.data
   const size = width * height
 
@@ -120,7 +105,6 @@ export function drawFishEye(
     const sy = mapY[i]
     const out = i * 4
 
-    // Svart utanför bildens gränser.
     if (
       sx < 0 ||
       sy < 0 ||
@@ -134,7 +118,6 @@ export function drawFishEye(
       continue
     }
 
-    // Bilinjär interpolation för mjukare bild.
     const x0 = Math.floor(sx)
     const y0 = Math.floor(sy)
     const x1 = x0 + 1

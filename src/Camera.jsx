@@ -131,7 +131,7 @@ export default function Camera() {
 
       if (activeFilter === 'fisheye') {
         // Fish Eye fungerar helt utan face tracking.
-        drawFishEye(sourceCanvas, context, 0.38)
+        drawFishEye(sourceCanvas, context, 0.98)
       } else if (activeFilter === 'big-eyes') {
         const now = performance.now()
 
