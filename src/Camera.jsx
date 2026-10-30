@@ -60,7 +60,6 @@ export default function Camera() {
 
   const glamLifecycleRef = useRef(Promise.resolve())
 
-  // Stäng allt när komponenten försvinner.
   useEffect(() => {
     return () => {
       cancelAnimationFrame(animationRef.current)
@@ -75,7 +74,6 @@ export default function Camera() {
     }
   }, [])
 
-  // Den vanliga 2D-renderingen för dina andra filter.
   useEffect(() => {
     if (cameraState !== 'live') return
 
@@ -147,6 +145,36 @@ export default function Camera() {
       return landmarkerPromise
     }
 
+    function drawFaceFilter(drawFilter) {
+      const now = performance.now()
+
+      if (now - lastDetectionTime >= DETECTION_INTERVAL) {
+        lastDetectionTime = now
+
+        getLandmarker().then((landmarker) => {
+          if (stopped || !landmarker) return
+
+          try {
+            const result = landmarker.detectForVideo(
+              video,
+              performance.now()
+            )
+
+            latestFace = result.faceLandmarks?.[0] ?? null
+          } catch (error) {
+            console.error('Ansiktsigenkänning misslyckades:', error)
+            latestFace = null
+          }
+        })
+      }
+
+      if (latestFace) {
+        drawFilter(sourceCanvas, context, latestFace)
+      } else {
+        context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
+      }
+    }
+
     function drawFrame() {
       if (stopped) return
 
@@ -161,37 +189,10 @@ export default function Camera() {
 
       if (activeFilter === 'fisheye') {
         drawFishEye(sourceCanvas, context)
-      } else if (
-        activeFilter === 'big-eyes' ||
-        activeFilter === 'square-face'
-      ) {
-        const now = performance.now()
-
-        if (now - lastDetectionTime >= DETECTION_INTERVAL) {
-          lastDetectionTime = now
-
-          getLandmarker().then((landmarker) => {
-            if (stopped || !landmarker) return
-
-            try {
-              const result = landmarker.detectForVideo(
-                video,
-                performance.now()
-              )
-
-              latestFace = result.faceLandmarks?.[0] ?? null
-            } catch (error) {
-              console.error('Ansiktsigenkänning misslyckades:', error)
-              latestFace = null
-            }
-          })
-        }
-
-        if (latestFace) {
-          drawBigEyes(sourceCanvas, context, latestFace)
-        } else {
-          context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
-        }
+      } else if (activeFilter === 'big-eyes') {
+        drawFaceFilter(drawBigEyes)
+      } else if (activeFilter === 'square-face') {
+        drawFaceFilter(drawSquareFace)
       } else if (activeFilter === 'alien') {
         drawAlien(sourceCanvas, context)
       } else {
@@ -209,74 +210,83 @@ export default function Camera() {
     }
   }, [cameraState])
 
-  // OpenMakeup får en egen WebGL-canvas.
   useEffect(() => {
-    if (cameraState !== 'live' || filter !== 'glam') {
+    if (cameraState !== 'live') {
+      const instance = glamInstanceRef.current
+      glamInstanceRef.current = null
+
+      if (instance) {
+        void stopAndDisposeGlam(instance)
+      }
+
       return
     }
-  
+
+    if (filter !== 'glam') {
+      const instance = glamInstanceRef.current
+      glamInstanceRef.current = null
+
+      if (instance) {
+        void stopAndDisposeGlam(instance)
+      }
+
+      return
+    }
+
     const video = videoRef.current
     const canvas = glamCanvasRef.current
-  
+
     if (!video || !canvas) return
-  
+
     let cancelled = false
-  
+
     async function initializeGlam() {
       try {
-        // Vänta tills en tidigare Glam-instans är helt avslutad.
         await glamLifecycleRef.current
-  
+
         if (cancelled) return
-  
+
         setErrorMessage('')
-  
+
         const instance = await startGlam(video, canvas)
-  
-        // Om användaren har bytt filter medan Glam startade:
+
         if (cancelled) {
           await stopAndDisposeGlam(instance)
           return
         }
-  
+
         glamInstanceRef.current = instance
       } catch (error) {
         console.error('Glam kunde inte startas:', error)
-  
+
         if (!cancelled) {
-          setErrorMessage(
-            'Glam Makeup kunde inte laddas. Försök igen.'
-          )
+          setErrorMessage('Glam Makeup kunde inte laddas. Försök igen.')
         }
       }
     }
-  
+
     const startTask = initializeGlam()
-  
+
     return () => {
       cancelled = true
-  
-      // Vänta på eventuell pågående start innan vi stänger Glam.
+
       const cleanupTask = glamLifecycleRef.current.then(async () => {
         await startTask
-  
+
         const instance = glamInstanceRef.current
-  
+
         if (instance) {
           glamInstanceRef.current = null
           await stopAndDisposeGlam(instance)
         }
       })
-  
+
       glamLifecycleRef.current = cleanupTask.catch((error) => {
         console.error('Glam cleanup misslyckades:', error)
       })
     }
   }, [cameraState, filter])
 
-
-
-  
   async function startCamera() {
     setErrorMessage('')
     setCameraState('loading')
@@ -335,25 +345,24 @@ export default function Camera() {
   async function stopCamera() {
     cancelAnimationFrame(animationRef.current)
     animationRef.current = null
-  
-    // Vänta tills Glam har stoppats ordentligt.
+
     const instance = glamInstanceRef.current
     glamInstanceRef.current = null
-  
+
     if (instance) {
       await stopAndDisposeGlam(instance)
     }
-  
+
     streamRef.current?.getTracks().forEach((track) => track.stop())
     streamRef.current = null
-  
+
     if (videoRef.current) {
       videoRef.current.srcObject = null
     }
-  
+
     landmarkerRef.current?.close()
     landmarkerRef.current = null
-  
+
     setCameraState('idle')
   }
 
