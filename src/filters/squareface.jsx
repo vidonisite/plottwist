@@ -12,6 +12,11 @@ export function drawSquareFace(sourceCanvas, context, landmarks) {
   const forehead = landmarks[10]
   const chin = landmarks[152]
 
+  if (!left || !right || !forehead || !chin) {
+    context.drawImage(sourceCanvas, 0, 0)
+    return
+  }
+
   const centerX = ((left.x + right.x) / 2) * width
   const topY = forehead.y * height
   const bottomY = chin.y * height
@@ -35,44 +40,28 @@ export function drawSquareFace(sourceCanvas, context, landmarks) {
   const src = source.data
   const dst = output.data
 
-  // Hur mycket bredare käken blir.
-  const maxWidening = 0.32
-
   for (let y = 0; y < height; y++) {
-    const verticalPosition = (y - centerY) / halfHeight
+    const dy = y - centerY
+    const ny = dy / halfHeight
 
-    if (Math.abs(verticalPosition) > 1.1) {
+    if (Math.abs(ny) > 1.25) {
       const rowStart = y * width * 4
       dst.set(src.subarray(rowStart, rowStart + width * 4), rowStart)
       continue
     }
 
-    const lowerFace = Math.max(
-      0,
-      Math.min(1, (verticalPosition - 0.05) / 0.85)
-    )
-
-    // Mjuk övergång så att förvrängningen inte börjar tvärt.
-    const smoothLowerFace = lowerFace * lowerFace * (3 - 2 * lowerFace)
-
-    const widening = 1 + maxWidening * smoothLowerFace
-
-    // En något kantigare ansiktsform än en vanlig oval.
-    const ovalShape = Math.pow(
-      Math.max(0, 1 - Math.pow(Math.abs(verticalPosition), 3.2)),
-      0.34
-    )
-
-    const originalRadius = halfWidth * ovalShape
-    const expandedRadius = originalRadius * widening
+    const verticalBlend = Math.max(0, 1 - Math.abs(ny))
+    const squareWidthFactor = 0.72 + 0.48 * verticalBlend
+    const jawFlatten = 0.22 * Math.max(0, ny + 0.5)
+    const maxBoxWidth = halfWidth * (squareWidthFactor + jawFlatten)
 
     for (let x = 0; x < width; x++) {
       const dx = x - centerX
-      const distance = Math.abs(dx)
+      const nx = dx / halfWidth
 
       const outputIndex = (y * width + x) * 4
 
-      if (distance > expandedRadius || expandedRadius < 1) {
+      if (Math.abs(nx) > 1.25 || Math.abs(ny) > 1.25) {
         dst[outputIndex] = src[outputIndex]
         dst[outputIndex + 1] = src[outputIndex + 1]
         dst[outputIndex + 2] = src[outputIndex + 2]
@@ -80,18 +69,20 @@ export function drawSquareFace(sourceCanvas, context, landmarks) {
         continue
       }
 
-      const sourceX = Math.round(centerX + dx / widening)
-      const safeX = Math.max(0, Math.min(width - 1, sourceX))
+      const signedDx = Math.sign(dx || 1) * Math.min(Math.abs(dx), maxBoxWidth)
+      const sourceX = centerX + signedDx
+      const safeX = Math.max(0, Math.min(width - 1, Math.round(sourceX)))
       const sourceIndex = (y * width + safeX) * 4
 
-      // Mjukar ut kanten mot den oförändrade bilden.
-      const edgeBlend = Math.min(1, (expandedRadius - distance) / 5)
-      const blend = Math.max(0, Math.min(1, edgeBlend))
+      const edgeBlend = Math.max(
+        0,
+        1 - Math.min(1, Math.abs(nx) / 1.25)
+      )
 
       for (let channel = 0; channel < 4; channel++) {
         dst[outputIndex + channel] =
-          src[outputIndex + channel] * (1 - blend) +
-          src[sourceIndex + channel] * blend
+          src[outputIndex + channel] * (1 - edgeBlend) +
+          src[sourceIndex + channel] * edgeBlend
       }
     }
   }
