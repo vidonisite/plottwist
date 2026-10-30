@@ -18,20 +18,15 @@ export function drawSquareFace(sourceCanvas, context, landmarks) {
   }
 
   const centerX = ((left.x + right.x) / 2) * width
-  const topY = forehead.y * height
-  const bottomY = chin.y * height
+  const centerY = ((forehead.y + chin.y) / 2) * height
 
   const faceWidth = Math.abs(right.x - left.x) * width
-  const faceHeight = Math.abs(bottomY - topY)
+  const faceHeight = Math.abs(chin.y - forehead.y) * height
 
   if (faceWidth < 20 || faceHeight < 20) {
     context.drawImage(sourceCanvas, 0, 0)
     return
   }
-
-  const centerY = (topY + bottomY) / 2
-  const halfHeight = faceHeight / 2
-  const halfWidth = faceWidth / 2
 
   const sourceContext = sourceCanvas.getContext('2d')
   const source = sourceContext.getImageData(0, 0, width, height)
@@ -40,28 +35,26 @@ export function drawSquareFace(sourceCanvas, context, landmarks) {
   const src = source.data
   const dst = output.data
 
+  const boxHalfW = faceWidth * 0.78
+  const boxHalfH = faceHeight * 0.82
+
   for (let y = 0; y < height; y++) {
     const dy = y - centerY
-    const ny = dy / halfHeight
+    const ny = dy / boxHalfH
 
-    if (Math.abs(ny) > 1.25) {
+    if (Math.abs(ny) > 1.2) {
       const rowStart = y * width * 4
       dst.set(src.subarray(rowStart, rowStart + width * 4), rowStart)
       continue
     }
 
-    const verticalBlend = Math.max(0, 1 - Math.abs(ny))
-    const squareWidthFactor = 0.72 + 0.48 * verticalBlend
-    const jawFlatten = 0.22 * Math.max(0, ny + 0.5)
-    const maxBoxWidth = halfWidth * (squareWidthFactor + jawFlatten)
-
     for (let x = 0; x < width; x++) {
       const dx = x - centerX
-      const nx = dx / halfWidth
+      const nx = dx / boxHalfW
 
       const outputIndex = (y * width + x) * 4
 
-      if (Math.abs(nx) > 1.25 || Math.abs(ny) > 1.25) {
+      if (Math.abs(nx) > 1.2 || Math.abs(ny) > 1.2) {
         dst[outputIndex] = src[outputIndex]
         dst[outputIndex + 1] = src[outputIndex + 1]
         dst[outputIndex + 2] = src[outputIndex + 2]
@@ -69,20 +62,24 @@ export function drawSquareFace(sourceCanvas, context, landmarks) {
         continue
       }
 
-      const signedDx = Math.sign(dx || 1) * Math.min(Math.abs(dx), maxBoxWidth)
-      const sourceX = centerX + signedDx
-      const safeX = Math.max(0, Math.min(width - 1, Math.round(sourceX)))
-      const sourceIndex = (y * width + safeX) * 4
+      const distFromCenter = Math.max(Math.abs(nx), Math.abs(ny))
+      const boxAmount = 1 - distFromCenter
+      const stretchX = 1 + 1.3 * Math.max(0, 1 - Math.abs(ny))
+      const stretchY = 1 + 1.1 * Math.max(0, 1 - Math.abs(nx))
 
-      const edgeBlend = Math.max(
-        0,
-        1 - Math.min(1, Math.abs(nx) / 1.25)
-      )
+      const sourceX = centerX + dx * stretchX
+      const sourceY = centerY + dy * stretchY
+
+      const sx = Math.max(0, Math.min(width - 1, Math.round(sourceX)))
+      const sy = Math.max(0, Math.min(height - 1, Math.round(sourceY)))
+      const sourceIndex = (sy * width + sx) * 4
+
+      const blend = Math.max(0, Math.min(1, 0.35 + boxAmount * 0.65))
 
       for (let channel = 0; channel < 4; channel++) {
         dst[outputIndex + channel] =
-          src[outputIndex + channel] * (1 - edgeBlend) +
-          src[sourceIndex + channel] * edgeBlend
+          src[outputIndex + channel] * (1 - blend) +
+          src[sourceIndex + channel] * blend
       }
     }
   }
