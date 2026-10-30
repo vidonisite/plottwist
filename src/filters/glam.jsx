@@ -218,8 +218,8 @@ export async function startGlam(video, renderCanvas) {
 
     // Överdriven läppförstoring.
     makeup.morph({
-      lipPlump: 1.35,
-      lipPlump2: 1.2
+      lipPlump: -1.35,
+      lipPlump2: -1.2
     })
 
     return makeup
