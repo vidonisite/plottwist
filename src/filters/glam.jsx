@@ -5,6 +5,9 @@ const MEDIAPIPE_VERSION = '0.4.1633559619'
 const MEDIAPIPE_URL =
   `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@${MEDIAPIPE_VERSION}`
 
+const CAMERA_UTILS_URL =
+  'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js'
+
 const ASSETS_URL =
   'https://cdn.jsdelivr.net/npm/open-makeup-sdk/assets'
 
@@ -36,6 +39,37 @@ function loadFaceMesh() {
 
     script.addEventListener('error', () => {
       reject(new Error('Kunde inte ladda MediaPipe FaceMesh.'))
+    }, { once: true })
+  })
+}
+
+function loadCameraUtils() {
+  if (window.Camera) {
+    return Promise.resolve(window.Camera)
+  }
+
+  return new Promise((resolve, reject) => {
+    let script = document.querySelector(
+      'script[data-openmakeup-camera]'
+    )
+
+    if (!script) {
+      script = document.createElement('script')
+      script.src = CAMERA_UTILS_URL
+      script.dataset.openmakeupCamera = 'true'
+      document.head.appendChild(script)
+    }
+
+    script.addEventListener('load', () => {
+      if (window.Camera) {
+        resolve(window.Camera)
+      } else {
+        reject(new Error('MediaPipe Camera kunde inte laddas.'))
+      }
+    }, { once: true })
+
+    script.addEventListener('error', () => {
+      reject(new Error('Kunde inte ladda MediaPipe Camera.'))
     }, { once: true })
   })
 }
@@ -116,7 +150,10 @@ async function waitForMaterials(engine) {
 }
 
 export async function startGlam(video, renderCanvas) {
-  await loadFaceMesh()
+  await Promise.all([
+    loadFaceMesh(),
+    loadCameraUtils()
+  ])
 
   const makeup = new OpenMakeup({
     video,
