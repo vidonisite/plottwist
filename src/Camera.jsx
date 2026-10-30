@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
+
 import { drawBigEyes } from './filters/bigeyes.jsx'
 import { drawFishEye } from './filters/fisheye.jsx'
 import { drawAlien } from './filters/alien.jsx'
-import { drawGlam } from './filters/glam.jsx'
+import { startGlam } from './filters/glam.jsx'
+
 import './Camera.css'
 
 const FILTERS = [
@@ -21,9 +23,13 @@ const DETECTION_INTERVAL = 1000 / 30
 export default function Camera() {
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
+  const glamCanvasRef = useRef(null)
+
   const streamRef = useRef(null)
   const landmarkerRef = useRef(null)
   const animationRef = useRef(null)
+  const glamInstanceRef = useRef(null)
+
   const filterRef = useRef('big-eyes')
 
   const [cameraState, setCameraState] = useState('idle')
@@ -34,9 +40,13 @@ export default function Camera() {
     filterRef.current = filter
   }, [filter])
 
+  // Stäng allt när komponenten försvinner.
   useEffect(() => {
     return () => {
       cancelAnimationFrame(animationRef.current)
+
+      glamInstanceRef.current?.dispose()
+      glamInstanceRef.current = null
 
       streamRef.current?.getTracks().forEach((track) => track.stop())
       streamRef.current = null
@@ -46,6 +56,7 @@ export default function Camera() {
     }
   }, [])
 
+  // Den vanliga 2D-renderingen för dina andra filter.
   useEffect(() => {
     if (cameraState !== 'live') return
 
@@ -75,7 +86,6 @@ export default function Camera() {
     let landmarkerPromise = null
     let landmarkerFailed = false
 
-    // Ladda ansiktsigenkänning först när Big eyes behövs.
     async function getLandmarker() {
       if (landmarkerRef.current) {
         return landmarkerRef.current
@@ -126,24 +136,18 @@ export default function Camera() {
         return
       }
 
-      // Rita den ofiltrerade kamerabilden som filterkälla.
       sourceContext.drawImage(video, 0, 0, SIZE, SIZE)
 
       const activeFilter = filterRef.current
 
       if (activeFilter === 'fisheye') {
-        // Fish Eye fungerar helt utan face tracking.
         drawFishEye(sourceCanvas, context)
-      } else if (
-        activeFilter === 'big-eyes' ||
-        activeFilter === 'glam'
-      ) {
+      } else if (activeFilter === 'big-eyes') {
         const now = performance.now()
 
         if (now - lastDetectionTime >= DETECTION_INTERVAL) {
           lastDetectionTime = now
 
-          // Starta laddningen vid behov utan att stoppa kameran.
           getLandmarker().then((landmarker) => {
             if (stopped || !landmarker) return
 
@@ -155,31 +159,20 @@ export default function Camera() {
 
               latestFace = result.faceLandmarks?.[0] ?? null
             } catch (error) {
-              console.error(
-                'Kunde inte läsa ansiktslandmärken:',
-                error
-              )
-
+              console.error('Ansiktsigenkänning misslyckades:', error)
               latestFace = null
             }
           })
         }
 
-        if (activeFilter === 'big-eyes') {
-          if (latestFace) {
-            drawBigEyes(sourceCanvas, context, latestFace)
-          } else {
-            context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
-          }
-        } else if (latestFace) {
-          drawGlam(sourceCanvas, context, latestFace)
+        if (latestFace) {
+          drawBigEyes(sourceCanvas, context, latestFace)
         } else {
           context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
         }
       } else if (activeFilter === 'alien') {
         drawAlien(sourceCanvas, context)
       } else {
-        // Dreamy och No filter behåller den befintliga bildvisningen.
         context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
       }
 
@@ -193,6 +186,55 @@ export default function Camera() {
       cancelAnimationFrame(animationRef.current)
     }
   }, [cameraState])
+
+  // OpenMakeup får en egen WebGL-canvas.
+  // Den återanvänder kamerans redan öppnade videoström.
+  useEffect(() => {
+    if (cameraState !== 'live' || filter !== 'glam') {
+      glamInstanceRef.current?.dispose()
+      glamInstanceRef.current = null
+      return
+    }
+
+    const video = videoRef.current
+    const canvas = glamCanvasRef.current
+
+    if (!video || !canvas) return
+
+    let cancelled = false
+
+    async function initializeGlam() {
+      try {
+        setErrorMessage('')
+
+        const instance = await startGlam(video, canvas)
+
+        if (cancelled) {
+          instance.dispose()
+          return
+        }
+
+        glamInstanceRef.current = instance
+      } catch (error) {
+        console.error('Glam kunde inte startas:', error)
+
+        if (!cancelled) {
+          setErrorMessage(
+            'Glam Makeup kunde inte laddas. Kontrollera internetanslutningen och försök igen.'
+          )
+        }
+      }
+    }
+
+    initializeGlam()
+
+    return () => {
+      cancelled = true
+
+      glamInstanceRef.current?.dispose()
+      glamInstanceRef.current = null
+    }
+  }, [cameraState, filter])
 
   async function startCamera() {
     setErrorMessage('')
@@ -225,8 +267,6 @@ export default function Camera() {
       video.srcObject = stream
       await video.play()
 
-      // Starta kameran direkt. MediaPipe laddas först
-      // om användaren väljer Big eyes.
       setCameraState('live')
     } catch (error) {
       streamRef.current?.getTracks().forEach((track) => track.stop())
@@ -254,6 +294,9 @@ export default function Camera() {
   function stopCamera() {
     cancelAnimationFrame(animationRef.current)
     animationRef.current = null
+
+    glamInstanceRef.current?.dispose()
+    glamInstanceRef.current = null
 
     streamRef.current?.getTracks().forEach((track) => track.stop())
     streamRef.current = null
@@ -284,6 +327,17 @@ export default function Camera() {
             <canvas
               ref={canvasRef}
               className="camera-canvas"
+              style={{
+                display: filter === 'glam' ? 'none' : 'block'
+              }}
+            />
+
+            <canvas
+              ref={glamCanvasRef}
+              className="camera-canvas glam-canvas"
+              style={{
+                display: filter === 'glam' ? 'block' : 'none'
+              }}
             />
 
             <span className="live-label">
