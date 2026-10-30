@@ -20,6 +20,22 @@ const FILTERS = [
 const SIZE = 320
 const DETECTION_INTERVAL = 1000 / 30
 
+async function stopAndDisposeGlam(instance) {
+  if (!instance) return
+
+  try {
+    await instance.stop()
+  } catch (error) {
+    console.warn('Kunde inte stoppa Glam:', error)
+  }
+
+  try {
+    instance.dispose()
+  } catch (error) {
+    console.warn('Kunde inte frigöra Glam:', error)
+  }
+}
+
 export default function Camera() {
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
@@ -40,12 +56,13 @@ export default function Camera() {
     filterRef.current = filter
   }, [filter])
 
+  const glamLifecycleRef = useRef(Promise.resolve())
+
   // Stäng allt när komponenten försvinner.
   useEffect(() => {
     return () => {
       cancelAnimationFrame(animationRef.current)
 
-      glamInstanceRef.current?.dispose()
       glamInstanceRef.current = null
 
       streamRef.current?.getTracks().forEach((track) => track.stop())
@@ -188,54 +205,73 @@ export default function Camera() {
   }, [cameraState])
 
   // OpenMakeup får en egen WebGL-canvas.
-  // Den återanvänder kamerans redan öppnade videoström.
   useEffect(() => {
     if (cameraState !== 'live' || filter !== 'glam') {
-      glamInstanceRef.current?.dispose()
-      glamInstanceRef.current = null
       return
     }
-
+  
     const video = videoRef.current
     const canvas = glamCanvasRef.current
-
+  
     if (!video || !canvas) return
-
+  
     let cancelled = false
-
+  
     async function initializeGlam() {
       try {
+        // Vänta tills en tidigare Glam-instans är helt avslutad.
+        await glamLifecycleRef.current
+  
+        if (cancelled) return
+  
         setErrorMessage('')
-
+  
         const instance = await startGlam(video, canvas)
-
+  
+        // Om användaren har bytt filter medan Glam startade:
         if (cancelled) {
-          instance.dispose()
+          await stopAndDisposeGlam(instance)
           return
         }
-
+  
         glamInstanceRef.current = instance
       } catch (error) {
         console.error('Glam kunde inte startas:', error)
-
+  
         if (!cancelled) {
           setErrorMessage(
-            'Glam Makeup kunde inte laddas. Kontrollera internetanslutningen och försök igen.'
+            'Glam Makeup kunde inte laddas. Försök igen.'
           )
         }
       }
     }
-
-    initializeGlam()
-
+  
+    const startTask = initializeGlam()
+  
     return () => {
       cancelled = true
-
-      glamInstanceRef.current?.dispose()
-      glamInstanceRef.current = null
+  
+      // Vänta på eventuell pågående start innan vi stänger Glam.
+      const cleanupTask = glamLifecycleRef.current.then(async () => {
+        await startTask
+  
+        const instance = glamInstanceRef.current
+  
+        if (instance) {
+          glamInstanceRef.current = null
+          await stopAndDisposeGlam(instance)
+        }
+      })
+  
+      glamLifecycleRef.current = cleanupTask.catch((error) => {
+        console.error('Glam cleanup misslyckades:', error)
+      })
     }
   }, [cameraState, filter])
 
+
+
+  
   async function startCamera() {
     setErrorMessage('')
     setCameraState('loading')
@@ -291,23 +327,28 @@ export default function Camera() {
     }
   }
 
-  function stopCamera() {
+  async function stopCamera() {
     cancelAnimationFrame(animationRef.current)
     animationRef.current = null
-
-    glamInstanceRef.current?.dispose()
+  
+    // Vänta tills Glam har stoppats ordentligt.
+    const instance = glamInstanceRef.current
     glamInstanceRef.current = null
-
+  
+    if (instance) {
+      await stopAndDisposeGlam(instance)
+    }
+  
     streamRef.current?.getTracks().forEach((track) => track.stop())
     streamRef.current = null
-
+  
     if (videoRef.current) {
       videoRef.current.srcObject = null
     }
-
+  
     landmarkerRef.current?.close()
     landmarkerRef.current = null
-
+  
     setCameraState('idle')
   }
 
