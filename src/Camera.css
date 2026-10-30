@@ -60,6 +60,7 @@
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1);
+  border-radius: 24px;
 }
 
 .camera-frame.filter-dreamy .camera-canvas {
@@ -68,6 +69,16 @@
 
 .camera-frame.filter-mono .camera-canvas {
   filter: grayscale(1);
+}
+
+.camera-frame {
+  position: relative;
+  width: min(100%, 420px);
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 24px;
+  background: var(--surface-soft);
 }
 
 @media (max-width: 600px) {
