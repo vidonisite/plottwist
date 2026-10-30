@@ -5,6 +5,7 @@ import { drawBigEyes } from './filters/bigeyes.jsx'
 import { drawFishEye } from './filters/fisheye.jsx'
 import { drawAlien } from './filters/alien.jsx'
 import { startGlam } from './filters/glam.jsx'
+import { drawSquareFace } from './filters/squareface.jsx'
 
 import './Camera.css'
 
@@ -15,6 +16,7 @@ const FILTERS = [
   { id: 'mono', label: 'No filter', symbol: '◐' },
   { id: 'alien', label: 'Alien', symbol: '👽' },
   { id: 'glam', label: 'Glam Makeup', symbol: '💄' },
+  { id: 'square-face', label: 'Square Face', symbol: '▣' },
 ]
 
 const SIZE = 320
@@ -159,7 +161,10 @@ export default function Camera() {
 
       if (activeFilter === 'fisheye') {
         drawFishEye(sourceCanvas, context)
-      } else if (activeFilter === 'big-eyes') {
+      } else if (
+        activeFilter === 'big-eyes' ||
+        activeFilter === 'square-face'
+      ) {
         const now = performance.now()
 
         if (now - lastDetectionTime >= DETECTION_INTERVAL) {
