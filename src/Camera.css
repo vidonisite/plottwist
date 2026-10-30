@@ -13,6 +13,7 @@
   color: var(--text);
   background: var(--surface-soft);
   cursor: pointer;
+  border-radius: inherit;
 }
 
 .camera-start-area:disabled {
