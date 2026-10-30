@@ -9,11 +9,15 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
+    "@mediapipe/camera_utils": "^0.3.1675466862",
+    "@mediapipe/face_mesh": "^0.4.1633559619",
     "@mediapipe/tasks-vision": "^1.2.0",
     "@vitejs/plugin-react": "latest",
     "appwrite": "^29.1.0",
+    "open-makeup-sdk": "^0.1.0",
     "react": "latest",
     "react-dom": "latest",
+    "three": "^0.184.0",
     "typescript": "latest",
     "vite": "latest",
     "vite-plugin-pwa": "latest"
