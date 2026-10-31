@@ -22,6 +22,15 @@ const FILTERS = [
 const SIZE = 320
 const DETECTION_INTERVAL = 1000 / 30
 
+function clearCanvas(canvas) {
+  if (!canvas) return
+
+  const context = canvas.getContext('2d')
+  if (!context) return
+
+  context.clearRect(0, 0, canvas.width, canvas.height)
+}
+
 async function stopAndDisposeGlam(instance) {
   if (!instance) return
 
@@ -65,6 +74,9 @@ export default function Camera() {
       cancelAnimationFrame(animationRef.current)
 
       glamInstanceRef.current = null
+
+      clearCanvas(canvasRef.current)
+      clearCanvas(glamCanvasRef.current)
 
       streamRef.current?.getTracks().forEach((track) => track.stop())
       streamRef.current = null
@@ -219,6 +231,8 @@ export default function Camera() {
         void stopAndDisposeGlam(instance)
       }
 
+      clearCanvas(glamCanvasRef.current)
+      clearCanvas(canvasRef.current)
       return
     }
 
@@ -230,6 +244,11 @@ export default function Camera() {
         void stopAndDisposeGlam(instance)
       }
 
+      clearCanvas(glamCanvasRef.current)
+      if (canvasRef.current) {
+        const c = canvasRef.current.getContext('2d')
+        if (c) c.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
+      }
       return
     }
 
@@ -279,6 +298,8 @@ export default function Camera() {
           glamInstanceRef.current = null
           await stopAndDisposeGlam(instance)
         }
+
+        clearCanvas(glamCanvasRef.current)
       })
 
       glamLifecycleRef.current = cleanupTask.catch((error) => {
@@ -352,6 +373,9 @@ export default function Camera() {
     if (instance) {
       await stopAndDisposeGlam(instance)
     }
+
+    clearCanvas(canvasRef.current)
+    clearCanvas(glamCanvasRef.current)
 
     streamRef.current?.getTracks().forEach((track) => track.stop())
     streamRef.current = null
