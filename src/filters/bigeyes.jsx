@@ -1,9 +1,11 @@
-const EYE_SCALE = 5.5
-const MOUTH_SCALE = 2.5
+const EYE_SCALE = 2.8
+const MOUTH_SCALE = 1.7
 const EDGE_BLUR = 0
-const EYE_PADDING = 0.2
-const MOUTH_PADDING = 0.12
-const EYE_SEPARATION = 0.94
+const EYE_PADDING = 0.18
+const MOUTH_PADDING = 0.1
+const EYE_SEPARATION = 0.72
+
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max)
 
 // Konturpunkter från MediaPipe Face Landmarker.
 const EYE_CONTOURS = [
@@ -92,7 +94,6 @@ function prepareLayer(source, layer, feature, expansion = 1.04) {
 
   if (cropWidth <= 0 || cropHeight <= 0) return false
 
-  // Anpassa canvasen till urklippets storlek.
   if (canvas.width !== cropWidth || canvas.height !== cropHeight) {
     canvas.width = cropWidth
     canvas.height = cropHeight
@@ -100,14 +101,12 @@ function prepareLayer(source, layer, feature, expansion = 1.04) {
     mask.height = cropHeight
   }
 
-  // Högsta tillgängliga interpoleringskvalitet.
   context.imageSmoothingEnabled = true
   context.imageSmoothingQuality = 'high'
 
   context.clearRect(0, 0, cropWidth, cropHeight)
   maskContext.clearRect(0, 0, cropWidth, cropHeight)
 
-  // Kopiera pixlarna från originalbilden utan extra nedskalning.
   context.globalCompositeOperation = 'source-over'
   context.filter = 'none'
   context.drawImage(
@@ -116,7 +115,6 @@ function prepareLayer(source, layer, feature, expansion = 1.04) {
     0, 0, cropWidth, cropHeight
   )
 
-  // Skapa en skarp mask. Ingen blur används.
   maskContext.globalCompositeOperation = 'source-over'
   maskContext.filter = `blur(${EDGE_BLUR}px)`
   maskContext.fillStyle = '#fff'
@@ -144,7 +142,6 @@ function prepareLayer(source, layer, feature, expansion = 1.04) {
   maskContext.fill()
   maskContext.filter = 'none'
 
-  // Gör allt utanför konturen genomskinligt.
   context.globalCompositeOperation = 'destination-in'
   context.drawImage(mask, 0, 0)
   context.globalCompositeOperation = 'source-over'
@@ -154,13 +151,22 @@ function prepareLayer(source, layer, feature, expansion = 1.04) {
 
 function drawSticker(outputContext, layer, feature, scale) {
   const { canvas } = layer
+  const width = outputContext.canvas.width
+  const height = outputContext.canvas.height
 
   const drawWidth = feature.cropWidth * scale
   const drawHeight = feature.cropHeight * scale
 
-  // Placera urklippet centrerat på den ursprungliga funktionen.
-  const x = feature.centerX - drawWidth / 2
-  const y = feature.centerY - drawHeight / 2
+  const x = clamp(
+    Math.round(feature.centerX - drawWidth / 2),
+    0,
+    Math.max(0, width - drawWidth)
+  )
+  const y = clamp(
+    Math.round(feature.centerY - drawHeight / 2),
+    0,
+    Math.max(0, height - drawHeight)
+  )
 
   outputContext.drawImage(
     canvas,
@@ -190,10 +196,8 @@ export function drawBigEyes(source, outputContext, landmarks) {
   outputContext.imageSmoothingQuality = 'high'
   outputContext.filter = 'none'
 
-  // Originalbilden ska alltid ligga underst.
   outputContext.drawImage(source, 0, 0, width, height)
 
-  // Hitta och förbered båda ögonen först.
   const eyeFeatures = EYE_CONTOURS.map((contour) =>
     getFeature(landmarks, contour, width, height, EYE_PADDING)
   )
@@ -213,30 +217,20 @@ export function drawBigEyes(source, outputContext, landmarks) {
 
   const [leftEye, rightEye] = preparedEyes
 
-  // Börja med önskad skala. Sänk den bara om det behövs
-  // för att de två sticker-bildernas rektanglar inte ska överlappa.
   let actualEyeScale = EYE_SCALE
 
   if (leftEye && rightEye) {
-    const centerDistance = Math.abs(
-      rightEye.centerX - leftEye.centerX
-    )
-
-    const combinedHalfWidths =
-      (leftEye.cropWidth + rightEye.cropWidth) / 2
+    const centerDistance = Math.abs(rightEye.centerX - leftEye.centerX)
+    const combinedHalfWidths = (leftEye.cropWidth + rightEye.cropWidth) / 2
 
     if (combinedHalfWidths > 0) {
       const maxNonOverlappingScale =
         (centerDistance * EYE_SEPARATION) / combinedHalfWidths
 
-      actualEyeScale = Math.min(
-        EYE_SCALE,
-        maxNonOverlappingScale
-      )
+      actualEyeScale = Math.min(EYE_SCALE, Math.max(1.2, maxNonOverlappingScale))
     }
   }
 
-  // Rita ögonen först, vart och ett på sin egen canvas.
   preparedEyes.forEach((feature, index) => {
     if (!feature) return
 
@@ -244,11 +238,10 @@ export function drawBigEyes(source, outputContext, landmarks) {
       outputContext,
       eyes[index],
       feature,
-      Math.max(1, actualEyeScale)
+      Math.max(1.2, actualEyeScale)
     )
   })
 
-  // Gör samma typ av sticker med munnen.
   const mouthFeature = getFeature(
     landmarks,
     MOUTH_CONTOUR,
@@ -257,10 +250,7 @@ export function drawBigEyes(source, outputContext, landmarks) {
     MOUTH_PADDING
   )
 
-  if (
-    mouthFeature &&
-    prepareLayer(source, mouth, mouthFeature, 1.02)
-  ) {
+  if (mouthFeature && prepareLayer(source, mouth, mouthFeature, 1.02)) {
     drawSticker(
       outputContext,
       mouth,
