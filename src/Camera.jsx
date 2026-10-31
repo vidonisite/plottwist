@@ -96,9 +96,9 @@ export default function Camera() {
 
     canvas.width = SIZE
     canvas.height = SIZE
+    clearCanvas(canvas)
 
     const context = canvas.getContext('2d')
-
     if (!context) return
 
     const sourceCanvas = document.createElement('canvas')
@@ -106,7 +106,6 @@ export default function Camera() {
     sourceCanvas.height = SIZE
 
     const sourceContext = sourceCanvas.getContext('2d')
-
     if (!sourceContext) return
 
     let lastDetectionTime = 0
@@ -195,6 +194,7 @@ export default function Camera() {
         return
       }
 
+      sourceContext.clearRect(0, 0, SIZE, SIZE)
       sourceContext.drawImage(video, 0, 0, SIZE, SIZE)
 
       const activeFilter = filterRef.current
@@ -208,6 +208,7 @@ export default function Camera() {
       } else if (activeFilter === 'alien') {
         drawAlien(sourceCanvas, context)
       } else {
+        context.clearRect(0, 0, SIZE, SIZE)
         context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
       }
 
@@ -219,8 +220,9 @@ export default function Camera() {
     return () => {
       stopped = true
       cancelAnimationFrame(animationRef.current)
+      clearCanvas(canvas)
     }
-  }, [cameraState])
+  }, [cameraState, filter])
 
   useEffect(() => {
     if (cameraState !== 'live') {
@@ -245,10 +247,6 @@ export default function Camera() {
       }
 
       clearCanvas(glamCanvasRef.current)
-      if (canvasRef.current) {
-        const c = canvasRef.current.getContext('2d')
-        if (c) c.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
-      }
       return
     }
 
@@ -256,6 +254,10 @@ export default function Camera() {
     const canvas = glamCanvasRef.current
 
     if (!video || !canvas) return
+
+    canvas.width = SIZE
+    canvas.height = SIZE
+    clearCanvas(canvas)
 
     let cancelled = false
 
