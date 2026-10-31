@@ -63,7 +63,6 @@ export function drawSquareFace(sourceCanvas, context, landmarks) {
       }
 
       const distFromCenter = Math.max(Math.abs(nx), Math.abs(ny))
-      const boxAmount = 1 - distFromCenter
       const stretchX = 1 + 1.3 * Math.max(0, 1 - Math.abs(ny))
       const stretchY = 1 + 1.1 * Math.max(0, 1 - Math.abs(nx))
 
@@ -74,12 +73,20 @@ export function drawSquareFace(sourceCanvas, context, landmarks) {
       const sy = Math.max(0, Math.min(height - 1, Math.round(sourceY)))
       const sourceIndex = (sy * width + sx) * 4
 
-      const blend = Math.max(0, Math.min(1, 0.35 + boxAmount * 0.65))
+      const edgeFade = Math.max(0, Math.min(1, (1.2 - distFromCenter) / 0.3))
+
+      if (distFromCenter <= 0.9) {
+        dst[outputIndex] = src[sourceIndex]
+        dst[outputIndex + 1] = src[sourceIndex + 1]
+        dst[outputIndex + 2] = src[sourceIndex + 2]
+        dst[outputIndex + 3] = src[sourceIndex + 3]
+        continue
+      }
 
       for (let channel = 0; channel < 4; channel++) {
         dst[outputIndex + channel] =
-          src[outputIndex + channel] * (1 - blend) +
-          src[sourceIndex + channel] * blend
+          src[outputIndex + channel] * (1 - edgeFade) +
+          src[sourceIndex + channel] * edgeFade
       }
     }
   }
