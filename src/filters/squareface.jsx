@@ -37,20 +37,17 @@ export function drawSquareFace(sourceCanvas, context, landmarks) {
 
   const boxHalfW = faceWidth * 0.82
   const boxHalfH = faceHeight * 0.9
-  const margin = 0.18
-
   const clamp = (value, min, max) => Math.min(Math.max(value, min), max)
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const outputIndex = (y * width + x) * 4
-
       const dx = x - centerX
       const dy = y - centerY
       const nx = dx / boxHalfW
       const ny = dy / boxHalfH
 
-      if (Math.abs(nx) > 1.2 || Math.abs(ny) > 1.2) {
+      if (Math.abs(nx) > 1.15 || Math.abs(ny) > 1.15) {
         dst[outputIndex] = src[outputIndex]
         dst[outputIndex + 1] = src[outputIndex + 1]
         dst[outputIndex + 2] = src[outputIndex + 2]
@@ -59,19 +56,16 @@ export function drawSquareFace(sourceCanvas, context, landmarks) {
       }
 
       const dist = Math.max(Math.abs(nx), Math.abs(ny))
-      const edgeFade = dist > 0.82 ? (1.2 - dist) / 0.38 : 1
-
       const stretchX = 1 + (1 - Math.min(1, Math.abs(ny))) * 0.5
       const stretchY = 1 + (1 - Math.min(1, Math.abs(nx))) * 0.45
 
       const sampleX = centerX + dx * stretchX
       const sampleY = centerY + dy * stretchY
-
       const sx = clamp(Math.round(sampleX), 0, width - 1)
       const sy = clamp(Math.round(sampleY), 0, height - 1)
       const sourceIndex = (sy * width + sx) * 4
 
-      if (dist <= 0.82) {
+      if (dist <= 0.78) {
         dst[outputIndex] = src[sourceIndex]
         dst[outputIndex + 1] = src[sourceIndex + 1]
         dst[outputIndex + 2] = src[sourceIndex + 2]
@@ -79,7 +73,7 @@ export function drawSquareFace(sourceCanvas, context, landmarks) {
         continue
       }
 
-      const alpha = clamp(edgeFade, 0, 1)
+      const alpha = clamp((1.15 - dist) / 0.37, 0, 1)
 
       for (let channel = 0; channel < 3; channel++) {
         dst[outputIndex + channel] =
