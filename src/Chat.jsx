@@ -19,7 +19,6 @@ export default function Chat({ chat, currentUser }) {
 
   const conversationId = chat?.id
   const currentUserId = currentUser?.$id
-  const otherUserId = chat?.otherUserId
 
   const loadMessages = useCallback(async () => {
     if (!conversationId) return
@@ -86,11 +85,6 @@ export default function Chat({ chat, currentUser }) {
       return
     }
 
-    if (!otherUserId) {
-      setErrorMessage('Kunde inte hitta den andra personen i chatten.')
-      return
-    }
-
     setSending(true)
     setErrorMessage('')
 
@@ -106,10 +100,9 @@ export default function Chat({ chat, currentUser }) {
           type: 'text',
         },
         permissions: [
-          Permission.read(`user:${currentUserId}`),
-          Permission.read(`user:${otherUserId}`),
-          Permission.update(`user:${currentUserId}`),
-          Permission.delete(`user:${currentUserId}`),
+          Permission.read(Role.users()),
+          Permission.update(Role.user(currentUserId)),
+          Permission.delete(Role.user(currentUserId)),
         ],
       })
 
