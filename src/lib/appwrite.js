@@ -23,3 +23,12 @@ export const CONVERSATION_MEMBERS_TABLE_ID =
 
 export const MESSAGES_TABLE_ID = '6ae0920b0030a589abcf'
 export const MESSAGE_READS_TABLE_ID = '6ae09f460017666a0a81'
+
+
+import { Storage } from 'appwrite'
+
+// Lägg till efter din befintliga client:
+export const storage = new Storage(client)
+
+// Din nya Storage-bucket:
+export const TWISTS_BUCKET_ID = '6ae78ffd003a848f2985'
