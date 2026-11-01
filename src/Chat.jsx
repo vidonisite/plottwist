@@ -126,26 +126,9 @@ export default function Chat({ chat, currentUser }) {
     })
   }
 
-  const name = chat?.name || 'Din chatt'
-  const initials = chat?.initials || '♡'
-
   return (
     <section className="page chat-page">
       <div className="chat-panel">
-        <div className="chat-header">
-          <div className="chat-avatar">{initials}</div>
-
-          <div className="chat-person">
-            <strong>@{chat?.username || name}</strong>
-            <small>
-              <span className="status-dot" />
-              Privat konversation
-            </small>
-          </div>
-
-          <span className="chat-menu">•••</span>
-        </div>
-
         <div className="messages-list" aria-live="polite">
           <p className="day-divider">BARA NI TVÅ</p>
 

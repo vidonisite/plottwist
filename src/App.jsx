@@ -413,14 +413,25 @@ export default function App() {
         )}
 
         {activeView === 'chat' && (
-          <section className="workspace-view chat-view">
-            <div className="conversation-content">
-              <Chat
-                chat={activeChat}
-                currentUser={currentUser}
-              />
+          <>
+            <div className="conversation-heading">
+              <div className="chat-avatar large">
+                {activeChat?.initials || '♡'}
+              </div>
+              <div>
+                <h1>
+                  @{activeChat?.username || activeChat?.name || 'Din chatt'}
+                </h1>
+                <p>Privat konversation</p>
+              </div>
             </div>
-          </section>
+
+            <section className="workspace-view chat-view">
+              <div className="conversation-content">
+                <Chat chat={activeChat} currentUser={currentUser} />
+              </div>
+            </section>
+          </>
         )}
 
         {activeView === 'add' && <AddPeople />}
