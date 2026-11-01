@@ -106,10 +106,10 @@ export default function Chat({ chat, currentUser }) {
           type: 'text',
         },
         permissions: [
-          Permission.read(Role.user(currentUserId)),
-          Permission.read(Role.user(otherUserId)),
-          Permission.update(Role.user(currentUserId)),
-          Permission.delete(Role.user(currentUserId)),
+          Permission.read(`user:${currentUserId}`),
+          Permission.read(`user:${otherUserId}`),
+          Permission.update(`user:${currentUserId}`),
+          Permission.delete(`user:${currentUserId}`),
         ],
       })
 
