@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
 
 import { drawBigEyes } from './filters/bigeyes.jsx'
@@ -19,16 +19,16 @@ const FILTERS = [
   { id: 'square-face', label: 'Square Face', symbol: '▣' },
 ]
 
-const SIZE = 320
+const SIZE = 640
 const DETECTION_INTERVAL = 1000 / 30
+const MAX_RECORDING_TIME = 7000
+const HOLD_DELAY = 250
 
 function clearCanvas(canvas) {
   if (!canvas) return
 
   const context = canvas.getContext('2d')
-  if (!context) return
-
-  context.clearRect(0, 0, canvas.width, canvas.height)
+  context?.clearRect(0, 0, canvas.width, canvas.height)
 }
 
 async function stopAndDisposeGlam(instance) {
@@ -47,6 +47,18 @@ async function stopAndDisposeGlam(instance) {
   }
 }
 
+function getVideoMimeType() {
+  if (!window.MediaRecorder) return ''
+
+  const types = [
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8',
+    'video/webm',
+  ]
+
+  return types.find((type) => MediaRecorder.isTypeSupported(type)) || ''
+}
+
 export default function Camera() {
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
@@ -58,22 +70,250 @@ export default function Camera() {
   const glamInstanceRef = useRef(null)
 
   const filterRef = useRef('big-eyes')
+  const glamLifecycleRef = useRef(Promise.resolve())
+
+  const holdTimerRef = useRef(null)
+  const recordingTimerRef = useRef(null)
+  const pointerDownRef = useRef(false)
+  const recordingStartedRef = useRef(false)
+  const mediaRecorderRef = useRef(null)
+  const recordedChunksRef = useRef([])
+  const recordingStreamRef = useRef(null)
 
   const [cameraState, setCameraState] = useState('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const [filter, setFilter] = useState('big-eyes')
+  const [capture, setCapture] = useState(null)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingTime, setRecordingTime] = useState(0)
+  const [selectedFilterIndex, setSelectedFilterIndex] = useState(0)
+  const [sendMessage, setSendMessage] = useState('')
 
   useEffect(() => {
     filterRef.current = filter
+    setSelectedFilterIndex(
+      FILTERS.findIndex((item) => item.id === filter)
+    )
   }, [filter])
 
-  const glamLifecycleRef = useRef(Promise.resolve())
+  const stopRecordingTimers = useCallback(() => {
+    window.clearTimeout(holdTimerRef.current)
+    window.clearTimeout(recordingTimerRef.current)
+    holdTimerRef.current = null
+    recordingTimerRef.current = null
+  }, [])
+
+  const releaseRecordingStream = useCallback(() => {
+    recordingStreamRef.current?.getTracks().forEach((track) => track.stop())
+    recordingStreamRef.current = null
+  }, [])
+
+  const getVisibleCanvas = useCallback(() => {
+    return filterRef.current === 'glam'
+      ? glamCanvasRef.current
+      : canvasRef.current
+  }, [])
+
+  const takePhoto = useCallback(() => {
+    const canvas = getVisibleCanvas()
+
+    if (!canvas) return
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          setErrorMessage('Bilden kunde inte skapas. Försök igen.')
+          return
+        }
+
+        const url = URL.createObjectURL(blob)
+
+        setCapture({
+          type: 'photo',
+          blob,
+          url,
+        })
+
+        setCameraState('preview')
+      },
+      'image/jpeg',
+      0.92
+    )
+  }, [getVisibleCanvas])
+
+  const finishRecording = useCallback(() => {
+    stopRecordingTimers()
+
+    const recorder = mediaRecorderRef.current
+
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.stop()
+    }
+  }, [stopRecordingTimers])
+
+  const startRecording = useCallback(() => {
+    const canvas = getVisibleCanvas()
+
+    if (!canvas) {
+      setErrorMessage('Kamerabilden är inte redo ännu.')
+      return
+    }
+
+    if (!canvas.captureStream || !window.MediaRecorder) {
+      setErrorMessage('Videoinspelning stöds inte i den här webbläsaren.')
+      return
+    }
+
+    try {
+      recordedChunksRef.current = []
+
+      const recordingStream = canvas.captureStream(30)
+      recordingStreamRef.current = recordingStream
+
+      const mimeType = getVideoMimeType()
+      const recorder = new MediaRecorder(
+        recordingStream,
+        mimeType ? { mimeType } : undefined
+      )
+
+      mediaRecorderRef.current = recorder
+
+      recorder.ondataavailable = (event) => {
+        if (event.data?.size > 0) {
+          recordedChunksRef.current.push(event.data)
+        }
+      }
+
+      recorder.onerror = () => {
+        setErrorMessage('Videon kunde inte spelas in. Försök igen.')
+        setIsRecording(false)
+        releaseRecordingStream()
+      }
+
+      recorder.onstop = () => {
+        const blob = new Blob(recordedChunksRef.current, {
+          type: recorder.mimeType || 'video/webm',
+        })
+
+        releaseRecordingStream()
+        mediaRecorderRef.current = null
+        setIsRecording(false)
+        setRecordingTime(0)
+
+        if (!blob.size) {
+          setErrorMessage('Videon blev tom. Försök spela in igen.')
+          return
+        }
+
+        const url = URL.createObjectURL(blob)
+
+        setCapture({
+          type: 'video',
+          blob,
+          url,
+        })
+
+        setCameraState('preview')
+      }
+
+      recorder.start()
+      setIsRecording(true)
+      setRecordingTime(0)
+
+      const startedAt = Date.now()
+
+      const updateRecordingTime = () => {
+        const elapsed = Math.min(
+          Date.now() - startedAt,
+          MAX_RECORDING_TIME
+        )
+
+        setRecordingTime(elapsed)
+
+        if (elapsed < MAX_RECORDING_TIME && recorder.state === 'recording') {
+          recordingTimerRef.current = window.setTimeout(
+            updateRecordingTime,
+            100
+          )
+        }
+      }
+
+      updateRecordingTime()
+
+      recordingTimerRef.current = window.setTimeout(
+        finishRecording,
+        MAX_RECORDING_TIME
+      )
+    } catch (error) {
+      console.error('Videoinspelningen kunde inte starta:', error)
+      setErrorMessage('Videoinspelningen kunde inte starta.')
+      setIsRecording(false)
+      releaseRecordingStream()
+    }
+  }, [finishRecording, getVisibleCanvas, releaseRecordingStream])
+
+  const handleShutterPointerDown = useCallback((event) => {
+    if (cameraState !== 'live' || isRecording) return
+
+    event.preventDefault()
+    pointerDownRef.current = true
+    recordingStartedRef.current = false
+
+    holdTimerRef.current = window.setTimeout(() => {
+      if (!pointerDownRef.current) return
+
+      recordingStartedRef.current = true
+      startRecording()
+    }, HOLD_DELAY)
+  }, [cameraState, isRecording, startRecording])
+
+  const handleShutterPointerUp = useCallback(() => {
+    if (!pointerDownRef.current) return
+
+    pointerDownRef.current = false
+    window.clearTimeout(holdTimerRef.current)
+    holdTimerRef.current = null
+
+    if (recordingStartedRef.current) {
+      finishRecording()
+      recordingStartedRef.current = false
+    } else {
+      takePhoto()
+    }
+  }, [finishRecording, takePhoto])
+
+  const handleShutterPointerCancel = useCallback(() => {
+    pointerDownRef.current = false
+    stopRecordingTimers()
+
+    if (recordingStartedRef.current) {
+      finishRecording()
+      recordingStartedRef.current = false
+    }
+  }, [finishRecording, stopRecordingTimers])
 
   useEffect(() => {
     return () => {
+      stopRecordingTimers()
+
+      if (mediaRecorderRef.current?.state !== 'inactive') {
+        mediaRecorderRef.current?.stop()
+      }
+
+      releaseRecordingStream()
+
+      if (capture?.url) {
+        URL.revokeObjectURL(capture.url)
+      }
+
       cancelAnimationFrame(animationRef.current)
 
+      const instance = glamInstanceRef.current
       glamInstanceRef.current = null
+
+      if (instance) {
+        void stopAndDisposeGlam(instance)
+      }
 
       clearCanvas(canvasRef.current)
       clearCanvas(glamCanvasRef.current)
@@ -84,7 +324,7 @@ export default function Camera() {
       landmarkerRef.current?.close()
       landmarkerRef.current = null
     }
-  }, [])
+  }, [capture, releaseRecordingStream, stopRecordingTimers])
 
   useEffect(() => {
     if (cameraState !== 'live') return
@@ -115,10 +355,7 @@ export default function Camera() {
     let landmarkerFailed = false
 
     async function getLandmarker() {
-      if (landmarkerRef.current) {
-        return landmarkerRef.current
-      }
-
+      if (landmarkerRef.current) return landmarkerRef.current
       if (landmarkerFailed) return null
 
       if (!landmarkerPromise) {
@@ -132,10 +369,10 @@ export default function Camera() {
             {
               baseOptions: {
                 modelAssetPath:
-                  'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
+                  'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
               },
               runningMode: 'VIDEO',
-              numFaces: 1
+              numFaces: 1,
             }
           )
 
@@ -166,11 +403,7 @@ export default function Camera() {
           if (stopped || !landmarker) return
 
           try {
-            const result = landmarker.detectForVideo(
-              video,
-              performance.now()
-            )
-
+            const result = landmarker.detectForVideo(video, performance.now())
             latestFace = result.faceLandmarks?.[0] ?? null
           } catch (error) {
             console.error('Ansiktsigenkänning misslyckades:', error)
@@ -182,6 +415,7 @@ export default function Camera() {
       if (latestFace) {
         drawFilter(sourceCanvas, context, latestFace)
       } else {
+        context.clearRect(0, 0, SIZE, SIZE)
         context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
       }
     }
@@ -195,7 +429,11 @@ export default function Camera() {
       }
 
       sourceContext.clearRect(0, 0, SIZE, SIZE)
+      sourceContext.save()
+      sourceContext.translate(SIZE, 0)
+      sourceContext.scale(-1, 1)
       sourceContext.drawImage(video, 0, 0, SIZE, SIZE)
+      sourceContext.restore()
 
       const activeFilter = filterRef.current
 
@@ -207,7 +445,17 @@ export default function Camera() {
         drawFaceFilter(drawSquareFace)
       } else if (activeFilter === 'alien') {
         drawAlien(sourceCanvas, context)
-      } else {
+      } else if (activeFilter === 'dreamy') {
+        context.clearRect(0, 0, SIZE, SIZE)
+        context.filter = 'saturate(1.35) brightness(1.12) blur(0.5px)'
+        context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
+        context.filter = 'none'
+      } else if (activeFilter === 'mono') {
+        context.clearRect(0, 0, SIZE, SIZE)
+        context.filter = 'grayscale(1)'
+        context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
+        context.filter = 'none'
+      } else if (activeFilter !== 'glam') {
         context.clearRect(0, 0, SIZE, SIZE)
         context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
       }
@@ -229,9 +477,7 @@ export default function Camera() {
       const instance = glamInstanceRef.current
       glamInstanceRef.current = null
 
-      if (instance) {
-        void stopAndDisposeGlam(instance)
-      }
+      if (instance) void stopAndDisposeGlam(instance)
 
       clearCanvas(glamCanvasRef.current)
       clearCanvas(canvasRef.current)
@@ -242,9 +488,7 @@ export default function Camera() {
       const instance = glamInstanceRef.current
       glamInstanceRef.current = null
 
-      if (instance) {
-        void stopAndDisposeGlam(instance)
-      }
+      if (instance) void stopAndDisposeGlam(instance)
 
       clearCanvas(glamCanvasRef.current)
       return
@@ -264,7 +508,6 @@ export default function Camera() {
     async function initializeGlam() {
       try {
         await glamLifecycleRef.current
-
         if (cancelled) return
 
         setErrorMessage('')
@@ -325,9 +568,9 @@ export default function Camera() {
         video: {
           facingMode: 'user',
           width: { ideal: 640 },
-          height: { ideal: 640 }
+          height: { ideal: 640 },
         },
-        audio: false
+        audio: false,
       })
 
       streamRef.current = stream
@@ -346,9 +589,7 @@ export default function Camera() {
       streamRef.current?.getTracks().forEach((track) => track.stop())
       streamRef.current = null
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = null
-      }
+      if (videoRef.current) videoRef.current.srcObject = null
 
       landmarkerRef.current?.close()
       landmarkerRef.current = null
@@ -366,15 +607,21 @@ export default function Camera() {
   }
 
   async function stopCamera() {
+    stopRecordingTimers()
+
+    if (mediaRecorderRef.current?.state !== 'inactive') {
+      mediaRecorderRef.current?.stop()
+    }
+
+    releaseRecordingStream()
+
     cancelAnimationFrame(animationRef.current)
     animationRef.current = null
 
     const instance = glamInstanceRef.current
     glamInstanceRef.current = null
 
-    if (instance) {
-      await stopAndDisposeGlam(instance)
-    }
+    if (instance) await stopAndDisposeGlam(instance)
 
     clearCanvas(canvasRef.current)
     clearCanvas(glamCanvasRef.current)
@@ -382,104 +629,222 @@ export default function Camera() {
     streamRef.current?.getTracks().forEach((track) => track.stop())
     streamRef.current = null
 
-    if (videoRef.current) {
-      videoRef.current.srcObject = null
-    }
+    if (videoRef.current) videoRef.current.srcObject = null
 
     landmarkerRef.current?.close()
     landmarkerRef.current = null
 
+    setIsRecording(false)
     setCameraState('idle')
   }
 
+  function retakeCapture() {
+    if (capture?.url) URL.revokeObjectURL(capture.url)
+
+    setCapture(null)
+    setSendMessage('')
+    setErrorMessage('')
+    setCameraState('live')
+  }
+
+  function sendCapture() {
+    if (!capture) return
+
+    // Skickar vidare materialet som en händelse så att appens
+    // vän-/chattflöde kan ta emot det när det kopplas in.
+    window.dispatchEvent(
+      new CustomEvent('plot-twist:camera-send', {
+        detail: {
+          file: capture.blob,
+          type: capture.type,
+          filename: capture.type === 'photo' ? 'twist.jpg' : 'twist.webm',
+        },
+      })
+    )
+
+    setSendMessage('Redo att skickas!')
+  }
+
+  function selectFilter(item) {
+    if (isRecording) return
+    setFilter(item.id)
+    setErrorMessage('')
+  }
+
+  const recordingProgress = Math.min(
+    (recordingTime / MAX_RECORDING_TIME) * 100,
+    100
+  )
+
   return (
     <section className="page camera-page">
-      <div className={`camera-frame filter-${filter}`}>
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className="camera-source-video"
-        />
+      <div className="camera-content">
+        {cameraState === 'preview' && capture ? (
+          <div className="capture-preview">
+            {capture.type === 'photo' ? (
+              <img src={capture.url} alt="Din tagna bild" />
+            ) : (
+              <video
+                src={capture.url}
+                controls
+                autoPlay
+                playsInline
+                loop
+              />
+            )}
 
-        {cameraState === 'live' ? (
-          <>
-            <canvas
-              ref={canvasRef}
-              className="camera-canvas"
-              style={{
-                display: filter === 'glam' ? 'none' : 'block'
-              }}
-            />
+            <div className="capture-preview-actions">
+              <button
+                className="capture-secondary-button"
+                onClick={retakeCapture}
+              >
+                Retake
+              </button>
 
-            <canvas
-              ref={glamCanvasRef}
-              className="camera-canvas glam-canvas"
-              style={{
-                display: filter === 'glam' ? 'block' : 'none'
-              }}
-            />
+              <button
+                className="capture-send-button"
+                onClick={sendCapture}
+              >
+                Send
+              </button>
+            </div>
 
-            <span className="live-label">
-              <span />
-              LIVE
-            </span>
-          </>
+            {sendMessage && (
+              <p className="camera-send-message">{sendMessage}</p>
+            )}
+          </div>
         ) : (
-          <button
-            className="camera-start-area"
-            onClick={startCamera}
-            disabled={cameraState === 'loading'}
-            aria-label="Öppna kameran och skicka Twists"
-          >
-            <span className="camera-start-circle">
-              {cameraState === 'loading' ? '…' : '📷'}
-            </span>
+          <>
+            <div className={`camera-frame filter-${filter}`}>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="camera-source-video"
+              />
 
-            <span className="camera-start-text">
-              {cameraState === 'loading'
-                ? 'Startar kameran…'
-                : 'Klicka på kameran för att skicka Twists'}
-            </span>
-          </button>
+              {cameraState === 'live' ? (
+                <>
+                  <canvas
+                    ref={canvasRef}
+                    className="camera-canvas"
+                    style={{
+                      display: filter === 'glam' ? 'none' : 'block',
+                    }}
+                  />
+
+                  <canvas
+                    ref={glamCanvasRef}
+                    className="camera-canvas glam-canvas"
+                    style={{
+                      display: filter === 'glam' ? 'block' : 'none',
+                    }}
+                  />
+
+                  <span className="live-label">
+                    <span />
+                    LIVE
+                  </span>
+
+                  {isRecording && (
+                    <div className="recording-indicator">
+                      <span />
+                      REC
+                      <div className="recording-progress">
+                        <span style={{ width: `${recordingProgress}%` }} />
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <button
+                  className="camera-start-area"
+                  onClick={startCamera}
+                  disabled={cameraState === 'loading'}
+                  aria-label="Starta kameran"
+                >
+                  <span className="camera-start-circle">
+                    {cameraState === 'loading' ? '…' : '📷'}
+                  </span>
+                  <span className="camera-start-text">
+                    {cameraState === 'loading'
+                      ? 'Startar kameran…'
+                      : cameraState === 'error'
+                        ? 'Försök starta kameran igen'
+                        : 'Tryck för att öppna kameran'}
+                  </span>
+                </button>
+              )}
+
+              <span className="camera-corner corner-tl" />
+              <span className="camera-corner corner-tr" />
+              <span className="camera-corner corner-bl" />
+              <span className="camera-corner corner-br" />
+            </div>
+
+            <div className="camera-controls">
+              <div className="shutter-slot">
+                {cameraState === 'live' && (
+                  <button
+                    className={`shutter-button ${isRecording ? 'recording' : ''}`}
+                    onPointerDown={handleShutterPointerDown}
+                    onPointerUp={handleShutterPointerUp}
+                    onPointerLeave={handleShutterPointerCancel}
+                    onPointerCancel={handleShutterPointerCancel}
+                    aria-label="Tryck för foto, håll in för video"
+                    disabled={isRecording && !pointerDownRef.current}
+                  />
+                )}
+              </div>
+
+              <div className="filter-carousel-window">
+                <div
+                  className="filter-carousel"
+                  style={{
+                    transform: `translateX(calc(50% - ${
+                      selectedFilterIndex * 64
+                    }px - 27px))`,
+                  }}
+                >
+                  {FILTERS.map((item, index) => (
+                    <button
+                      key={item.id}
+                      className={`filter-option ${
+                        filter === item.id ? 'selected' : ''
+                      }`}
+                      onClick={() => selectFilter(item)}
+                      aria-label={item.label}
+                      aria-pressed={filter === item.id}
+                      title={item.label}
+                    >
+                      <span>{item.symbol}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {filter !== 'glam' && cameraState === 'live' && (
+              <p className="selected-filter-label">
+                {FILTERS.find((item) => item.id === filter)?.label}
+              </p>
+            )}
+          </>
         )}
 
-        <span className="camera-corner corner-tl" />
-        <span className="camera-corner corner-tr" />
-        <span className="camera-corner corner-bl" />
-        <span className="camera-corner corner-br" />
+        {errorMessage && (
+          <p className="camera-error" role="alert">
+            {errorMessage}
+          </p>
+        )}
+
+        {cameraState === 'live' && (
+          <button className="camera-close-button" onClick={stopCamera}>
+            Stäng kameran
+          </button>
+        )}
       </div>
-
-      <div className="filter-picker">
-        <div className="filter-options">
-          {FILTERS.map((item) => (
-            <button
-              key={item.id}
-              className={`filter-chip ${
-                filter === item.id ? 'selected' : ''
-              }`}
-              onClick={() => setFilter(item.id)}
-              aria-pressed={filter === item.id}
-            >
-              <span>{item.symbol}</span>
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {errorMessage && (
-        <p className="camera-error" role="alert">
-          {errorMessage}
-        </p>
-      )}
-
-      {cameraState === 'live' && (
-        <button className="primary-button" onClick={stopCamera}>
-          Stäng kameran
-        </button>
-      )}
     </section>
   )
 }

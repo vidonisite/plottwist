@@ -353,10 +353,12 @@
 
 .chat-view {
   display: flex;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   flex-direction: column;
+  width: 100%;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
   padding: 0;
 }
 
@@ -392,7 +394,8 @@
 
 .conversation-content {
   display: flex;
-  flex: 1 1 0;
+  flex: 1 1 auto;
+  width: 100%;
   min-width: 0;
   min-height: 0;
   padding: 24px;
@@ -400,7 +403,8 @@
 
 .conversation-content .page {
   display: flex;
-  flex: 1 1 0;
+  flex: 1 1 auto;
+  width: 100%;
   min-width: 0;
   min-height: 0;
   padding-top: 0;
