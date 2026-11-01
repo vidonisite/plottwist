@@ -20,3 +20,6 @@ export const CONVERSATIONS_TABLE_ID = '6ae09eac002a1e46f2b4'
 
 export const CONVERSATION_MEMBERS_TABLE_ID =
   '6ae0b4bf001ee3d610de'
+
+export const MESSAGES_TABLE_ID = '6ae0920b0030a589abcf'
+export const MESSAGE_READS_TABLE_ID = '6ae09f460017666a0a81'
