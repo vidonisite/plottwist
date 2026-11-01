@@ -415,7 +415,10 @@ export default function App() {
         {activeView === 'chat' && (
           <section className="workspace-view chat-view">
             <div className="conversation-content">
-              <Chat chat={activeChat} />
+              <Chat
+                chat={activeChat}
+                currentUser={currentUser}
+              />
             </div>
           </section>
         )}
