@@ -71,6 +71,7 @@ export default function Camera() {
 
   const filterRef = useRef('big-eyes')
   const glamLifecycleRef = useRef(Promise.resolve())
+  const glamStartRef = useRef(false)
 
   const holdTimerRef = useRef(null)
   const recordingTimerRef = useRef(null)
@@ -91,9 +92,7 @@ export default function Camera() {
 
   useEffect(() => {
     filterRef.current = filter
-    setSelectedFilterIndex(
-      FILTERS.findIndex((item) => item.id === filter)
-    )
+    setSelectedFilterIndex(FILTERS.findIndex((item) => item.id === filter))
   }, [filter])
 
   const stopRecordingTimers = useCallback(() => {
@@ -109,9 +108,7 @@ export default function Camera() {
   }, [])
 
   const getVisibleCanvas = useCallback(() => {
-    return filterRef.current === 'glam'
-      ? glamCanvasRef.current
-      : canvasRef.current
+    return filterRef.current === 'glam' ? glamCanvasRef.current : canvasRef.current
   }, [])
 
   const takePhoto = useCallback(() => {
@@ -223,27 +220,18 @@ export default function Camera() {
       const startedAt = Date.now()
 
       const updateRecordingTime = () => {
-        const elapsed = Math.min(
-          Date.now() - startedAt,
-          MAX_RECORDING_TIME
-        )
+        const elapsed = Math.min(Date.now() - startedAt, MAX_RECORDING_TIME)
 
         setRecordingTime(elapsed)
 
         if (elapsed < MAX_RECORDING_TIME && recorder.state === 'recording') {
-          recordingTimerRef.current = window.setTimeout(
-            updateRecordingTime,
-            100
-          )
+          recordingTimerRef.current = window.setTimeout(updateRecordingTime, 100)
         }
       }
 
       updateRecordingTime()
 
-      recordingTimerRef.current = window.setTimeout(
-        finishRecording,
-        MAX_RECORDING_TIME
-      )
+      recordingTimerRef.current = window.setTimeout(finishRecording, MAX_RECORDING_TIME)
     } catch (error) {
       console.error('Videoinspelningen kunde inte starta:', error)
       setErrorMessage('Videoinspelningen kunde inte starta.')
@@ -252,20 +240,23 @@ export default function Camera() {
     }
   }, [finishRecording, getVisibleCanvas, releaseRecordingStream])
 
-  const handleShutterPointerDown = useCallback((event) => {
-    if (cameraState !== 'live' || isRecording) return
+  const handleShutterPointerDown = useCallback(
+    (event) => {
+      if (cameraState !== 'live' || isRecording) return
 
-    event.preventDefault()
-    pointerDownRef.current = true
-    recordingStartedRef.current = false
+      event.preventDefault()
+      pointerDownRef.current = true
+      recordingStartedRef.current = false
 
-    holdTimerRef.current = window.setTimeout(() => {
-      if (!pointerDownRef.current) return
+      holdTimerRef.current = window.setTimeout(() => {
+        if (!pointerDownRef.current) return
 
-      recordingStartedRef.current = true
-      startRecording()
-    }, HOLD_DELAY)
-  }, [cameraState, isRecording, startRecording])
+        recordingStartedRef.current = true
+        startRecording()
+      }, HOLD_DELAY)
+    },
+    [cameraState, isRecording, startRecording]
+  )
 
   const handleShutterPointerUp = useCallback(() => {
     if (!pointerDownRef.current) return
@@ -364,17 +355,14 @@ export default function Camera() {
             'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
           )
 
-          const landmarker = await FaceLandmarker.createFromOptions(
-            vision,
-            {
-              baseOptions: {
-                modelAssetPath:
-                  'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
-              },
-              runningMode: 'VIDEO',
-              numFaces: 1,
-            }
-          )
+          const landmarker = await FaceLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath:
+                'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+            },
+            runningMode: 'VIDEO',
+            numFaces: 1,
+          })
 
           if (stopped) {
             landmarker.close()
@@ -476,6 +464,7 @@ export default function Camera() {
     if (cameraState !== 'live') {
       const instance = glamInstanceRef.current
       glamInstanceRef.current = null
+      glamStartRef.current = false
 
       if (instance) void stopAndDisposeGlam(instance)
 
@@ -487,6 +476,7 @@ export default function Camera() {
     if (filter !== 'glam') {
       const instance = glamInstanceRef.current
       glamInstanceRef.current = null
+      glamStartRef.current = false
 
       if (instance) void stopAndDisposeGlam(instance)
 
@@ -498,12 +488,14 @@ export default function Camera() {
     const canvas = glamCanvasRef.current
 
     if (!video || !canvas) return
+    if (glamStartRef.current) return
 
     canvas.width = SIZE
     canvas.height = SIZE
     clearCanvas(canvas)
 
     let cancelled = false
+    glamStartRef.current = true
 
     async function initializeGlam() {
       try {
@@ -526,6 +518,10 @@ export default function Camera() {
         if (!cancelled) {
           setErrorMessage('Glam Makeup kunde inte laddas. Försök igen.')
         }
+      } finally {
+        if (!cancelled) {
+          glamStartRef.current = false
+        }
       }
     }
 
@@ -533,8 +529,9 @@ export default function Camera() {
 
     return () => {
       cancelled = true
+      glamStartRef.current = false
 
-      const cleanupTask = glamLifecycleRef.current.then(async () => {
+      const cleanupTask = (glamLifecycleRef.current ?? Promise.resolve()).then(async () => {
         await startTask
 
         const instance = glamInstanceRef.current
@@ -554,6 +551,8 @@ export default function Camera() {
   }, [cameraState, filter])
 
   async function startCamera() {
+    if (cameraState === 'loading' || cameraState === 'live') return
+
     setErrorMessage('')
     setCameraState('loading')
 
@@ -607,6 +606,8 @@ export default function Camera() {
   }
 
   async function stopCamera() {
+    if (cameraState === 'idle' || cameraState === 'error') return
+
     stopRecordingTimers()
 
     if (mediaRecorderRef.current?.state !== 'inactive') {
@@ -620,6 +621,7 @@ export default function Camera() {
 
     const instance = glamInstanceRef.current
     glamInstanceRef.current = null
+    glamStartRef.current = false
 
     if (instance) await stopAndDisposeGlam(instance)
 
@@ -650,8 +652,6 @@ export default function Camera() {
   function sendCapture() {
     if (!capture) return
 
-    // Skickar vidare materialet som en händelse så att appens
-    // vän-/chattflöde kan ta emot det när det kopplas in.
     window.dispatchEvent(
       new CustomEvent('plot-twist:camera-send', {
         detail: {
@@ -666,15 +666,12 @@ export default function Camera() {
   }
 
   function selectFilter(item) {
-    if (isRecording) return
+    if (isRecording || cameraState !== 'live') return
     setFilter(item.id)
     setErrorMessage('')
   }
 
-  const recordingProgress = Math.min(
-    (recordingTime / MAX_RECORDING_TIME) * 100,
-    100
-  )
+  const recordingProgress = Math.min((recordingTime / MAX_RECORDING_TIME) * 100, 100)
 
   return (
     <section className="page camera-page">
@@ -684,34 +681,20 @@ export default function Camera() {
             {capture.type === 'photo' ? (
               <img src={capture.url} alt="Din tagna bild" />
             ) : (
-              <video
-                src={capture.url}
-                controls
-                autoPlay
-                playsInline
-                loop
-              />
+              <video src={capture.url} controls autoPlay playsInline loop />
             )}
 
             <div className="capture-preview-actions">
-              <button
-                className="capture-secondary-button"
-                onClick={retakeCapture}
-              >
+              <button className="capture-secondary-button" onClick={retakeCapture}>
                 Retake
               </button>
 
-              <button
-                className="capture-send-button"
-                onClick={sendCapture}
-              >
+              <button className="capture-send-button" onClick={sendCapture}>
                 Send
               </button>
             </div>
 
-            {sendMessage && (
-              <p className="camera-send-message">{sendMessage}</p>
-            )}
+            {sendMessage && <p className="camera-send-message">{sendMessage}</p>}
           </div>
         ) : (
           <>
@@ -802,17 +785,13 @@ export default function Camera() {
                 <div
                   className="filter-carousel"
                   style={{
-                    transform: `translateX(calc(50% - ${
-                      selectedFilterIndex * 64
-                    }px - 27px))`,
+                    transform: `translateX(calc(50% - ${selectedFilterIndex * 64}px - 27px))`,
                   }}
                 >
-                  {FILTERS.map((item, index) => (
+                  {FILTERS.map((item) => (
                     <button
                       key={item.id}
-                      className={`filter-option ${
-                        filter === item.id ? 'selected' : ''
-                      }`}
+                      className={`filter-option ${filter === item.id ? 'selected' : ''}`}
                       onClick={() => selectFilter(item)}
                       aria-label={item.label}
                       aria-pressed={filter === item.id}
