@@ -946,6 +946,11 @@ export default function Camera({ currentUser }) {
       // 1. Ladda upp filen EN gång.
       uploadedFileId = ID.unique()
 
+      console.log('CAPTURE:', capture)
+      console.log('BLOB:', capture?.blob)
+      console.log('BLOB SIZE:', capture?.blob?.size)
+      console.log('BLOB TYPE:', capture?.blob?.type)
+
       await storage.createFile({
         bucketId: TWISTS_BUCKET_ID,
         fileId: uploadedFileId,
