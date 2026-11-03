@@ -408,7 +408,7 @@ export default function App() {
 
         {activeView === 'camera' && (
           <section className="workspace-view camera-view">
-            <Camera />
+            <Camera currentUser={currentUser} />
           </section>
         )}
 
