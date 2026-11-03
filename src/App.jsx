@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Query } from 'appwrite'
+
 import {
   account,
   tablesDB,
@@ -8,12 +9,14 @@ import {
   CONVERSATIONS_TABLE_ID,
   CONVERSATION_MEMBERS_TABLE_ID,
 } from './lib/appwrite.js'
+
 import AuthPage from './auth/AuthPage.jsx'
 import Camera from './Camera.jsx'
 import Chat from './Chat.jsx'
 import AddPeople from './AddPeople.jsx'
-import './App.css'
+import CreateGroup from './CreateGroup.jsx'
 
+import './App.css'
 
 function conversationIdForLog(membership) {
   return membership?.conversationId || 'okänd konversation'
@@ -23,16 +26,21 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [checkingSession, setCheckingSession] = useState(true)
+
   const [activeView, setActiveView] = useState('camera')
   const [activeChat, setActiveChat] = useState(null)
+
   const [search, setSearch] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [notifications, setNotifications] = useState(true)
+
   const [loggingOut, setLoggingOut] = useState(false)
   const [authError, setAuthError] = useState('')
+
   const [chats, setChats] = useState([])
   const [loadingChats, setLoadingChats] = useState(false)
   const [chatError, setChatError] = useState('')
+  const [chatsRefresh, setChatsRefresh] = useState(0)
 
   // Kontrollera om användaren har en giltig Appwrite-session.
   useEffect(() => {
@@ -47,7 +55,6 @@ export default function App() {
         }
       } catch (error) {
         if (!cancelled) {
-          // Ingen session är normalt för en utloggad användare.
           setCurrentUser(null)
           setProfile(null)
 
@@ -72,8 +79,7 @@ export default function App() {
     }
   }, [])
 
-
-
+  // Hämta alla konversationer där användaren är medlem.
   useEffect(() => {
     if (!currentUser) {
       setChats([])
@@ -87,31 +93,27 @@ export default function App() {
       setChatError('')
 
       try {
-        // Hämta profilrader så att vi kan visa användarnamn.
-        const profilesResponse = await tablesDB.listRows({
-          databaseId: DATABASE_ID,
-          tableId: USERS_TABLE_ID,
-          queries: [Query.limit(100)],
-        })
+        const [profilesResponse, membershipsResponse] =
+          await Promise.all([
+            tablesDB.listRows({
+              databaseId: DATABASE_ID,
+              tableId: USERS_TABLE_ID,
+              queries: [Query.limit(100)],
+            }),
+
+            tablesDB.listRows({
+              databaseId: DATABASE_ID,
+              tableId: CONVERSATION_MEMBERS_TABLE_ID,
+              queries: [
+                Query.equal('userId', [currentUser.$id]),
+                Query.limit(100),
+              ],
+            }),
+          ])
 
         const profiles = profilesResponse.rows
-
-        // Hitta alla medlemsrader som tillhör den inloggade användaren.
-        const membershipsResponse = await tablesDB.listRows({
-          databaseId: DATABASE_ID,
-          tableId: CONVERSATION_MEMBERS_TABLE_ID,
-          queries: [
-            Query.equal('userId', [currentUser.$id]),
-            Query.limit(100),
-          ],
-        })
-
         const memberships = membershipsResponse.rows
-        console.log('Inloggad användares ID:', currentUser.$id)
-        console.log('Hittade medlemsrader:', memberships)
-        console.log('Antal medlemsrader:', memberships.length)
 
-        // Hämta konversationerna och hitta den andra medlemmen i varje chatt.
         const loadedChats = await Promise.all(
           memberships.map(async (membership) => {
             try {
@@ -126,15 +128,40 @@ export default function App() {
                 tableId: CONVERSATION_MEMBERS_TABLE_ID,
                 queries: [
                   Query.equal('conversationId', [conversation.$id]),
-                  Query.limit(10),
+                  Query.limit(100),
                 ],
               })
 
-              const otherMember = membersResponse.rows.find(
+              const members = membersResponse.rows
+
+              if (conversation.type === 'group') {
+                const memberProfiles = members.map((member) => {
+                  const memberProfile = profiles.find(
+                    (item) => item.userId === member.userId
+                  )
+
+                  return {
+                    userId: member.userId,
+                    username: memberProfile?.username || 'Okänd användare',
+                  }
+                })
+
+                return {
+                  id: conversation.$id,
+                  type: 'group',
+                  name: conversation.name || 'Namnlös grupp',
+                  username: conversation.name || 'Namnlös grupp',
+                  initials: (conversation.name || 'G').slice(0, 1).toUpperCase(),
+                  members: memberProfiles,
+                  memberCount: members.length,
+                  preview: `${members.length} medlemmar`,
+                }
+              }
+
+              const otherMember = members.find(
                 (member) => member.userId !== currentUser.$id
               )
 
-              // Visa inte konversationer där den andra medlemmen saknas.
               if (!otherMember) return null
 
               const otherProfile = profiles.find(
@@ -146,10 +173,23 @@ export default function App() {
 
               return {
                 id: conversation.$id,
+                type: 'direct',
                 name: username,
                 username,
                 otherUserId: otherMember.userId,
                 initials: username.slice(0, 1).toUpperCase(),
+                members: [
+                  {
+                    userId: currentUser.$id,
+                    username:
+                      profile?.username || currentUser.name || 'Du',
+                  },
+                  {
+                    userId: otherMember.userId,
+                    username,
+                  },
+                ],
+                memberCount: 2,
                 preview: 'Privat konversation',
               }
             } catch (error) {
@@ -174,7 +214,6 @@ export default function App() {
 
         if (cancelled) return
 
-        // Ta bort misslyckade hämtningar och eventuella dubletter.
         const uniqueChats = Array.from(
           new Map(
             loadedChats
@@ -184,7 +223,17 @@ export default function App() {
         )
 
         uniqueChats.sort((a, b) => a.name.localeCompare(b.name))
+
         setChats(uniqueChats)
+
+        // Uppdatera den aktiva chatten om den finns kvar.
+        setActiveChat((previous) => {
+          if (!previous) return previous
+
+          return uniqueChats.find(
+            (chat) => chat.id === previous.id
+          ) || previous
+        })
       } catch (error) {
         console.error('Kunde inte ladda chattlistan:', error)
 
@@ -194,7 +243,9 @@ export default function App() {
           )
         }
       } finally {
-        if (!cancelled) setLoadingChats(false)
+        if (!cancelled) {
+          setLoadingChats(false)
+        }
       }
     }
 
@@ -203,9 +254,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [currentUser])
-
-
+  }, [currentUser, chatsRefresh])
 
   function handleAuthenticated(result) {
     setCurrentUser(result.user)
@@ -226,6 +275,7 @@ export default function App() {
       setActiveChat(null)
       setActiveView('camera')
       setSearch('')
+      setChats([])
     } catch (error) {
       console.error('Kunde inte logga ut:', error)
       setAuthError(
@@ -261,7 +311,23 @@ export default function App() {
     setActiveView(view)
   }
 
-  // Visa laddningsvy tills vi vet om användaren är inloggad.
+  function handleGroupCreated(conversation) {
+    setChatsRefresh((value) => value + 1)
+
+    setActiveChat({
+      id: conversation.$id,
+      type: 'group',
+      name: conversation.name,
+      username: conversation.name,
+      initials: conversation.name.slice(0, 1).toUpperCase(),
+      members: [],
+      memberCount: 0,
+      preview: 'Gruppkonversation',
+    })
+
+    setActiveView('chat')
+  }
+
   if (checkingSession) {
     return (
       <main className="auth-screen">
@@ -276,7 +342,6 @@ export default function App() {
     )
   }
 
-  // Utloggade användare får inloggnings- och registreringssidan.
   if (!currentUser) {
     return (
       <>
@@ -293,16 +358,52 @@ export default function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <button
-          className="brand"
-          onClick={showCamera}
-          aria-label="PLOT TWIST, gå till kameran"
-        >
-          <span className="brand-mark">✳</span>
-          <span className="brand-name">
-            PLOT <strong>TWIST</strong>
-          </span>
-        </button>
+
+        {/* Logga och de två knapparna */}
+        <div className="sidebar-brand-row">
+          <button
+            className="brand"
+            onClick={showCamera}
+            aria-label="PLOT TWIST, gå till kameran"
+          >
+            <span className="brand-mark">✳</span>
+            <span className="brand-name">
+              PLOT <strong>TWIST</strong>
+            </span>
+          </button>
+
+          <div className="brand-buttons">
+            <button
+              className={`brand-icon-button ${
+                activeView === 'add' ? 'selected' : ''
+              }`}
+              onClick={() => showView('add')}
+              aria-label="Lägg till vänner"
+              title="Lägg till vänner"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <circle cx="9" cy="8" r="3.5" />
+                <path d="M2.8 20c.4-3.5 2.7-5.5 6.2-5.5s5.8 2 6.2 5.5" />
+                <path d="M17 8v6M14 11h6" />
+              </svg>
+            </button>
+
+            <button
+              className={`brand-icon-button group-create-button ${
+                activeView === 'create-group' ? 'selected' : ''
+              }`}
+              onClick={() => showView('create-group')}
+              aria-label="Skapa grupp"
+              title="Skapa grupp"
+            >
+              +
+            </button>
+          </div>
+        </div>
 
         <div className="sidebar-search-row">
           <label className="search-box">
@@ -325,17 +426,6 @@ export default function App() {
               </button>
             )}
           </label>
-
-          <button
-            className={`add-person-button ${
-              activeView === 'add' ? 'selected' : ''
-            }`}
-            onClick={() => showView('add')}
-            aria-label="Lägg till personer"
-            title="Lägg till personer"
-          >
-            +
-          </button>
         </div>
 
         <div className="sidebar-section-title">
@@ -344,7 +434,6 @@ export default function App() {
         </div>
 
         <div className="chat-list">
-
           {loadingChats && (
             <p className="empty-search">Laddar chattar...</p>
           )}
@@ -354,7 +443,7 @@ export default function App() {
               {chatError}
             </p>
           )}
-          
+
           {filteredChats.map((chat) => (
             <button
               key={chat.id}
@@ -365,7 +454,14 @@ export default function App() {
               }`}
               onClick={() => openChat(chat)}
             >
-              <span className="chat-avatar">{chat.initials}</span>
+              <span
+                className={`chat-avatar ${
+                  chat.type === 'group' ? 'group-avatar' : ''
+                }`}
+              >
+                {chat.type === 'group' ? '♧' : chat.initials}
+              </span>
+
               <span className="chat-list-copy">
                 <strong>{chat.name}</strong>
                 <small>{chat.preview}</small>
@@ -373,9 +469,11 @@ export default function App() {
             </button>
           ))}
 
-          {filteredChats.length === 0 && (
+          {!loadingChats && filteredChats.length === 0 && (
             <p className="empty-search">
-              Inga chattar matchar sökningen.
+              {search
+                ? 'Inga chattar matchar sökningen.'
+                : 'Du har inga chattar ännu.'}
             </p>
           )}
         </div>
@@ -415,14 +513,28 @@ export default function App() {
         {activeView === 'chat' && (
           <>
             <div className="conversation-heading">
-              <div className="chat-avatar large">
-                {activeChat?.initials || '♡'}
+              <div
+                className={`chat-avatar large ${
+                  activeChat?.type === 'group' ? 'group-avatar' : ''
+                }`}
+              >
+                {activeChat?.type === 'group'
+                  ? '♧'
+                  : activeChat?.initials || '♡'}
               </div>
+
               <div>
                 <h1>
-                  @{activeChat?.username || activeChat?.name || 'Din chatt'}
+                  {activeChat?.type === 'group'
+                    ? activeChat?.name
+                    : `@${activeChat?.username || activeChat?.name || 'Din chatt'}`}
                 </h1>
-                <p>Privat konversation</p>
+
+                <p>
+                  {activeChat?.type === 'group'
+                    ? `${activeChat.memberCount || 'Flera'} medlemmar`
+                    : 'Privat konversation'}
+                </p>
               </div>
             </div>
 
@@ -435,6 +547,14 @@ export default function App() {
         )}
 
         {activeView === 'add' && <AddPeople />}
+
+        {activeView === 'create-group' && (
+          <CreateGroup
+            currentUser={currentUser}
+            onCreated={handleGroupCreated}
+            onCancel={showCamera}
+          />
+        )}
 
         {activeView === 'settings' && (
           <section className="workspace-view simple-view settings-view">
