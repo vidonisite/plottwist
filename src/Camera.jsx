@@ -169,16 +169,60 @@ export default function Camera({ currentUser }) {
   }, [])
 
   const takePhoto = useCallback(() => {
-    const canvas = getVisibleCanvas()
+    const sourceCanvas = getVisibleCanvas()
 
-    if (!canvas) return
+    if (!sourceCanvas) {
+      setErrorMessage('Kamerabilden kunde inte hittas. Försök igen.')
+      return
+    }
 
-    canvas.toBlob(
+    if (!sourceCanvas.width || !sourceCanvas.height) {
+      setErrorMessage('Kamerabilden är inte redo ännu. Försök igen.')
+      return
+    }
+
+    // Kopiera den synliga kamerabilden till en separat 2D-canvas.
+    // Det gör exporten oberoende av kamerans vanliga canvas och WebGL-canvasen.
+    const exportCanvas = document.createElement('canvas')
+    exportCanvas.width = sourceCanvas.width
+    exportCanvas.height = sourceCanvas.height
+
+    const exportContext = exportCanvas.getContext('2d')
+
+    if (!exportContext) {
+      setErrorMessage('Bilden kunde inte bearbetas. Försök igen.')
+      return
+    }
+
+    try {
+      exportContext.drawImage(
+        sourceCanvas,
+        0,
+        0,
+        exportCanvas.width,
+        exportCanvas.height
+      )
+    } catch (error) {
+      console.error('Kunde inte kopiera kamerabilden:', error)
+      setErrorMessage('Bilden kunde inte kopieras. Försök igen.')
+      return
+    }
+
+    exportCanvas.toBlob(
       (blob) => {
-        if (!blob) {
-          setErrorMessage('Bilden kunde inte skapas. Försök igen.')
+        if (!blob || blob.size === 0) {
+          console.error('Bilden blev tom vid export:', {
+            sourceWidth: sourceCanvas.width,
+            sourceHeight: sourceCanvas.height,
+            exportWidth: exportCanvas.width,
+            exportHeight: exportCanvas.height,
+            activeFilter: filterRef.current,
+          })
+          setErrorMessage('Bilden blev tom. Försök ta bilden igen.')
           return
         }
+
+        console.log('FOTO SKAPAT:', blob.size, blob.type)
 
         const url = URL.createObjectURL(blob)
 
@@ -947,14 +991,31 @@ export default function Camera({ currentUser }) {
       uploadedFileId = ID.unique()
 
       console.log('CAPTURE:', capture)
-      console.log('BLOB:', capture?.blob)
       console.log('BLOB SIZE:', capture?.blob?.size)
       console.log('BLOB TYPE:', capture?.blob?.type)
+
+      if (!capture.blob || capture.blob.size === 0) {
+        throw new Error('Filen är tom. Ta en ny bild eller spela in en ny video.')
+      }
+
+      const uploadFile = new File(
+        [capture.blob],
+        capture.type === 'video' ? 'twist.webm' : 'twist.jpg',
+        {
+          type: capture.blob.type || (
+            capture.type === 'video' ? 'video/webm' : 'image/jpeg'
+          ),
+        }
+      )
+
+      if (uploadFile.size === 0) {
+        throw new Error('Filen blev tom när den förbereddes för uppladdning.')
+      }
 
       await storage.createFile({
         bucketId: TWISTS_BUCKET_ID,
         fileId: uploadedFileId,
-        file: capture.blob,
+        file: uploadFile,
         permissions: [
           Permission.read(Role.users()),
           Permission.update(Role.user(currentUserId)),
