@@ -125,7 +125,21 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
       setMediaType(file.mimeType?.startsWith('video/') ? 'video' : 'image')
       setMediaUrl(url.toString())
     } catch (error) {
-      console.error('Kunde inte öppna Twist:', error)
+      console.error('TWIST ERROR:', {
+        message: error.message,
+        code: error.code,
+        type: error.type,
+        response: error.response,
+      })
+    
+      await checkIfOpened()
+    
+      setErrorMessage(
+        `Fel ${error.code || ''}: ${error.message || 'Okänt fel'}`
+      )
+    } finally {
+      setOpening(false)
+    }
 
       // Om raden redan hann skapas, kontrollera statusen igen.
       await checkIfOpened()
