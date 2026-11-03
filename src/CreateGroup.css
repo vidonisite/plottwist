@@ -1,0 +1,368 @@
+.create-group-page {
+  width: min(100%, 680px);
+  margin: 0 auto;
+  padding: 45px 32px;
+  color: var(--text);
+}
+
+.create-group-header {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+  margin-bottom: 35px;
+}
+
+.create-group-symbol {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 57px;
+  height: 57px;
+  border-radius: 19px;
+  color: white;
+  background: var(--purple);
+  font-size: 30px;
+}
+
+.create-group-eyebrow {
+  margin: 0 0 6px;
+  color: var(--purple-dark);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .15em;
+}
+
+.create-group-header h1 {
+  margin: 0;
+  font-size: clamp(25px, 4vw, 34px);
+  font-weight: 850;
+  letter-spacing: -.05em;
+}
+
+.create-group-description {
+  margin: 7px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.create-group-form {
+  display: flex;
+  flex-direction: column;
+  gap: 17px;
+}
+
+.create-group-field {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.create-group-field label,
+.create-group-contacts-heading h2 {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.create-group-field input {
+  width: 100%;
+  height: 49px;
+  padding: 0 15px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  outline: none;
+  color: var(--text);
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+}
+
+.create-group-field input:focus {
+  border-color: var(--purple);
+}
+
+.create-group-field input::placeholder {
+  color: var(--text-subtle);
+}
+
+.create-group-contacts-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 9px;
+}
+
+.create-group-contacts-heading h2 {
+  margin: 0;
+}
+
+.create-group-contacts-heading p {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.selected-count {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border-radius: 20px;
+  color: var(--purple-dark);
+  background: var(--purple-soft);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.create-group-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 45px;
+  padding: 0 13px;
+  border-radius: 14px;
+  color: var(--text-muted);
+  background: var(--surface-soft);
+}
+
+.create-group-search > span {
+  font-size: 21px;
+}
+
+.create-group-search input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+}
+
+.create-group-search input::placeholder {
+  color: var(--text-subtle);
+}
+
+.create-group-search button {
+  border: 0;
+  color: var(--text-muted);
+  background: transparent;
+  font-size: 20px;
+}
+
+.create-group-contact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 310px;
+  min-height: 100px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.create-group-contact {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+
+.create-group-contact:hover {
+  background: var(--surface-soft);
+}
+
+.create-group-contact.selected {
+  border-color: var(--purple);
+  background: var(--purple-soft);
+}
+
+.create-group-avatar {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 39px;
+  height: 39px;
+  border-radius: 13px;
+  color: var(--text-on-accent);
+  background: var(--purple);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.create-group-contact-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.create-group-checkbox {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 8px;
+  color: white;
+  background: white;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.create-group-contact.selected .create-group-checkbox {
+  border-color: var(--purple);
+  background: var(--purple);
+}
+
+.create-group-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 35px 15px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.create-group-empty > span {
+  color: var(--purple);
+  font-size: 30px;
+}
+
+.create-group-empty strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.create-group-empty p,
+.create-group-muted {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.create-group-muted {
+  padding: 20px 5px;
+}
+
+.selected-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.selected-member-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 20px;
+  color: var(--purple-dark);
+  background: var(--purple-soft);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.selected-member-chip span {
+  font-size: 15px;
+}
+
+.create-group-error {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 11px;
+  color: #a52c4c;
+  background: #fff0f3;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.create-group-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 7px;
+}
+
+.create-group-cancel,
+.create-group-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 45px;
+  padding: 0 19px;
+  border: 0;
+  border-radius: 13px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.create-group-cancel {
+  color: var(--text-muted);
+  background: var(--surface-soft);
+}
+
+.create-group-submit {
+  color: white;
+  background: var(--purple);
+}
+
+.create-group-submit:hover {
+  background: var(--purple-hover);
+}
+
+.create-group-submit:disabled,
+.create-group-cancel:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
+.create-group-submit span {
+  font-size: 17px;
+}
+
+@media (max-width: 600px) {
+  .create-group-page {
+    padding: 27px 19px;
+  }
+
+  .create-group-header {
+    gap: 13px;
+    margin-bottom: 27px;
+  }
+
+  .create-group-symbol {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+  }
+
+  .create-group-contact-list {
+    max-height: 260px;
+  }
+
+  .create-group-actions {
+    position: sticky;
+    bottom: 0;
+    padding: 12px 0 5px;
+    background: white;
+  }
+}
