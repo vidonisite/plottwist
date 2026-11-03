@@ -1,0 +1,158 @@
+.twist-message {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  max-width: 82%;
+  min-width: 190px;
+  padding: 12px;
+  border-radius: 17px 17px 17px 5px;
+  color: #201827;
+  background: #eee8f2;
+}
+
+.mine .twist-message {
+  border-radius: 17px 17px 5px 17px;
+  background: #dff5a8;
+}
+
+.twist-open-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 12px;
+  border: 0;
+  border-radius: 12px;
+  color: white;
+  background: #8c52ff;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  cursor: pointer;
+  transition: transform .2s, opacity .2s;
+}
+
+.twist-open-button:hover {
+  transform: scale(1.02);
+}
+
+.twist-open-button:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+.twist-button-icon {
+  font-size: 22px;
+}
+
+.twist-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 48px;
+  color: #766c7e;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .1em;
+}
+
+.twist-status-icon {
+  font-size: 18px;
+}
+
+.twist-opened {
+  color: #64833b;
+}
+
+.twist-error {
+  margin: 0;
+  color: #b33b58;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.twist-message .message-time {
+  align-self: flex-end;
+  font-size: 9px;
+  opacity: .7;
+}
+
+/* Fullskärmsvisningen */
+
+.twist-fullscreen {
+  position: fixed;
+  z-index: 9999;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #100b16;
+  animation: twist-appear .2s ease-out;
+}
+
+.twist-media-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.twist-media {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.twist-close {
+  position: absolute;
+  z-index: 2;
+  top: 22px;
+  right: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 50%;
+  color: white;
+  background: rgba(255,255,255,.12);
+  font-size: 30px;
+  cursor: pointer;
+}
+
+.twist-close:hover {
+  background: rgba(255,255,255,.22);
+}
+
+@keyframes twist-appear {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 600px) {
+  .twist-fullscreen {
+    padding: 12px;
+  }
+
+  .twist-close {
+    top: 14px;
+    right: 14px;
+  }
+}
