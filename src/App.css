@@ -15,7 +15,7 @@
   background: var(--background);
 }
 
-/* Sidomeny */
+/* SIDOMENY */
 
 .sidebar {
   display: flex;
@@ -28,16 +28,29 @@
   color: var(--text);
 }
 
+/* Logga + knappar */
+
+.sidebar-brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+}
+
 .brand {
   display: inline-flex;
   align-items: center;
   align-self: flex-start;
-  gap: 10px;
-  padding: 8px 5px;
+  gap: 9px;
+  min-width: 0;
+  padding: 8px 3px;
   border: 0;
   color: var(--text);
   background: transparent;
   text-align: left;
+  cursor: pointer;
 }
 
 .brand-mark {
@@ -53,23 +66,76 @@
 }
 
 .brand-name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 900;
-  letter-spacing: 0.045em;
+  letter-spacing: 0.035em;
+  white-space: nowrap;
 }
 
 .brand-name strong {
   color: var(--purple-dark);
 }
 
+.brand-buttons {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+}
+
+.brand-icon-button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 7px;
+  border: 0;
+  border-radius: 11px;
+  color: var(--purple-dark);
+  background: var(--purple-soft);
+  font-size: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform .18s ease,
+    background .18s ease;
+}
+
+.brand-icon-button svg {
+  display: block;
+  width: 19px;
+  height: 19px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.brand-icon-button:hover {
+  transform: scale(1.06);
+  background: var(--purple);
+  color: white;
+}
+
+.brand-icon-button.selected {
+  color: white;
+  background: var(--purple-dark);
+}
+
+.group-create-button {
+  font-size: 24px;
+  line-height: 1;
+}
+
+/* SÖKRUTA */
+
 .sidebar-search-row {
   display: flex;
   align-items: center;
   gap: 9px;
-  margin-top: 29px;
+  margin-top: 23px;
 }
-
-/* Sökrutan: ingen kantlinje och rundare hörn */
 
 .search-box {
   display: flex;
@@ -110,30 +176,10 @@
   color: var(--text-muted);
   background: transparent;
   font-size: 19px;
+  cursor: pointer;
 }
 
-.add-person-button {
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border: 0;
-  border-radius: 50%;
-  color: var(--text-on-accent);
-  background: var(--purple);
-  font-size: 27px;
-  transition: transform 0.18s ease, background 0.18s ease;
-}
-
-.add-person-button:hover {
-  transform: scale(1.05);
-  background: var(--purple-hover);
-}
-
-.add-person-button.selected {
-  background: var(--purple-dark);
-}
+/* CHATTAR */
 
 .sidebar-section-title {
   display: flex;
@@ -182,7 +228,8 @@
   color: var(--text);
   background: transparent;
   text-align: left;
-  transition: background 0.18s ease;
+  cursor: pointer;
+  transition: background .18s ease;
 }
 
 .chat-list-item:hover {
@@ -204,6 +251,11 @@
   color: var(--text);
   background: var(--purple);
   font-size: 23px;
+}
+
+.chat-avatar.group-avatar {
+  color: white;
+  background: var(--purple-dark);
 }
 
 .chat-list-copy {
@@ -237,6 +289,8 @@
   line-height: 1.6;
 }
 
+/* NEDRE SIDOMENY */
+
 .sidebar-bottom {
   flex: 0 0 auto;
   margin-top: auto;
@@ -255,6 +309,7 @@
   background: transparent;
   text-align: left;
   font-size: 12px;
+  cursor: pointer;
 }
 
 .sidebar-action:hover,
@@ -284,7 +339,7 @@
   background: var(--status-online);
 }
 
-/* Huvudyta: fast höjd och egen scrollning */
+/* HUVUDYTA */
 
 .main-panel {
   position: relative;
@@ -296,11 +351,11 @@
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior-y: contain;
+  border: 1px solid rgba(211, 211, 211, .6);
   border-radius: 20px;
   color: var(--text);
   background: #ffffff;
   scrollbar-gutter: stable;
-  border: 1px solid rgba(211, 211, 211, 0.6);
 }
 
 .workspace-view {
@@ -314,15 +369,12 @@
   display: none;
 }
 
-/* Kamera */
+/* KAMERA */
 
 .camera-view {
   min-width: 0;
   padding: 16px;
 }
-
-/* Gör kamerans videobild fyrkantig och begränsar storleken
-   så att den bättre ryms på skärmen. */
 
 .camera-view video {
   display: block;
@@ -333,7 +385,7 @@
   border-radius: 18px;
 }
 
-/* Vanliga sidor */
+/* VANLIGA SIDOR */
 
 .main-panel .page {
   padding-top: 8px;
@@ -349,7 +401,7 @@
   color: var(--text-muted);
 }
 
-/* Chatt */
+/* CHATT */
 
 .chat-view {
   display: flex;
@@ -383,7 +435,7 @@
   color: var(--text);
   font-size: 18px;
   font-weight: 800;
-  letter-spacing: -0.035em;
+  letter-spacing: -.035em;
 }
 
 .conversation-heading p {
@@ -410,7 +462,7 @@
   padding-top: 0;
 }
 
-/* Lägg till personer och inställningar */
+/* LÄGG TILL PERSONER OCH INSTÄLLNINGAR */
 
 .simple-view {
   width: min(100%, 620px);
@@ -444,7 +496,7 @@
   color: var(--text);
   font-size: clamp(25px, 3vw, 34px);
   font-weight: 850;
-  letter-spacing: -0.05em;
+  letter-spacing: -.05em;
 }
 
 .view-description {
@@ -525,6 +577,8 @@
   line-height: 1.7;
 }
 
+/* INSTÄLLNINGAR */
+
 .settings-card {
   display: flex;
   flex-direction: column;
@@ -583,7 +637,7 @@
   border: 0;
   border-radius: 99px;
   background: var(--border-strong);
-  transition: background 0.2s ease;
+  transition: background .2s ease;
 }
 
 .toggle-switch span {
@@ -591,7 +645,7 @@
   height: 19px;
   border-radius: 50%;
   background: var(--surface);
-  transition: transform 0.2s ease;
+  transition: transform .2s ease;
 }
 
 .toggle-switch.on {
@@ -602,19 +656,40 @@
   transform: translateX(18px);
 }
 
+/* FOKUS */
+
 button:focus-visible,
 input:focus-visible {
   outline: 3px solid var(--purple);
   outline-offset: 3px;
 }
 
-/* Responsiv layout för mindre skärmar */
+/* MINDRE SKÄRMAR */
 
 @media (max-width: 800px) {
   .app-shell {
     grid-template-columns: 220px minmax(0, 1fr);
     gap: 15px;
     padding: 15px;
+  }
+
+  .brand {
+    gap: 7px;
+  }
+
+  .brand-name {
+    font-size: 12px;
+  }
+
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+    font-size: 21px;
+  }
+
+  .brand-icon-button {
+    width: 30px;
+    height: 30px;
   }
 
   .workspace-view {
@@ -634,7 +709,7 @@ input:focus-visible {
   }
 }
 
-/* Mobil */
+/* MOBIL */
 
 @media (max-width: 600px) {
   .app-shell {
@@ -653,7 +728,7 @@ input:focus-visible {
     padding: 0;
   }
 
-  .sidebar .brand {
+  .sidebar-brand-row {
     display: none;
   }
 
