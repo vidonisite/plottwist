@@ -766,6 +766,16 @@ export default function Camera({ currentUser }) {
 
   // Hämta bara accepterade kontakter när mottagarvyn öppnas.
   async function openRecipients() {
+    console.log('SEND-KNAPPEN KLICKAD')
+  
+    if (!currentUserId || !capture || hasSent) {
+      console.log('Avbruten:', {
+        currentUserId,
+        captureExists: !!capture,
+        hasSent,
+      })
+      return
+    }
     if (!currentUserId || !capture || hasSent) return
 
     setShowRecipients(true)
