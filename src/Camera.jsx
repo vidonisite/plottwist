@@ -27,6 +27,9 @@ const HOLD_DELAY = 250
 function clearCanvas(canvas) {
   if (!canvas) return
 
+  // Glam använder WebGL och får inte tilldelas en 2D-context.
+  if (canvas.classList.contains('glam-canvas')) return
+
   const context = canvas.getContext('2d')
   context?.clearRect(0, 0, canvas.width, canvas.height)
 }
