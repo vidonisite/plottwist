@@ -116,42 +116,38 @@ export default function Chat({ chat, currentUser }) {
     }
   }
 
-
   function getDayLabel(date) {
     const messageDate = new Date(date)
     const today = new Date()
-  
-    // Nollställ klockslaget så att vi bara jämför datum.
+
     const messageDay = new Date(
       messageDate.getFullYear(),
       messageDate.getMonth(),
       messageDate.getDate()
     )
-  
+
     const todayDay = new Date(
       today.getFullYear(),
       today.getMonth(),
       today.getDate()
     )
-  
+
     const difference = Math.round(
       (todayDay - messageDay) / (1000 * 60 * 60 * 24)
     )
-  
+
     if (difference === 0) return 'Idag'
     if (difference === 1) return 'Igår'
     if (difference === 2) return 'I förrgår'
-  
-    // Senaste veckan: veckodagens namn.
+
     if (difference >= 3 && difference < 7) {
       const weekday = messageDate.toLocaleDateString('sv-SE', {
         weekday: 'long',
       })
-  
+
       return `I ${weekday}`
     }
-  
-    // Äldre meddelanden: datum.
+
     return messageDate.toLocaleDateString('sv-SE', {
       day: 'numeric',
       month: 'long',
@@ -159,16 +155,16 @@ export default function Chat({ chat, currentUser }) {
     })
   }
 
+  function getDateKey(date) {
+    const d = new Date(date)
 
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+  }
 
-  
   return (
     <section className="page chat-page">
       <div className="chat-panel">
         <div className="messages-list" aria-live="polite">
-          <p className="day-divider">
-            {getDayLabel(message.$createdAt)}
-          </p>
 
           {loading && (
             <p className="empty-search">Hämtar meddelanden...</p>
@@ -180,35 +176,47 @@ export default function Chat({ chat, currentUser }) {
             </p>
           )}
 
-          {messages.map((message) => {
+          {messages.map((message, index) => {
             const isMine = message.senderId === currentUserId
 
-            return (
-              <div
-                key={message.$id}
-                className={`message-row ${isMine ? 'mine' : 'theirs'}`}
-              >
-                {message.type === 'twist' ? (
-                  <TwistMessage
-                    message={message}
-                    currentUserId={currentUserId}
-                    isMine={isMine}
-                  />
-                ) : (
-                  <div className="message-bubble">
-                    {message.text}
+            const isFirstMessageOfDay =
+              index === 0 ||
+              getDateKey(message.$createdAt) !==
+                getDateKey(messages[index - 1].$createdAt)
 
-                    <span className="message-time">
-                      {new Date(message.$createdAt).toLocaleTimeString(
-                        'sv-SE',
-                        {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        }
-                      )}
-                    </span>
-                  </div>
+            return (
+              <div key={message.$id}>
+                {isFirstMessageOfDay && (
+                  <p className="day-divider">
+                    {getDayLabel(message.$createdAt)}
+                  </p>
                 )}
+
+                <div
+                  className={`message-row ${isMine ? 'mine' : 'theirs'}`}
+                >
+                  {message.type === 'twist' ? (
+                    <TwistMessage
+                      message={message}
+                      currentUserId={currentUserId}
+                      isMine={isMine}
+                    />
+                  ) : (
+                    <div className="message-bubble">
+                      {message.text}
+
+                      <span className="message-time">
+                        {new Date(message.$createdAt).toLocaleTimeString(
+                          'sv-SE',
+                          {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          }
+                        )}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             )
           })}
