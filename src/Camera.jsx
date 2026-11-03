@@ -1,5 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  ID,
+  Query,
+  Permission,
+  Role,
+} from 'appwrite'
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
+
+import {
+  account,
+  tablesDB,
+  storage,
+  DATABASE_ID,
+  CONTACTS_TABLE_ID,
+  CONVERSATIONS_TABLE_ID,
+  CONVERSATION_MEMBERS_TABLE_ID,
+  MESSAGES_TABLE_ID,
+  TWISTS_BUCKET_ID,
+} from './lib/appwrite.js'
 
 import { drawBigEyes } from './filters/bigeyes.jsx'
 import { drawFishEye } from './filters/fisheye.jsx'
@@ -62,7 +80,18 @@ function getVideoMimeType() {
   return types.find((type) => MediaRecorder.isTypeSupported(type)) || ''
 }
 
-export default function Camera() {
+// Samma stabila ID-metod som används i AddPeople.jsx.
+async function stableId(value) {
+  const bytes = new TextEncoder().encode(value)
+  const hash = await crypto.subtle.digest('SHA-256', bytes)
+
+  return Array.from(new Uint8Array(hash))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 32)
+}
+
+export default function Camera({ currentUser }) {
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
   const glamCanvasRef = useRef(null)
@@ -84,34 +113,59 @@ export default function Camera() {
   const recordedChunksRef = useRef([])
   const recordingStreamRef = useRef(null)
 
+  const captureRef = useRef(null)
+
   const [cameraState, setCameraState] = useState('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const [filter, setFilter] = useState('big-eyes')
   const [capture, setCapture] = useState(null)
+
   const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
   const [selectedFilterIndex, setSelectedFilterIndex] = useState(0)
+
+  // Skickaflödet
+  const [showRecipients, setShowRecipients] = useState(false)
+  const [acceptedContacts, setAcceptedContacts] = useState([])
+  const [selectedRecipientIds, setSelectedRecipientIds] = useState([])
+  const [loadingContacts, setLoadingContacts] = useState(false)
+  const [sendingTwist, setSendingTwist] = useState(false)
   const [sendMessage, setSendMessage] = useState('')
+  const [hasSent, setHasSent] = useState(false)
+
+  const currentUserId = currentUser?.$id
 
   useEffect(() => {
     filterRef.current = filter
-    setSelectedFilterIndex(FILTERS.findIndex((item) => item.id === filter))
+    setSelectedFilterIndex(
+      FILTERS.findIndex((item) => item.id === filter)
+    )
   }, [filter])
+
+  useEffect(() => {
+    captureRef.current = capture
+  }, [capture])
 
   const stopRecordingTimers = useCallback(() => {
     window.clearTimeout(holdTimerRef.current)
     window.clearTimeout(recordingTimerRef.current)
+
     holdTimerRef.current = null
     recordingTimerRef.current = null
   }, [])
 
   const releaseRecordingStream = useCallback(() => {
-    recordingStreamRef.current?.getTracks().forEach((track) => track.stop())
+    recordingStreamRef.current?.getTracks().forEach((track) => {
+      track.stop()
+    })
+
     recordingStreamRef.current = null
   }, [])
 
   const getVisibleCanvas = useCallback(() => {
-    return filterRef.current === 'glam' ? glamCanvasRef.current : canvasRef.current
+    return filterRef.current === 'glam'
+      ? glamCanvasRef.current
+      : canvasRef.current
   }, [])
 
   const takePhoto = useCallback(() => {
@@ -134,6 +188,9 @@ export default function Camera() {
           url,
         })
 
+        setHasSent(false)
+        setSendMessage('')
+        setShowRecipients(false)
         setCameraState('preview')
       },
       'image/jpeg',
@@ -171,6 +228,7 @@ export default function Camera() {
       recordingStreamRef.current = recordingStream
 
       const mimeType = getVideoMimeType()
+
       const recorder = new MediaRecorder(
         recordingStream,
         mimeType ? { mimeType } : undefined
@@ -213,6 +271,9 @@ export default function Camera() {
           url,
         })
 
+        setHasSent(false)
+        setSendMessage('')
+        setShowRecipients(false)
         setCameraState('preview')
       }
 
@@ -223,31 +284,48 @@ export default function Camera() {
       const startedAt = Date.now()
 
       const updateRecordingTime = () => {
-        const elapsed = Math.min(Date.now() - startedAt, MAX_RECORDING_TIME)
+        const elapsed = Math.min(
+          Date.now() - startedAt,
+          MAX_RECORDING_TIME
+        )
 
         setRecordingTime(elapsed)
 
-        if (elapsed < MAX_RECORDING_TIME && recorder.state === 'recording') {
-          recordingTimerRef.current = window.setTimeout(updateRecordingTime, 100)
+        if (
+          elapsed < MAX_RECORDING_TIME &&
+          recorder.state === 'recording'
+        ) {
+          recordingTimerRef.current = window.setTimeout(
+            updateRecordingTime,
+            100
+          )
         }
       }
 
       updateRecordingTime()
 
-      recordingTimerRef.current = window.setTimeout(finishRecording, MAX_RECORDING_TIME)
+      recordingTimerRef.current = window.setTimeout(
+        finishRecording,
+        MAX_RECORDING_TIME
+      )
     } catch (error) {
       console.error('Videoinspelningen kunde inte starta:', error)
       setErrorMessage('Videoinspelningen kunde inte starta.')
       setIsRecording(false)
       releaseRecordingStream()
     }
-  }, [finishRecording, getVisibleCanvas, releaseRecordingStream])
+  }, [
+    finishRecording,
+    getVisibleCanvas,
+    releaseRecordingStream,
+  ])
 
   const handleShutterPointerDown = useCallback(
     (event) => {
       if (cameraState !== 'live' || isRecording) return
 
       event.preventDefault()
+
       pointerDownRef.current = true
       recordingStartedRef.current = false
 
@@ -265,6 +343,7 @@ export default function Camera() {
     if (!pointerDownRef.current) return
 
     pointerDownRef.current = false
+
     window.clearTimeout(holdTimerRef.current)
     holdTimerRef.current = null
 
@@ -286,6 +365,8 @@ export default function Camera() {
     }
   }, [finishRecording, stopRecordingTimers])
 
+  // Städa bara när komponenten avmonteras.
+  // captureRef gör att ett nytt foto inte råkar stoppa kameran.
   useEffect(() => {
     return () => {
       stopRecordingTimers()
@@ -296,8 +377,8 @@ export default function Camera() {
 
       releaseRecordingStream()
 
-      if (capture?.url) {
-        URL.revokeObjectURL(capture.url)
+      if (captureRef.current?.url) {
+        URL.revokeObjectURL(captureRef.current.url)
       }
 
       cancelAnimationFrame(animationRef.current)
@@ -318,8 +399,9 @@ export default function Camera() {
       landmarkerRef.current?.close()
       landmarkerRef.current = null
     }
-  }, [capture, releaseRecordingStream, stopRecordingTimers])
+  }, [releaseRecordingStream, stopRecordingTimers])
 
+  // Kamerans bild och filter.
   useEffect(() => {
     if (cameraState !== 'live') return
 
@@ -358,14 +440,17 @@ export default function Camera() {
             'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
           )
 
-          const landmarker = await FaceLandmarker.createFromOptions(vision, {
-            baseOptions: {
-              modelAssetPath:
-                'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
-            },
-            runningMode: 'VIDEO',
-            numFaces: 1,
-          })
+          const landmarker = await FaceLandmarker.createFromOptions(
+            vision,
+            {
+              baseOptions: {
+                modelAssetPath:
+                  'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+              },
+              runningMode: 'VIDEO',
+              numFaces: 1,
+            }
+          )
 
           if (stopped) {
             landmarker.close()
@@ -394,7 +479,11 @@ export default function Camera() {
           if (stopped || !landmarker) return
 
           try {
-            const result = landmarker.detectForVideo(video, performance.now())
+            const result = landmarker.detectForVideo(
+              video,
+              performance.now()
+            )
+
             latestFace = result.faceLandmarks?.[0] ?? null
           } catch (error) {
             console.error('Ansiktsigenkänning misslyckades:', error)
@@ -463,13 +552,16 @@ export default function Camera() {
     }
   }, [cameraState, filter])
 
+  // Glam-filter.
   useEffect(() => {
     if (cameraState !== 'live') {
       const instance = glamInstanceRef.current
       glamInstanceRef.current = null
       glamStartRef.current = false
 
-      if (instance) void stopAndDisposeGlam(instance)
+      if (instance) {
+        void stopAndDisposeGlam(instance)
+      }
 
       clearCanvas(glamCanvasRef.current)
       clearCanvas(canvasRef.current)
@@ -481,7 +573,9 @@ export default function Camera() {
       glamInstanceRef.current = null
       glamStartRef.current = false
 
-      if (instance) void stopAndDisposeGlam(instance)
+      if (instance) {
+        void stopAndDisposeGlam(instance)
+      }
 
       clearCanvas(glamCanvasRef.current)
       return
@@ -517,12 +611,14 @@ export default function Camera() {
         glamInstanceRef.current = instance
       } catch (error) {
         console.error('Glam kunde inte startas:', error)
-      
+
         if (!cancelled) {
           const details =
             error instanceof Error ? error.message : String(error)
-      
-          setErrorMessage(`Glam Makeup kunde inte laddas: ${details}`)
+
+          setErrorMessage(
+            `Glam Makeup kunde inte laddas: ${details}`
+          )
         }
       } finally {
         if (!cancelled) {
@@ -537,7 +633,9 @@ export default function Camera() {
       cancelled = true
       glamStartRef.current = false
 
-      const cleanupTask = (glamLifecycleRef.current ?? Promise.resolve()).then(async () => {
+      const cleanupTask = (
+        glamLifecycleRef.current ?? Promise.resolve()
+      ).then(async () => {
         await startTask
 
         const instance = glamInstanceRef.current
@@ -594,7 +692,9 @@ export default function Camera() {
       streamRef.current?.getTracks().forEach((track) => track.stop())
       streamRef.current = null
 
-      if (videoRef.current) videoRef.current.srcObject = null
+      if (videoRef.current) {
+        videoRef.current.srcObject = null
+      }
 
       landmarkerRef.current?.close()
       landmarkerRef.current = null
@@ -629,7 +729,9 @@ export default function Camera() {
     glamInstanceRef.current = null
     glamStartRef.current = false
 
-    if (instance) await stopAndDisposeGlam(instance)
+    if (instance) {
+      await stopAndDisposeGlam(instance)
+    }
 
     clearCanvas(canvasRef.current)
     clearCanvas(glamCanvasRef.current)
@@ -637,7 +739,9 @@ export default function Camera() {
     streamRef.current?.getTracks().forEach((track) => track.stop())
     streamRef.current = null
 
-    if (videoRef.current) videoRef.current.srcObject = null
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
 
     landmarkerRef.current?.close()
     landmarkerRef.current = null
@@ -647,62 +751,477 @@ export default function Camera() {
   }
 
   function retakeCapture() {
-    if (capture?.url) URL.revokeObjectURL(capture.url)
+    if (capture?.url) {
+      URL.revokeObjectURL(capture.url)
+    }
 
     setCapture(null)
+    setShowRecipients(false)
+    setSelectedRecipientIds([])
     setSendMessage('')
+    setHasSent(false)
     setErrorMessage('')
     setCameraState('live')
   }
 
-  function sendCapture() {
-    if (!capture) return
+  // Hämta bara accepterade kontakter när mottagarvyn öppnas.
+  async function openRecipients() {
+    if (!currentUserId || !capture || hasSent) return
 
-    window.dispatchEvent(
-      new CustomEvent('plot-twist:camera-send', {
-        detail: {
-          file: capture.blob,
-          type: capture.type,
-          filename: capture.type === 'photo' ? 'twist.jpg' : 'twist.webm',
-        },
+    setShowRecipients(true)
+    setLoadingContacts(true)
+    setErrorMessage('')
+    setSendMessage('')
+    setSelectedRecipientIds([])
+
+    try {
+      const response = await tablesDB.listRows({
+        databaseId: DATABASE_ID,
+        tableId: CONTACTS_TABLE_ID,
+        queries: [
+          Query.equal('ownerId', [currentUserId]),
+          Query.equal('status', ['accepted']),
+          Query.limit(500),
+        ],
       })
-    )
 
-    setSendMessage('Redo att skickas!')
+      setAcceptedContacts(response.rows)
+    } catch (error) {
+      console.error('Kunde inte hämta kontakter:', error)
+
+      setErrorMessage(
+        `Kunde inte hämta dina kontakter: ${error.message || 'Okänt fel'}`
+      )
+    } finally {
+      setLoadingContacts(false)
+    }
+  }
+
+  function toggleRecipient(userId) {
+    setSelectedRecipientIds((previous) => {
+      if (previous.includes(userId)) {
+        return previous.filter((id) => id !== userId)
+      }
+
+      return [...previous, userId]
+    })
+  }
+
+  // Skapar eller återanvänder exakt samma direktchatt som AddPeople.jsx.
+  async function ensureDirectConversation(userAId, userBId) {
+    if (!userAId || !userBId || userAId === userBId) {
+      throw new Error('Ogiltiga användare för chatten.')
+    }
+
+    const directKey = [userAId, userBId].sort().join(':')
+    const conversationId = await stableId(`direct:${directKey}`)
+
+    let conversation
+
+    try {
+      conversation = await tablesDB.getRow({
+        databaseId: DATABASE_ID,
+        tableId: CONVERSATIONS_TABLE_ID,
+        rowId: conversationId,
+      })
+
+      if (conversation.directKey !== directKey) {
+        throw new Error(
+          'Chattens ID matchar inte användarna.'
+        )
+      }
+    } catch (error) {
+      if (error.message?.includes('matchar inte användarna')) {
+        throw error
+      }
+
+      if (error.code !== 404) {
+        throw error
+      }
+
+      try {
+        conversation = await tablesDB.createRow({
+          databaseId: DATABASE_ID,
+          tableId: CONVERSATIONS_TABLE_ID,
+          rowId: conversationId,
+          data: {
+            type: 'direct',
+            name: 'Privat chatt',
+            createdBy: userAId,
+            directKey,
+          },
+          permissions: [
+            Permission.read(Role.users()),
+            Permission.update(Role.users()),
+            Permission.delete(Role.users()),
+          ],
+        })
+      } catch (createError) {
+        try {
+          conversation = await tablesDB.getRow({
+            databaseId: DATABASE_ID,
+            tableId: CONVERSATIONS_TABLE_ID,
+            rowId: conversationId,
+          })
+        } catch {
+          throw createError
+        }
+      }
+    }
+
+    for (const userId of [userAId, userBId]) {
+      const memberId = await stableId(
+        `member:${conversation.$id}:${userId}`
+      )
+
+      try {
+        await tablesDB.getRow({
+          databaseId: DATABASE_ID,
+          tableId: CONVERSATION_MEMBERS_TABLE_ID,
+          rowId: memberId,
+        })
+      } catch (error) {
+        if (error.code !== 404) {
+          throw error
+        }
+
+        try {
+          await tablesDB.createRow({
+            databaseId: DATABASE_ID,
+            tableId: CONVERSATION_MEMBERS_TABLE_ID,
+            rowId: memberId,
+            data: {
+              userId,
+              conversationId: conversation.$id,
+            },
+            permissions: [
+              Permission.read(Role.users()),
+            ],
+          })
+        } catch (createError) {
+          try {
+            await tablesDB.getRow({
+              databaseId: DATABASE_ID,
+              tableId: CONVERSATION_MEMBERS_TABLE_ID,
+              rowId: memberId,
+            })
+          } catch {
+            throw createError
+          }
+        }
+      }
+    }
+
+    return conversation
+  }
+
+  async function sendTwist() {
+    if (
+      !capture ||
+      !currentUserId ||
+      selectedRecipientIds.length === 0 ||
+      sendingTwist
+    ) {
+      return
+    }
+
+    setSendingTwist(true)
+    setErrorMessage('')
+    setSendMessage('')
+
+    let uploadedFileId = null
+    let sentCount = 0
+
+    try {
+      // 1. Ladda upp filen EN gång.
+      uploadedFileId = ID.unique()
+
+      await storage.createFile({
+        bucketId: TWISTS_BUCKET_ID,
+        fileId: uploadedFileId,
+        file: capture.blob,
+        permissions: [
+          Permission.read(Role.users()),
+          Permission.update(Role.user(currentUserId)),
+          Permission.delete(Role.user(currentUserId)),
+        ],
+      })
+
+      // 2. Skapa ett Twist-meddelande i varje vald persons chatt.
+      for (const recipientId of selectedRecipientIds) {
+        const conversation = await ensureDirectConversation(
+          currentUserId,
+          recipientId
+        )
+
+        await tablesDB.createRow({
+          databaseId: DATABASE_ID,
+          tableId: MESSAGES_TABLE_ID,
+          rowId: ID.unique(),
+          data: {
+            conversationId: conversation.$id,
+            senderId: currentUserId,
+            text: uploadedFileId,
+            type: 'twist',
+          },
+          permissions: [
+            Permission.read(Role.users()),
+            Permission.update(Role.user(currentUserId)),
+            Permission.delete(Role.user(currentUserId)),
+          ],
+        })
+
+        sentCount += 1
+      }
+
+      setHasSent(true)
+      setShowRecipients(false)
+      setSendMessage(
+        `Twist skickat till ${sentCount} ${
+          sentCount === 1 ? 'person' : 'personer'
+        }! ✨`
+      )
+    } catch (error) {
+      console.error('Kunde inte skicka Twist:', error)
+
+      if (sentCount > 0) {
+        setErrorMessage(
+          `Twist skickades till ${sentCount} av ${selectedRecipientIds.length} personer. Ett fel uppstod: ${error.message || 'Okänt fel'}`
+        )
+      } else {
+        setErrorMessage(
+          `Twist kunde inte skickas: ${error.message || 'Okänt fel'}`
+        )
+      }
+    } finally {
+      setSendingTwist(false)
+    }
   }
 
   function selectFilter(item) {
     if (isRecording || cameraState !== 'live') return
+
     setFilter(item.id)
     setErrorMessage('')
   }
 
-  const recordingProgress = Math.min((recordingTime / MAX_RECORDING_TIME) * 100, 100)
+  const recordingProgress = Math.min(
+    (recordingTime / MAX_RECORDING_TIME) * 100,
+    100
+  )
 
   return (
     <section className="page camera-page">
       <div className="camera-content">
-        {cameraState === 'preview' && capture ? (
+
+        {/* FÖRHANDSVISNING */}
+        {cameraState === 'preview' && capture && (
           <div className="capture-preview">
+
             {capture.type === 'photo' ? (
               <img src={capture.url} alt="Din tagna bild" />
             ) : (
-              <video src={capture.url} controls autoPlay playsInline loop />
+              <video
+                src={capture.url}
+                controls
+                autoPlay
+                playsInline
+                loop
+              />
             )}
 
-            <div className="capture-preview-actions">
-              <button className="capture-secondary-button" onClick={retakeCapture}>
-                Retake
-              </button>
+            {!showRecipients ? (
+              <>
+                <div className="capture-preview-actions">
+                  <button
+                    className="capture-secondary-button"
+                    onClick={retakeCapture}
+                    disabled={sendingTwist}
+                  >
+                    Retake
+                  </button>
 
-              <button className="capture-send-button" onClick={sendCapture}>
-                Send
-              </button>
-            </div>
+                  <button
+                    className="capture-send-button"
+                    onClick={openRecipients}
+                    disabled={hasSent || sendingTwist}
+                  >
+                    {hasSent ? 'Sent ✓' : 'Send'}
+                  </button>
+                </div>
 
-            {sendMessage && <p className="camera-send-message">{sendMessage}</p>}
+                {sendMessage && (
+                  <p className="camera-send-message" role="status">
+                    {sendMessage}
+                  </p>
+                )}
+              </>
+            ) : (
+              <div
+                className="twist-recipient-panel"
+                style={{
+                  width: '100%',
+                  maxWidth: '480px',
+                  margin: '18px auto 0',
+                  padding: '22px',
+                  borderRadius: '22px',
+                  background: '#fff',
+                  color: '#320E3B',
+                  boxSizing: 'border-box',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: '16px',
+                  }}
+                >
+                  <div>
+                    <h2 style={{ margin: 0 }}>Send to...</h2>
+                    <p style={{ margin: '5px 0 0', opacity: 0.65 }}>
+                      Choose who gets your Twist.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowRecipients(false)}
+                    disabled={sendingTwist}
+                    aria-label="Tillbaka"
+                    style={{
+                      border: 0,
+                      borderRadius: '50%',
+                      width: '38px',
+                      height: '38px',
+                      cursor: 'pointer',
+                      background: '#F3EAF5',
+                      color: '#320E3B',
+                      fontSize: '22px',
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+
+                {loadingContacts ? (
+                  <p>Laddar dina kontakter...</p>
+                ) : acceptedContacts.length === 0 ? (
+                  <p>
+                    Du har inga accepterade kontakter ännu.
+                    Lägg till personer innan du skickar ett Twist.
+                  </p>
+                ) : (
+                  <>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                        maxHeight: '260px',
+                        overflowY: 'auto',
+                      }}
+                    >
+                      {acceptedContacts.map((contact) => {
+                        const selected = selectedRecipientIds.includes(
+                          contact.contactUserId
+                        )
+
+                        const username =
+                          contact.contactUsername || 'Okänd användare'
+
+                        return (
+                          <label
+                            key={contact.$id}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px',
+                              padding: '12px',
+                              borderRadius: '14px',
+                              background: selected ? '#F3EAF5' : '#FAF7FB',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() =>
+                                toggleRecipient(contact.contactUserId)
+                              }
+                              disabled={sendingTwist}
+                              style={{
+                                width: '18px',
+                                height: '18px',
+                                accentColor: '#8C52FF',
+                              }}
+                            />
+
+                            <span
+                              style={{
+                                width: '36px',
+                                height: '36px',
+                                borderRadius: '50%',
+                                display: 'grid',
+                                placeItems: 'center',
+                                background: '#EADCF4',
+                                fontWeight: 700,
+                              }}
+                            >
+                              {username.slice(0, 1).toUpperCase()}
+                            </span>
+
+                            <strong>@{username}</strong>
+                          </label>
+                        )
+                      })}
+                    </div>
+
+                    <p
+                      style={{
+                        margin: '14px 0',
+                        fontSize: '13px',
+                        opacity: 0.65,
+                      }}
+                    >
+                      {selectedRecipientIds.length} valda
+                    </p>
+
+                    <button
+                      type="button"
+                      className="capture-send-button"
+                      onClick={sendTwist}
+                      disabled={
+                        selectedRecipientIds.length === 0 ||
+                        sendingTwist
+                      }
+                      style={{
+                        width: '100%',
+                        opacity:
+                          selectedRecipientIds.length === 0 ||
+                          sendingTwist
+                            ? 0.55
+                            : 1,
+                      }}
+                    >
+                      {sendingTwist
+                        ? 'Sending Twist...'
+                        : `Send Twist${selectedRecipientIds.length > 0
+                            ? ` to ${selectedRecipientIds.length}`
+                            : ''
+                          }`}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
-        ) : (
+        )}
+
+        {/* KAMERAN */}
+        {cameraState !== 'preview' && (
           <>
             <div className={`camera-frame filter-${filter}`}>
               <video
@@ -740,8 +1259,13 @@ export default function Camera() {
                     <div className="recording-indicator">
                       <span />
                       REC
+
                       <div className="recording-progress">
-                        <span style={{ width: `${recordingProgress}%` }} />
+                        <span
+                          style={{
+                            width: `${recordingProgress}%`,
+                          }}
+                        />
                       </div>
                     </div>
                   )}
@@ -756,6 +1280,7 @@ export default function Camera() {
                   <span className="camera-start-circle">
                     {cameraState === 'loading' ? '…' : '📷'}
                   </span>
+
                   <span className="camera-start-text">
                     {cameraState === 'loading'
                       ? 'Startar kameran…'
@@ -776,13 +1301,17 @@ export default function Camera() {
               <div className="shutter-slot">
                 {cameraState === 'live' && (
                   <button
-                    className={`shutter-button ${isRecording ? 'recording' : ''}`}
+                    className={`shutter-button ${
+                      isRecording ? 'recording' : ''
+                    }`}
                     onPointerDown={handleShutterPointerDown}
                     onPointerUp={handleShutterPointerUp}
                     onPointerLeave={handleShutterPointerCancel}
                     onPointerCancel={handleShutterPointerCancel}
                     aria-label="Tryck för foto, håll in för video"
-                    disabled={isRecording && !pointerDownRef.current}
+                    disabled={
+                      isRecording && !pointerDownRef.current
+                    }
                   />
                 )}
               </div>
@@ -797,7 +1326,9 @@ export default function Camera() {
                   {FILTERS.map((item) => (
                     <button
                       key={item.id}
-                      className={`filter-option ${filter === item.id ? 'selected' : ''}`}
+                      className={`filter-option ${
+                        filter === item.id ? 'selected' : ''
+                      }`}
                       onClick={() => selectFilter(item)}
                       aria-label={item.label}
                       aria-pressed={filter === item.id}
@@ -825,7 +1356,10 @@ export default function Camera() {
         )}
 
         {cameraState === 'live' && (
-          <button className="camera-close-button" onClick={stopCamera}>
+          <button
+            className="camera-close-button"
+            onClick={stopCamera}
+          >
             Stäng kameran
           </button>
         )}
