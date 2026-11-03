@@ -8,6 +8,7 @@ import {
   MESSAGES_TABLE_ID,
 } from './lib/appwrite.js'
 
+import TwistMessage from './TwistMessage.jsx'
 import './Chat.css'
 
 export default function Chat({ chat, currentUser }) {
@@ -46,7 +47,6 @@ export default function Chat({ chat, currentUser }) {
     }
   }, [conversationId])
 
-  // Hämta meddelanden när användaren öppnar en konversation.
   useEffect(() => {
     setMessages([])
     setLoading(true)
@@ -59,7 +59,6 @@ export default function Chat({ chat, currentUser }) {
 
     loadMessages()
 
-    // Lyssna efter nya meddelanden i databasen.
     const unsubscribe = client.subscribe(
       `databases.${DATABASE_ID}.tables.${MESSAGES_TABLE_ID}.rows`,
       (event) => {
@@ -71,9 +70,7 @@ export default function Chat({ chat, currentUser }) {
       }
     )
 
-    return () => {
-      unsubscribe()
-    }
+    return () => unsubscribe()
   }, [conversationId, loadMessages])
 
   async function sendMessage(event) {
@@ -119,13 +116,6 @@ export default function Chat({ chat, currentUser }) {
     }
   }
 
-  function formatTime(date) {
-    return new Date(date).toLocaleTimeString('sv-SE', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
-
   return (
     <section className="page chat-page">
       <div className="chat-panel">
@@ -150,12 +140,27 @@ export default function Chat({ chat, currentUser }) {
                 key={message.$id}
                 className={`message-row ${isMine ? 'mine' : 'theirs'}`}
               >
-                <div className="message-bubble">
-                  {message.text}
-                  <span className="message-time">
-                    {formatTime(message.$createdAt)}
-                  </span>
-                </div>
+                {message.type === 'twist' ? (
+                  <TwistMessage
+                    message={message}
+                    currentUserId={currentUserId}
+                    isMine={isMine}
+                  />
+                ) : (
+                  <div className="message-bubble">
+                    {message.text}
+
+                    <span className="message-time">
+                      {new Date(message.$createdAt).toLocaleTimeString(
+                        'sv-SE',
+                        {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }
+                      )}
+                    </span>
+                  </div>
+                )}
               </div>
             )
           })}
