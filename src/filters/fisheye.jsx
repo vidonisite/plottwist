@@ -1,64 +1,93 @@
-
 const DEFAULT_STRENGTH = 2.8
 
-export function drawFishEye(sourceCanvas, context, strength = DEFAULT_STRENGTH) {
-  const width = sourceCanvas.width
-  const height = sourceCanvas.height
+let cachedWidth = 0
+let cachedHeight = 0
+let cachedStrength = 0
+let sourceXMap = null
+let sourceYMap = null
+let insideLensMap = null
+let outputImage = null
 
-  const sourceContext = sourceCanvas.getContext('2d')
-  const sourceImage = sourceContext.getImageData(0, 0, width, height)
-  const source = sourceImage.data
-
-  const outputImage = context.createImageData(width, height)
-  const output = outputImage.data
+function buildMaps(width, height, strength) {
+  const size = width * height
+  sourceXMap = new Uint16Array(size)
+  sourceYMap = new Uint16Array(size)
+  insideLensMap = new Uint8Array(size)
+  outputImage = new ImageData(width, height)
 
   const centerX = (width - 1) / 2
   const centerY = (height - 1) / 2
-
-  // Radien gör att cirkeln precis når mitten av varje bildkant.
   const radius = Math.min(width, height) / 2
   const power = Math.max(1, strength)
+  const radiusSquared = radius * radius
 
   for (let y = 0; y < height; y++) {
+    const dy = y - centerY
+
     for (let x = 0; x < width; x++) {
       const dx = x - centerX
-      const dy = y - centerY
-      const distance = Math.sqrt(dx * dx + dy * dy)
-      const outputIndex = (y * width + x) * 4
+      const index = y * width + x
+      const distanceSquared = dx * dx + dy * dy
 
-      // Allt utanför den runda linsen blir svart.
-      if (distance > radius) {
-        output[outputIndex] = 0
-        output[outputIndex + 1] = 0
-        output[outputIndex + 2] = 0
-        output[outputIndex + 3] = 255
-        continue
-      }
+      if (distanceSquared > radiusSquared) continue
 
-      const normalizedDistance = distance / radius
-
-      // Förstorar mitten och trycker ihop bilden mot cirkelkanten.
-      const sourceDistance =
-        radius * Math.pow(normalizedDistance, power)
-
+      insideLensMap[index] = 1
+      const distance = Math.sqrt(distanceSquared)
+      const sourceDistance = radius * Math.pow(distance / radius, power)
       const angle = Math.atan2(dy, dx)
 
-      const sourceX = Math.round(
-        centerX + Math.cos(angle) * sourceDistance
-      )
-      const sourceY = Math.round(
-        centerY + Math.sin(angle) * sourceDistance
-      )
-
-      const safeX = Math.max(0, Math.min(width - 1, sourceX))
-      const safeY = Math.max(0, Math.min(height - 1, sourceY))
-      const sourceIndex = (safeY * width + safeX) * 4
-
-      output[outputIndex] = source[sourceIndex]
-      output[outputIndex + 1] = source[sourceIndex + 1]
-      output[outputIndex + 2] = source[sourceIndex + 2]
-      output[outputIndex + 3] = source[sourceIndex + 3]
+      sourceXMap[index] = Math.max(0, Math.min(width - 1,
+        Math.round(centerX + Math.cos(angle) * sourceDistance)))
+      sourceYMap[index] = Math.max(0, Math.min(height - 1,
+        Math.round(centerY + Math.sin(angle) * sourceDistance)))
     }
+  }
+
+  cachedWidth = width
+  cachedHeight = height
+  cachedStrength = strength
+}
+
+export function drawFishEye(sourceCanvas, context, strength = DEFAULT_STRENGTH) {
+  if (!sourceCanvas || !context) return
+
+  const { width, height } = sourceCanvas
+  if (!width || !height) return
+
+  if (
+    width !== cachedWidth ||
+    height !== cachedHeight ||
+    strength !== cachedStrength ||
+    !outputImage
+  ) {
+    buildMaps(width, height, strength)
+  }
+
+  const sourceContext = sourceCanvas.getContext('2d', {
+    willReadFrequently: true,
+  })
+  if (!sourceContext) return
+
+  const source = sourceContext.getImageData(0, 0, width, height).data
+  const output = outputImage.data
+  const size = width * height
+
+  for (let index = 0; index < size; index++) {
+    const out = index * 4
+
+    if (!insideLensMap[index]) {
+      output[out] = 0
+      output[out + 1] = 0
+      output[out + 2] = 0
+      output[out + 3] = 255
+      continue
+    }
+
+    const input = (sourceYMap[index] * width + sourceXMap[index]) * 4
+    output[out] = source[input]
+    output[out + 1] = source[input + 1]
+    output[out + 2] = source[input + 2]
+    output[out + 3] = source[input + 3]
   }
 
   context.putImageData(outputImage, 0, 0)
