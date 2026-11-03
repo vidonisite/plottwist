@@ -162,9 +162,6 @@ export async function startGlam(video, renderCanvas) {
     assetsBaseUrl: ASSETS_URL,
     mediapipeBaseUrl: MEDIAPIPE_URL,
 
-    faceMeshClass: window.FaceMesh,
-    cameraClass: ExistingVideoCamera,
-
     camera: {
       width: 640,
       height: 640
@@ -179,7 +176,19 @@ export async function startGlam(video, renderCanvas) {
   })
 
   try {
-    await makeup.init()
+    // OpenMakeup 0.1.0 does not forward cameraClass/faceMeshClass from its
+    // constructor to MakeupEngine. MakeupEngine resolves window.Camera when
+    // init() begins, so temporarily provide our adapter; init captures the
+    // class before its first await. This prevents MediaPipe from replacing the
+    // camera stream that Camera.jsx already started on this video element.
+    const mediaPipeCameraClass = window.Camera
+    window.Camera = ExistingVideoCamera
+
+    try {
+      await makeup.init()
+    } finally {
+      window.Camera = mediaPipeCameraClass
+    }
 
     await waitForMaterials(makeup.engine)
 
@@ -208,12 +217,12 @@ export async function startGlam(video, renderCanvas) {
     })
 
     // Svart eyeliner och mascara.
-    await makeup.apply('eyeliner', {
-      color: '#16051e'
-    })
-
     await makeup.apply('mascara', {
       color: '#100b18'
+    })
+
+    await makeup.apply('eyeliner', {
+      color: '#16051e'
     })
 
     // Överdriven läppförstoring.
