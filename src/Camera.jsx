@@ -514,9 +514,12 @@ export default function Camera() {
         glamInstanceRef.current = instance
       } catch (error) {
         console.error('Glam kunde inte startas:', error)
-
+      
         if (!cancelled) {
-          setErrorMessage('Glam Makeup kunde inte laddas. Försök igen.')
+          const details =
+            error instanceof Error ? error.message : String(error)
+      
+          setErrorMessage(`Glam Makeup kunde inte laddas: ${details}`)
         }
       } finally {
         if (!cancelled) {
