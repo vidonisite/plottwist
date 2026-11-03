@@ -150,6 +150,17 @@ async function waitForMaterials(engine) {
 }
 
 export async function startGlam(video, renderCanvas) {
+
+  console.log('GLAM CANVAS:', {
+    canvas: renderCanvas,
+    width: renderCanvas.width,
+    height: renderCanvas.height,
+    isConnected: renderCanvas.isConnected,
+    twoD: renderCanvas.getContext('2d'),
+    webgl: renderCanvas.getContext('webgl2'),
+  })
+
+
   await Promise.all([
     loadFaceMesh(),
     loadCameraUtils()
