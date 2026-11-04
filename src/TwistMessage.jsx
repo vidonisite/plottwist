@@ -22,7 +22,7 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
 
   const messageId = message.$id
 
-  // Kontrollera om just den här användaren redan har öppnat Twisten.
+  // Kontrollera om användaren redan har öppnat Twisten.
   const checkIfOpened = useCallback(async () => {
     if (!messageId || !currentUserId || isMine) {
       setChecking(false)
@@ -43,12 +43,7 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
       setHasOpened(response.rows.length > 0)
       setErrorMessage('')
     } catch (error) {
-      console.error('Kunde inte kontrollera Twist-status:', {
-        message: error.message,
-        code: error.code,
-        type: error.type,
-        response: error.response,
-      })
+      console.error('Kunde inte kontrollera Twist-status:', error)
 
       setErrorMessage(
         `Kunde inte kontrollera Twist-statusen. Fel ${error.code || ''}: ${error.message || 'Okänt fel'}`
@@ -83,6 +78,15 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
     return () => unsubscribe()
   }, [checkIfOpened, messageId, currentUserId, isMine])
 
+  // Frigör den lokala bildadressen när den inte längre behövs.
+  useEffect(() => {
+    return () => {
+      if (mediaUrl) {
+        URL.revokeObjectURL(mediaUrl)
+      }
+    }
+  }, [mediaUrl])
+
   // Stäng Twist med Escape.
   useEffect(() => {
     function handleKeyDown(event) {
@@ -107,27 +111,37 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
     setOpening(true)
     setErrorMessage('')
 
+    let objectUrl = ''
+
     try {
-      // Hämta filinformationen från Appwrite Storage.
+      // Hämta filen med Appwrite SDK.
+      // Detta använder den inloggade användarens session.
       const file = await storage.getFile({
         bucketId: TWISTS_BUCKET_ID,
         fileId: message.text,
       })
 
-      // Hämta filens visningsadress.
-      const url = storage.getFileView({
+      // Hämta själva filinnehållet.
+      const response = await storage.getFileDownload({
         bucketId: TWISTS_BUCKET_ID,
         fileId: message.text,
       })
 
-      console.log('TWIST IMAGE DEBUG:', {
-        bucketId: TWISTS_BUCKET_ID,
-        fileId: message.text,
-        url: url.toString(),
-        file,
-      })
+      // Skapa en lokal URL som webbläsaren kan visa.
+      const blob = response instanceof Blob
+        ? response
+        : new Blob([response], {
+            type: file.mimeType || 'application/octet-stream',
+          })
 
-      // Skapa en rad som visar att den här användaren har öppnat Twisten.
+      objectUrl = URL.createObjectURL(blob)
+
+      // Bestäm om filen är en bild eller video.
+      const type = file.mimeType?.startsWith('video/')
+        ? 'video'
+        : 'image'
+
+      // Registrera att användaren har öppnat Twisten.
       await tablesDB.createRow({
         databaseId: DATABASE_ID,
         tableId: MESSAGE_READS_TABLE_ID,
@@ -143,12 +157,12 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
         ],
       })
 
-      // Uppdatera statusen och visa innehållet.
+      // Visa Twisten.
+      setMediaType(type)
+      setMediaUrl(objectUrl)
+      objectUrl = ''
       setHasOpened(true)
-      setMediaType(
-        file.mimeType?.startsWith('video/') ? 'video' : 'image'
-      )
-      setMediaUrl(url.toString())
+
     } catch (error) {
       console.error('TWIST ERROR:', {
         message: error.message,
@@ -157,7 +171,13 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
         response: error.response,
       })
 
-      // Kontrollera om öppningsraden trots allt hann skapas.
+      // Om filen hämtades men något annat misslyckades,
+      // frigör den tillfälliga URL:en.
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl)
+      }
+
+      // Kontrollera om öppningsraden redan finns.
       try {
         const response = await tablesDB.listRows({
           databaseId: DATABASE_ID,
@@ -173,11 +193,10 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
           setHasOpened(true)
         }
       } catch (checkError) {
-        console.error('Kunde inte kontrollera öppningsstatus:', {
-          message: checkError.message,
-          code: checkError.code,
-          type: checkError.type,
-        })
+        console.error(
+          'Kunde inte kontrollera öppningsstatus:',
+          checkError
+        )
       }
 
       setErrorMessage(
@@ -186,6 +205,10 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
     } finally {
       setOpening(false)
     }
+  }
+
+  function closeTwist() {
+    setMediaUrl('')
   }
 
   return (
@@ -237,11 +260,11 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
       {mediaUrl && (
         <div
           className="twist-fullscreen"
-          onClick={() => setMediaUrl('')}
+          onClick={closeTwist}
         >
           <button
             className="twist-close"
-            onClick={() => setMediaUrl('')}
+            onClick={closeTwist}
             aria-label="Stäng Twist"
           >
             ×
