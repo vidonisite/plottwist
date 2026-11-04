@@ -1048,13 +1048,7 @@ export default function Camera({ currentUser }) {
         sentCount += 1
       }
 
-      setHasSent(true)
-      setShowRecipients(false)
-      setSendMessage(
-        `Twist skickat till ${sentCount} ${
-          sentCount === 1 ? 'person' : 'personer'
-        }! ✨`
-      )
+      retakeCapture()
     } catch (error) {
       console.error('Kunde inte skicka Twist:', error)
 

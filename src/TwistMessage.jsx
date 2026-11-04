@@ -12,8 +12,14 @@ import {
 
 import './TwistMessage.css'
 
-export default function TwistMessage({ message, currentUserId, isMine }) {
+export default function TwistMessage({
+  message,
+  currentUserId,
+  isMine,
+  members = [],
+}) {
   const [hasOpened, setHasOpened] = useState(false)
+  const [openedByIds, setOpenedByIds] = useState([])
   const [checking, setChecking] = useState(true)
   const [opening, setOpening] = useState(false)
   const [mediaUrl, setMediaUrl] = useState('')
@@ -77,6 +83,58 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
 
     return () => unsubscribe()
   }, [checkIfOpened, messageId, currentUserId, isMine])
+
+  const loadOpeners = useCallback(async () => {
+    if (!messageId || !isMine) return
+
+    try {
+      const response = await tablesDB.listRows({
+        databaseId: DATABASE_ID,
+        tableId: MESSAGE_READS_TABLE_ID,
+        queries: [
+          Query.equal('messageId', [messageId]),
+          Query.limit(100),
+        ],
+      })
+
+      const readerIds = response.rows
+        .map((row) => row.userId)
+        .filter((userId) => userId && userId !== currentUserId)
+
+      setOpenedByIds((previous) => [
+        ...new Set([...previous, ...readerIds]),
+      ])
+    } catch (error) {
+      console.error('Kunde inte hämta vilka som öppnat Twisten:', error)
+    }
+  }, [messageId, isMine, currentUserId])
+
+  useEffect(() => {
+    if (!isMine) return
+
+    loadOpeners()
+
+    const unsubscribe = client.subscribe(
+      `databases.${DATABASE_ID}.tables.${MESSAGE_READS_TABLE_ID}.rows`,
+      (event) => {
+        const row = event.payload
+
+        if (
+          row?.messageId === messageId &&
+          row?.userId &&
+          row.userId !== currentUserId
+        ) {
+          setOpenedByIds((previous) =>
+            previous.includes(row.userId)
+              ? previous
+              : [...previous, row.userId]
+          )
+        }
+      }
+    )
+
+    return () => unsubscribe()
+  }, [isMine, loadOpeners, messageId, currentUserId])
 
   useEffect(() => {
     return () => {
@@ -211,13 +269,30 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
     setMediaUrl('')
   }
 
+  const openerNames = openedByIds.map((userId) => {
+    const username = members.find((member) => member.userId === userId)
+      ?.username || 'Okänd användare'
+
+    return username === 'Okänd användare' ? username : `@${username}`
+  })
+
   return (
     <>
       <div className="twist-message">
         {isMine ? (
-          <div className="twist-status">
-            <span className="twist-status-icon">✳</span>
-            <span>TWIST SKICKAD</span>
+          <div
+            className={`twist-status ${
+              openerNames.length ? 'twist-opened twist-status-readers' : ''
+            }`}
+          >
+            <span className="twist-status-icon">
+              {openerNames.length ? '✓' : '✳'}
+            </span>
+            <span>
+              {openerNames.length
+                ? `ÖPPNAD AV ${openerNames.join(', ')}`
+                : 'TWIST SKICKAD'}
+            </span>
           </div>
         ) : checking ? (
           <div className="twist-status">

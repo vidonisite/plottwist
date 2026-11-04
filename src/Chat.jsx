@@ -200,6 +200,7 @@ export default function Chat({ chat, currentUser }) {
                       message={message}
                       currentUserId={currentUserId}
                       isMine={isMine}
+                      members={chat?.members || []}
                     />
                   ) : (
                     <div className="message-bubble">

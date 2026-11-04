@@ -67,6 +67,16 @@
   color: #64833b;
 }
 
+.twist-status-readers {
+  flex-wrap: wrap;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.twist-status-readers span:last-child {
+  min-width: 0;
+}
+
 .twist-error {
   margin: 0;
   color: #b33b58;
