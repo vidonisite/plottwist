@@ -28,10 +28,10 @@ import { drawSquareFace } from './filters/squareface.jsx'
 import './Camera.css'
 
 const FILTERS = [
+  { id: 'none', label: 'No filter', symbol: '' },
   { id: 'big-eyes', label: 'Big eyes', symbol: '◉' },
   { id: 'fisheye', label: 'Fish Eye', symbol: '🐟' },
   { id: 'dreamy', label: 'Dreamy', symbol: '✦' },
-  { id: 'mono', label: 'No filter', symbol: '◐' },
   { id: 'alien', label: 'Alien', symbol: '👽' },
   { id: 'glam', label: 'Glam Makeup', symbol: '💄' },
   { id: 'square-face', label: 'Square Face', symbol: '▣' },
@@ -101,7 +101,7 @@ export default function Camera({ currentUser }) {
   const animationRef = useRef(null)
   const glamInstanceRef = useRef(null)
 
-  const filterRef = useRef('big-eyes')
+  const filterRef = useRef('none')
   const glamLifecycleRef = useRef(Promise.resolve())
   const glamStartRef = useRef(false)
 
@@ -117,7 +117,7 @@ export default function Camera({ currentUser }) {
 
   const [cameraState, setCameraState] = useState('idle')
   const [errorMessage, setErrorMessage] = useState('')
-  const [filter, setFilter] = useState('big-eyes')
+  const [filter, setFilter] = useState('none')
   const [capture, setCapture] = useState(null)
 
   const [isRecording, setIsRecording] = useState(false)
@@ -574,11 +574,9 @@ export default function Camera({ currentUser }) {
         context.filter = 'saturate(1.35) brightness(1.12) blur(0.5px)'
         context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
         context.filter = 'none'
-      } else if (activeFilter === 'mono') {
+      } else if (activeFilter === 'none') {
         context.clearRect(0, 0, SIZE, SIZE)
-        context.filter = 'grayscale(1)'
         context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
-        context.filter = 'none'
       } else if (activeFilter !== 'glam') {
         context.clearRect(0, 0, SIZE, SIZE)
         context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
@@ -811,7 +809,7 @@ export default function Camera({ currentUser }) {
   // Hämta bara accepterade kontakter när mottagarvyn öppnas.
   async function openRecipients() {
     console.log('SEND-KNAPPEN KLICKAD')
-  
+
     if (!currentUserId || !capture || hasSent) {
       console.log('Avbruten:', {
         currentUserId,
@@ -1410,7 +1408,7 @@ export default function Camera({ currentUser }) {
                       aria-pressed={filter === item.id}
                       title={item.label}
                     >
-                      <span>{item.symbol}</span>
+                      {item.symbol && <span>{item.symbol}</span>}
                     </button>
                   ))}
                 </div>
