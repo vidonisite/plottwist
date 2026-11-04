@@ -120,6 +120,13 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
         fileId: message.text,
       })
 
+      console.log('TWIST IMAGE DEBUG:', {
+        bucketId: TWISTS_BUCKET_ID,
+        fileId: message.text,
+        url: url.toString(),
+        file,
+      })
+
       // Skapa en rad som visar att den här användaren har öppnat Twisten.
       await tablesDB.createRow({
         databaseId: DATABASE_ID,
