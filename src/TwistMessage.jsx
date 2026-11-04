@@ -78,6 +78,14 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
     return () => unsubscribe()
   }, [checkIfOpened, messageId, currentUserId, isMine])
 
+  useEffect(() => {
+    return () => {
+      if (mediaUrl) {
+        URL.revokeObjectURL(mediaUrl)
+      }
+    }
+  }, [mediaUrl])
+
   // Stäng Twist med Escape.
   useEffect(() => {
     function handleKeyDown(event) {
@@ -102,24 +110,38 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
     setOpening(true)
     setErrorMessage('')
 
+    let objectUrl = ''
+
     try {
-      // Hämta filen med Appwrite SDK.
-      // Detta använder den inloggade användarens session.
       const file = await storage.getFile({
         bucketId: TWISTS_BUCKET_ID,
         fileId: message.text,
       })
 
-      // Appwrite returnerar en visnings-URL, inte filens bytes.
       const fileUrl = await storage.getFileView({
         bucketId: TWISTS_BUCKET_ID,
         fileId: message.text,
       })
 
-      // Bestäm om filen är en bild eller video.
-      const type = file.mimeType?.startsWith('video/')
-        ? 'video'
-        : 'image'
+      const fileData = await client.call(
+        'get',
+        new URL(fileUrl),
+        undefined,
+        undefined,
+        'arrayBuffer'
+      )
+
+      const isVideo = file.mimeType?.startsWith('video/') ||
+        file.name?.toLowerCase().endsWith('.webm')
+      const mimeType = isVideo
+        ? file.mimeType || 'video/webm'
+        : file.mimeType?.startsWith('image/')
+          ? file.mimeType
+          : 'image/jpeg'
+
+      objectUrl = URL.createObjectURL(
+        new Blob([fileData], { type: mimeType })
+      )
 
       // Registrera att användaren har öppnat Twisten.
       await tablesDB.createRow({
@@ -138,8 +160,9 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
       })
 
       // Visa Twisten.
-      setMediaType(type)
-      setMediaUrl(fileUrl)
+      setMediaType(isVideo ? 'video' : 'image')
+      setMediaUrl(objectUrl)
+      objectUrl = ''
       setHasOpened(true)
 
     } catch (error) {
@@ -149,6 +172,10 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
         type: error.type,
         response: error.response,
       })
+
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl)
+      }
 
       // Kontrollera om öppningsraden redan finns.
       try {
