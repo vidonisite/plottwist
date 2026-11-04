@@ -1,0 +1,11 @@
+{
+  "name": "plot-twist-push-notifications",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/main.js",
+  "dependencies": {
+    "node-appwrite": "^21.0.0",
+    "web-push": "^3.6.7"
+  }
+}

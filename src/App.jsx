@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Query } from 'appwrite'
+import {
+  disablePushNotifications,
+  enablePushNotifications,
+  getPushSubscription,
+  pushNotificationsSupported,
+  registerPushSubscription,
+} from './lib/pushNotifications.js'
 
 import {
   account,
@@ -32,7 +39,9 @@ export default function App() {
 
   const [search, setSearch] = useState('')
   const [displayName, setDisplayName] = useState('')
-  const [notifications, setNotifications] = useState(true)
+  const [notifications, setNotifications] = useState(false)
+  const [notificationError, setNotificationError] = useState('')
+  const [updatingNotifications, setUpdatingNotifications] = useState(false)
 
   const [loggingOut, setLoggingOut] = useState(false)
   const [authError, setAuthError] = useState('')
@@ -41,6 +50,43 @@ export default function App() {
   const [loadingChats, setLoadingChats] = useState(false)
   const [chatError, setChatError] = useState('')
   const [chatsRefresh, setChatsRefresh] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function checkPushSubscription() {
+      if (!currentUser || !pushNotificationsSupported) {
+        setNotifications(false)
+        return
+      }
+
+      try {
+        const subscription = await getPushSubscription()
+
+        if (subscription) {
+          await registerPushSubscription(subscription)
+        }
+
+        if (!cancelled) {
+          setNotifications(Boolean(subscription))
+        }
+      } catch (error) {
+        console.error('Kunde inte kontrollera pushnotiser:', error)
+        if (!cancelled) {
+          setNotifications(false)
+          setNotificationError(
+            error.message || 'Pushnotisernas status kunde inte kontrolleras.'
+          )
+        }
+      }
+    }
+
+    checkPushSubscription()
+
+    return () => {
+      cancelled = true
+    }
+  }, [currentUser])
 
   // Kontrollera om användaren har en giltig Appwrite-session.
   useEffect(() => {
@@ -268,6 +314,33 @@ export default function App() {
     setAuthError('')
 
     try {
+      let subscription = null
+      let pushCleanupError = ''
+
+      try {
+        subscription = await getPushSubscription()
+      } catch (error) {
+        console.error('Kunde inte läsa pushprenumerationen:', error)
+        pushCleanupError =
+          'Du loggades ut, men pushprenumerationens status kunde inte kontrolleras.'
+      }
+
+      if (subscription) {
+        try {
+          await disablePushNotifications()
+        } catch (error) {
+          console.error('Kunde inte ta bort pushprenumerationen:', error)
+          await subscription.unsubscribe().catch((unsubscribeError) => {
+            console.error(
+              'Kunde inte avregistrera pushprenumerationen lokalt:',
+              unsubscribeError
+            )
+          })
+          pushCleanupError =
+            'Du loggades ut, men servern kunde inte ta bort pushprenumerationen. Kontrollera notisinställningarna nästa gång du loggar in.'
+        }
+      }
+
       await account.deleteSession({ sessionId: 'current' })
 
       setCurrentUser(null)
@@ -276,6 +349,8 @@ export default function App() {
       setActiveView('camera')
       setSearch('')
       setChats([])
+      setNotifications(false)
+      setAuthError(pushCleanupError)
     } catch (error) {
       console.error('Kunde inte logga ut:', error)
       setAuthError(
@@ -309,6 +384,30 @@ export default function App() {
   function showView(view) {
     setActiveChat(null)
     setActiveView(view)
+  }
+
+  async function togglePushNotifications() {
+    if (updatingNotifications) return
+
+    setUpdatingNotifications(true)
+    setNotificationError('')
+
+    try {
+      if (notifications) {
+        await disablePushNotifications()
+        setNotifications(false)
+      } else {
+        await enablePushNotifications()
+        setNotifications(true)
+      }
+    } catch (error) {
+      console.error('Kunde inte ändra pushnotiser:', error)
+      setNotificationError(
+        error.message || 'Pushnotisinställningen kunde inte ändras.'
+      )
+    } finally {
+      setUpdatingNotifications(false)
+    }
   }
 
   function handleGroupCreated(conversation) {
@@ -580,20 +679,32 @@ export default function App() {
             <div className="settings-row">
               <div>
                 <strong>Notiser</strong>
-                <p>Visa notiser i appen</p>
+                <p>
+                  {pushNotificationsSupported
+                    ? 'Få notiser när du får ett nytt meddelande'
+                    : 'Pushnotiser stöds inte i den här webbläsaren'}
+                </p>
               </div>
 
               <button
                 type="button"
                 role="switch"
                 aria-checked={notifications}
-                aria-label="Aktivera notiser"
+                aria-label="Aktivera pushnotiser"
+                aria-busy={updatingNotifications}
+                disabled={updatingNotifications || !pushNotificationsSupported}
                 className={`toggle-switch ${notifications ? 'on' : ''}`}
-                onClick={() => setNotifications((value) => !value)}
+                onClick={togglePushNotifications}
               >
                 <span />
               </button>
             </div>
+
+            {notificationError && (
+              <p className="auth-error" role="alert">
+                {notificationError}
+              </p>
+            )}
 
             <div className="settings-card">
               <p><strong>Inloggat konto</strong></p>
