@@ -78,15 +78,6 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
     return () => unsubscribe()
   }, [checkIfOpened, messageId, currentUserId, isMine])
 
-  // Frigör den lokala bildadressen när den inte längre behövs.
-  useEffect(() => {
-    return () => {
-      if (mediaUrl) {
-        URL.revokeObjectURL(mediaUrl)
-      }
-    }
-  }, [mediaUrl])
-
   // Stäng Twist med Escape.
   useEffect(() => {
     function handleKeyDown(event) {
@@ -111,8 +102,6 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
     setOpening(true)
     setErrorMessage('')
 
-    let objectUrl = ''
-
     try {
       // Hämta filen med Appwrite SDK.
       // Detta använder den inloggade användarens session.
@@ -121,20 +110,11 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
         fileId: message.text,
       })
 
-      // Hämta själva filinnehållet.
-      const response = await storage.getFileDownload({
+      // Appwrite returnerar en visnings-URL, inte filens bytes.
+      const fileUrl = await storage.getFileView({
         bucketId: TWISTS_BUCKET_ID,
         fileId: message.text,
       })
-
-      // Skapa en lokal URL som webbläsaren kan visa.
-      const blob = response instanceof Blob
-        ? response
-        : new Blob([response], {
-            type: file.mimeType || 'application/octet-stream',
-          })
-
-      objectUrl = URL.createObjectURL(blob)
 
       // Bestäm om filen är en bild eller video.
       const type = file.mimeType?.startsWith('video/')
@@ -159,8 +139,7 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
 
       // Visa Twisten.
       setMediaType(type)
-      setMediaUrl(objectUrl)
-      objectUrl = ''
+      setMediaUrl(fileUrl)
       setHasOpened(true)
 
     } catch (error) {
@@ -170,12 +149,6 @@ export default function TwistMessage({ message, currentUserId, isMine }) {
         type: error.type,
         response: error.response,
       })
-
-      // Om filen hämtades men något annat misslyckades,
-      // frigör den tillfälliga URL:en.
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl)
-      }
 
       // Kontrollera om öppningsraden redan finns.
       try {
