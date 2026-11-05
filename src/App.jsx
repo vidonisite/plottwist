@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Query } from 'appwrite'
 import {
   disablePushNotifications,
@@ -15,6 +15,7 @@ import {
   USERS_TABLE_ID,
   CONVERSATIONS_TABLE_ID,
   CONVERSATION_MEMBERS_TABLE_ID,
+  MESSAGES_TABLE_ID,
 } from './lib/appwrite.js'
 
 import AuthPage from './auth/AuthPage.jsx'
@@ -180,6 +181,22 @@ export default function App() {
 
               const members = membersResponse.rows
 
+              // Hämta olästa meddelanden som skickats efter senaste läsningen.
+              const lastReadAt = membership.lastReadAt || membership.$createdAt
+
+              const unreadResponse = await tablesDB.listRows({
+                databaseId: DATABASE_ID,
+                tableId: MESSAGES_TABLE_ID,
+                queries: [
+                  Query.equal('conversationId', [conversation.$id]),
+                  Query.greaterThan('$createdAt', lastReadAt),
+                  Query.notEqual('senderId', [currentUser.$id]),
+                  Query.limit(1),
+                ],
+              })
+
+              const unreadCount = unreadResponse.total || 0
+
               if (conversation.type === 'group') {
                 const memberProfiles = members.map((member) => {
                   const memberProfile = profiles.find(
@@ -201,6 +218,9 @@ export default function App() {
                   members: memberProfiles,
                   memberCount: members.length,
                   preview: `${members.length} medlemmar`,
+                  membershipRowId: membership.$id,
+                  lastReadAt,
+                  unreadCount,
                 }
               }
 
@@ -237,6 +257,9 @@ export default function App() {
                 ],
                 memberCount: 2,
                 preview: 'Privat konversation',
+                membershipRowId: membership.$id,
+                lastReadAt,
+                unreadCount,
               }
             } catch (error) {
               console.error(
@@ -301,6 +324,40 @@ export default function App() {
       cancelled = true
     }
   }, [currentUser, chatsRefresh])
+
+  const handleChatRead = useCallback(
+    async (membershipRowId, conversationId, latestMessageAt) => {
+      if (!membershipRowId || !conversationId || !latestMessageAt) return
+
+      try {
+        await tablesDB.updateRow({
+          databaseId: DATABASE_ID,
+          tableId: CONVERSATION_MEMBERS_TABLE_ID,
+          rowId: membershipRowId,
+          data: {
+            lastReadAt: latestMessageAt,
+          },
+        })
+
+        setChats((previous) =>
+          previous.map((chat) =>
+            chat.id === conversationId
+              ? { ...chat, lastReadAt: latestMessageAt, unreadCount: 0 }
+              : chat
+          )
+        )
+
+        setActiveChat((previous) =>
+          previous?.id === conversationId
+            ? { ...previous, lastReadAt: latestMessageAt, unreadCount: 0 }
+            : previous
+        )
+      } catch (error) {
+        console.error('Kunde inte markera chatten som läst:', error)
+      }
+    },
+    []
+  )
 
   function handleAuthenticated(result) {
     setCurrentUser(result.user)
@@ -372,7 +429,13 @@ export default function App() {
   }, [chats, search])
 
   function openChat(chat) {
-    setActiveChat(chat)
+    // Nollställ märket direkt medan Chat hämtar och markerar meddelandena som lästa.
+    setChats((previous) =>
+      previous.map((item) =>
+        item.id === chat.id ? { ...item, unreadCount: 0 } : item
+      )
+    )
+    setActiveChat({ ...chat, unreadCount: 0 })
     setActiveView('chat')
   }
 
@@ -565,6 +628,12 @@ export default function App() {
                 <strong>{chat.name}</strong>
                 <small>{chat.preview}</small>
               </span>
+
+              {chat.unreadCount > 0 && (
+                <span className="unread-badge" aria-label={`${chat.unreadCount} olästa meddelanden`}>
+                  {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
+                </span>
+              )}
             </button>
           ))}
 
@@ -639,7 +708,11 @@ export default function App() {
 
             <section className="workspace-view chat-view">
               <div className="conversation-content">
-                <Chat chat={activeChat} currentUser={currentUser} />
+                <Chat
+                  chat={activeChat}
+                  currentUser={currentUser}
+                  onRead={handleChatRead}
+                />
               </div>
             </section>
           </>
