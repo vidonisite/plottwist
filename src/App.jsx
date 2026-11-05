@@ -328,12 +328,11 @@ export default function App() {
   const handleChatRead = useCallback(
     async (membershipRowId, conversationId, latestMessageAt) => {
       if (!membershipRowId || !conversationId || !latestMessageAt || !currentUser?.$id) {
-        return
+        return { ok: false, message: 'Läspositionen kunde inte sparas.' }
       }
 
       try {
-        // Räkna meddelanden som fortfarande ligger efter läspositionen.
-        // Det gör att sidomenyn inte nollställs förrän de faktiskt har visats.
+        // Räkna meddelanden efter den senaste position som faktiskt visats.
         const unreadResponse = await tablesDB.listRows({
           databaseId: DATABASE_ID,
           tableId: MESSAGES_TABLE_ID,
@@ -341,12 +340,13 @@ export default function App() {
             Query.equal('conversationId', [conversationId]),
             Query.greaterThan('$createdAt', latestMessageAt),
             Query.notEqual('senderId', [currentUser.$id]),
-            Query.limit(1),
+            Query.limit(500),
           ],
         })
 
-        const unreadCount = unreadResponse.total || 0
+        const unreadCount = unreadResponse.total ?? unreadResponse.rows.length
 
+        // Spara läspositionen i just den här användarens medlemsrad.
         await tablesDB.updateRow({
           databaseId: DATABASE_ID,
           tableId: CONVERSATION_MEMBERS_TABLE_ID,
@@ -356,6 +356,7 @@ export default function App() {
           },
         })
 
+        // Uppdatera både sidomenyn och aktiv chatt direkt efter lyckad lagring.
         setChats((previous) =>
           previous.map((chat) =>
             chat.id === conversationId
@@ -369,8 +370,18 @@ export default function App() {
             ? { ...previous, lastReadAt: latestMessageAt, unreadCount }
             : previous
         )
+
+        return { ok: true, unreadCount }
       } catch (error) {
         console.error('Kunde inte markera chatten som läst:', error)
+
+        const permissionProblem = error?.code === 401 || error?.code === 403
+        return {
+          ok: false,
+          message: permissionProblem
+            ? 'Lässtatusen kunde inte sparas. Medlemsraden i Appwrite behöver uppdateringsbehörighet för just ditt användarkonto.'
+            : `Lässtatusen kunde inte sparas: ${error.message || 'Okänt fel'}`,
+        }
       }
     },
     [currentUser?.$id]
