@@ -327,9 +327,26 @@ export default function App() {
 
   const handleChatRead = useCallback(
     async (membershipRowId, conversationId, latestMessageAt) => {
-      if (!membershipRowId || !conversationId || !latestMessageAt) return
+      if (!membershipRowId || !conversationId || !latestMessageAt || !currentUser?.$id) {
+        return
+      }
 
       try {
+        // Räkna meddelanden som fortfarande ligger efter läspositionen.
+        // Det gör att sidomenyn inte nollställs förrän de faktiskt har visats.
+        const unreadResponse = await tablesDB.listRows({
+          databaseId: DATABASE_ID,
+          tableId: MESSAGES_TABLE_ID,
+          queries: [
+            Query.equal('conversationId', [conversationId]),
+            Query.greaterThan('$createdAt', latestMessageAt),
+            Query.notEqual('senderId', [currentUser.$id]),
+            Query.limit(1),
+          ],
+        })
+
+        const unreadCount = unreadResponse.total || 0
+
         await tablesDB.updateRow({
           databaseId: DATABASE_ID,
           tableId: CONVERSATION_MEMBERS_TABLE_ID,
@@ -342,21 +359,21 @@ export default function App() {
         setChats((previous) =>
           previous.map((chat) =>
             chat.id === conversationId
-              ? { ...chat, lastReadAt: latestMessageAt, unreadCount: 0 }
+              ? { ...chat, lastReadAt: latestMessageAt, unreadCount }
               : chat
           )
         )
 
         setActiveChat((previous) =>
           previous?.id === conversationId
-            ? { ...previous, lastReadAt: latestMessageAt, unreadCount: 0 }
+            ? { ...previous, lastReadAt: latestMessageAt, unreadCount }
             : previous
         )
       } catch (error) {
         console.error('Kunde inte markera chatten som läst:', error)
       }
     },
-    []
+    [currentUser?.$id]
   )
 
   function handleAuthenticated(result) {
@@ -429,13 +446,9 @@ export default function App() {
   }, [chats, search])
 
   function openChat(chat) {
-    // Nollställ märket direkt medan Chat hämtar och markerar meddelandena som lästa.
-    setChats((previous) =>
-      previous.map((item) =>
-        item.id === chat.id ? { ...item, unreadCount: 0 } : item
-      )
-    )
-    setActiveChat({ ...chat, unreadCount: 0 })
+    // Behåll den sparade läspositionen och eventuella olästa meddelanden.
+    // Chat-komponenten flyttar fram läspositionen när meddelanden faktiskt syns.
+    setActiveChat(chat)
     setActiveView('chat')
   }
 
