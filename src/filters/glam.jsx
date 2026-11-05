@@ -165,6 +165,16 @@ export async function startGlam(video, renderCanvas) {
     loadCameraUtils()
   ])
 
+  const gl = renderCanvas.getContext('webgl2', {
+    alpha: true,
+    antialias: true,
+    preserveDrawingBuffer: true,
+  })
+
+  if (!gl) {
+    throw new Error('WebGL 2 kunde inte startas för Glam-filtret.')
+  }
+
   const makeup = new OpenMakeup({
     video,
     renderCanvas,

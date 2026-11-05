@@ -445,6 +445,23 @@ export default function Camera({ currentUser }) {
     }
   }, [releaseRecordingStream, stopRecordingTimers])
 
+  useEffect(() => {
+    if (cameraState !== 'live') return
+
+    const video = videoRef.current
+    const stream = streamRef.current
+
+    if (!video || !stream) return
+
+    if (video.srcObject !== stream) {
+      video.srcObject = stream
+    }
+
+    video.play().catch((error) => {
+      console.error('Kamerabilden kunde inte återupptas:', error)
+    })
+  }, [cameraState])
+
   // Kamerans bild och filter.
   useEffect(() => {
     if (cameraState !== 'live') return
