@@ -63,16 +63,29 @@ export default async ({ req, res, log, error }) => {
       const rowId = subscriptionRowId(subscription.endpoint)
 
       if (req.bodyJson.action === 'subscribe') {
-        await tablesDB.createRow({
-          databaseId: DATABASE_ID,
-          tableId: SUBSCRIPTIONS_TABLE_ID,
-          rowId,
-          data: {
-            userId,
-            endpoint: subscription.endpoint,
-            subscription: JSON.stringify(subscription),
-          },
-        }).catch(async (createError) => {
+        try {
+          await tablesDB.createRow({
+            databaseId: DATABASE_ID,
+            tableId: SUBSCRIPTIONS_TABLE_ID,
+            rowId,
+            data: {
+              userId,
+              endpoint: subscription.endpoint,
+              subscription: JSON.stringify(subscription),
+            },
+          })
+        } catch (err) {
+          error(`CREATE ROW ERROR: ${JSON.stringify({
+            name: err.name,
+            message: err.message,
+            code: err.code,
+            type: err.type,
+            cause: err.cause?.message,
+            stack: err.stack,
+          })}`)
+        
+          throw err
+        }.catch(async (createError) => {
           if (createError.code !== 409) throw createError
 
           await tablesDB.updateRow({
