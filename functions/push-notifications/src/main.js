@@ -50,6 +50,7 @@ export default async ({ req, res, log, error }) => {
       .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
       .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
       .setKey(process.env.APPWRITE_API_KEY)
+
     const tablesDB = new TablesDB(client)
 
     if (req.headers['x-appwrite-trigger'] !== 'event') {
@@ -74,19 +75,19 @@ export default async ({ req, res, log, error }) => {
               subscription: JSON.stringify(subscription),
             },
           })
-        } catch (err) {
+        } catch (createError) {
           error(`CREATE ROW ERROR: ${JSON.stringify({
-            name: err.name,
-            message: err.message,
-            code: err.code,
-            type: err.type,
-            cause: err.cause?.message,
-            stack: err.stack,
+            name: createError.name,
+            message: createError.message,
+            code: createError.code,
+            type: createError.type,
+            cause: createError.cause?.message,
+            stack: createError.stack,
           })}`)
-        
-          throw err
-        }.catch(async (createError) => {
-          if (createError.code !== 409) throw createError
+
+          if (createError.code !== 409) {
+            throw createError
+          }
 
           await tablesDB.updateRow({
             databaseId: DATABASE_ID,
@@ -98,7 +99,7 @@ export default async ({ req, res, log, error }) => {
               subscription: JSON.stringify(subscription),
             },
           })
-        })
+        }
 
         return res.json({ success: true })
       }
@@ -135,12 +136,14 @@ export default async ({ req, res, log, error }) => {
     )
 
     const eventName = req.headers['x-appwrite-event']
+
     if (eventName && !eventName.endsWith('.create')) {
       log(`Ignorerar Appwrite-eventet ${eventName}.`)
       return res.json({ success: true, skipped: true })
     }
 
     const message = req.bodyJson
+
     if (
       !message?.$id ||
       !message.conversationId ||
@@ -159,6 +162,7 @@ export default async ({ req, res, log, error }) => {
         Query.limit(100),
       ],
     })
+
     const recipientIds = [
       ...new Set(
         members.rows
@@ -179,11 +183,14 @@ export default async ({ req, res, log, error }) => {
         })
       )
     )
+
     const pushRows = subscriptions.flatMap((result) => result.rows)
+
     const body =
       message.type === 'twist'
         ? 'Du har fått en ny Twist.'
         : 'Du har fått ett nytt meddelande.'
+
     const payload = JSON.stringify({
       title: 'PLOT TWIST',
       body,
@@ -198,7 +205,10 @@ export default async ({ req, res, log, error }) => {
             payload
           )
         } catch (pushError) {
-          if (pushError.statusCode === 404 || pushError.statusCode === 410) {
+          if (
+            pushError.statusCode === 404 ||
+            pushError.statusCode === 410
+          ) {
             await tablesDB.deleteRow({
               databaseId: DATABASE_ID,
               tableId: SUBSCRIPTIONS_TABLE_ID,
@@ -211,6 +221,7 @@ export default async ({ req, res, log, error }) => {
         }
       })
     )
+
     const failedDeliveries = outcomes.filter(
       (outcome) => outcome.status === 'rejected'
     )
@@ -227,9 +238,13 @@ export default async ({ req, res, log, error }) => {
     }
 
     log(`Skickade ${pushRows.length} pushnotis(er) för meddelande ${message.$id}.`)
+
     return res.json({ success: true, sent: pushRows.length })
   } catch (err) {
     error(`Pushnotiser misslyckades: ${err.message}`)
-    return res.json({ message: 'Pushnotiserna kunde inte hanteras.' }, 500)
+    return res.json(
+      { message: 'Pushnotiserna kunde inte hanteras.' },
+      500
+    )
   }
 }
