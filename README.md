@@ -27,6 +27,11 @@ behöver notiser även vara tillåtna för webbläsaren i Windows-inställningar
 
 ### Appwrite
 
+Twist-text och videohastighet sparas som JSON-sidecar-filer i den befintliga
+`TWISTS_BUCKET_ID`-bucketen. Ingen ny tabell eller kolumn behövs. Om bucketens
+filändelse-allowlist är aktiverad behöver den tillåta `.json` utöver bild- och
+videoformaten; filbehörigheterna sätts per fil av appen.
+
 1. Skapa en tabell, till exempel `push_subscriptions`, i appens databas med
    strängkolumnerna `userId` (högst 64 tecken), `endpoint` (högst 2048 tecken)
    och `subscription` (högst 4096 tecken). Lägg till ett index på `userId`.

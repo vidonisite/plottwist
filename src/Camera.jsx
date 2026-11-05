@@ -25,6 +25,11 @@ import { drawAlien } from './filters/alien.jsx'
 import { startGlam } from './filters/glam.jsx'
 import { startNoLips } from './filters/nolips.jsx'
 import { drawSquareFace } from './filters/squareface.jsx'
+import {
+  createTwistReference,
+  uploadTwistVideoVersion,
+} from './lib/twistMedia.js'
+import { encodeVideoAtSpeed } from './lib/videoSpeed.js'
 
 import './Camera.css'
 
@@ -164,6 +169,7 @@ async function stableId(value) {
 
 export default function Camera({ currentUser }) {
   const videoRef = useRef(null)
+  const captureVideoRef = useRef(null)
   const canvasRef = useRef(null)
   const makeupCanvasRef = useRef(null)
 
@@ -190,6 +196,7 @@ export default function Camera({ currentUser }) {
   const [errorMessage, setErrorMessage] = useState('')
   const [filter, setFilter] = useState('none')
   const [capture, setCapture] = useState(null)
+  const [capturePlaybackRate, setCapturePlaybackRate] = useState(1)
 
   const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
@@ -216,6 +223,12 @@ export default function Camera({ currentUser }) {
   useEffect(() => {
     captureRef.current = capture
   }, [capture])
+
+  useEffect(() => {
+    if (captureVideoRef.current) {
+      captureVideoRef.current.playbackRate = capturePlaybackRate
+    }
+  }, [capture, capturePlaybackRate])
 
   const stopRecordingTimers = useCallback(() => {
     window.clearTimeout(holdTimerRef.current)
@@ -303,6 +316,7 @@ export default function Camera({ currentUser }) {
           url,
         })
 
+        setCapturePlaybackRate(1)
         setHasSent(false)
         setSendMessage('')
         setShowRecipients(false)
@@ -386,6 +400,7 @@ export default function Camera({ currentUser }) {
           url,
         })
 
+        setCapturePlaybackRate(1)
         setHasSent(false)
         setSendMessage('')
         setShowRecipients(false)
@@ -884,6 +899,7 @@ export default function Camera({ currentUser }) {
     }
 
     setCapture(null)
+    setCapturePlaybackRate(1)
     setShowRecipients(false)
     setSelectedRecipientIds([])
     setSendMessage('')
@@ -1071,6 +1087,7 @@ export default function Camera({ currentUser }) {
     setSendMessage('')
 
     let uploadedFileId = null
+    let uploadedReference = null
     let sentCount = 0
 
     try {
@@ -1084,6 +1101,11 @@ export default function Camera({ currentUser }) {
       if (!capture.blob || capture.blob.size === 0) {
         throw new Error('Filen är tom. Ta en ny bild eller spela in en ny video.')
       }
+
+      const speedAdjustedVideo =
+        capture.type === 'video' && capturePlaybackRate !== 1
+          ? await encodeVideoAtSpeed(capture.blob, capturePlaybackRate)
+          : null
 
       const uploadFile = new File(
         [capture.blob],
@@ -1110,6 +1132,19 @@ export default function Camera({ currentUser }) {
         ],
       })
 
+      const mediaFileId = speedAdjustedVideo
+        ? await uploadTwistVideoVersion(speedAdjustedVideo, currentUserId)
+        : uploadedFileId
+
+      uploadedReference = await createTwistReference(
+        uploadedFileId,
+        currentUserId,
+        {
+          mediaFileId,
+          playbackRate: capture.type === 'video' ? capturePlaybackRate : 1,
+        }
+      )
+
       // 2. Skapa ett Twist-meddelande i varje vald persons chatt.
       for (const recipientId of selectedRecipientIds) {
         const conversation = await ensureDirectConversation(
@@ -1124,7 +1159,7 @@ export default function Camera({ currentUser }) {
           data: {
             conversationId: conversation.$id,
             senderId: currentUserId,
-            text: uploadedFileId,
+            text: uploadedReference,
             type: 'twist',
           },
           permissions: [
@@ -1178,13 +1213,32 @@ export default function Camera({ currentUser }) {
             {capture.type === 'photo' ? (
               <img src={capture.url} alt="Din tagna bild" />
             ) : (
-              <video
-                src={capture.url}
-                controls
-                autoPlay
-                playsInline
-                loop
-              />
+              <>
+                <video
+                  ref={captureVideoRef}
+                  src={capture.url}
+                  className="capture-preview-video"
+                  controls
+                  autoPlay
+                  playsInline
+                  loop
+                  onLoadedMetadata={(event) => {
+                    event.currentTarget.playbackRate = capturePlaybackRate
+                  }}
+                />
+                <div className="capture-speed-control" role="group" aria-label="Videohastighet">
+                  {[0.5, 1, 2].map((rate) => (
+                    <button
+                      key={rate}
+                      type="button"
+                      aria-pressed={capturePlaybackRate === rate}
+                      onClick={() => setCapturePlaybackRate(rate)}
+                    >
+                      {rate.toLocaleString('sv-SE')}x
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
 
             {!showRecipients ? (

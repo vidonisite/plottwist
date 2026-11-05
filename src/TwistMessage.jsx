@@ -9,6 +9,12 @@ import {
   MESSAGE_READS_TABLE_ID,
   TWISTS_BUCKET_ID,
 } from './lib/appwrite.js'
+import {
+  getTwistFile,
+  loadTwistSettings,
+  saveTwistEdits,
+} from './lib/twistMedia.js'
+import { encodeVideoAtSpeed } from './lib/videoSpeed.js'
 
 import './TwistMessage.css'
 
@@ -25,6 +31,13 @@ export default function TwistMessage({
   const [mediaUrl, setMediaUrl] = useState('')
   const [mediaType, setMediaType] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [mediaReference, setMediaReference] = useState(message.text)
+  const [twistSettings, setTwistSettings] = useState(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editText, setEditText] = useState('')
+  const [editPosition, setEditPosition] = useState(0.5)
+  const [editPlaybackRate, setEditPlaybackRate] = useState(1)
+  const [savingEdits, setSavingEdits] = useState(false)
 
   const messageId = message.$id
 
@@ -162,8 +175,8 @@ export default function TwistMessage({
   }, [mediaUrl])
 
   // Öppna Twisten.
-  async function openTwist() {
-    if (opening || hasOpened || !currentUserId) return
+  async function openTwist({ edit = false } = {}) {
+    if (opening || (!isMine && hasOpened) || !currentUserId) return
 
     setOpening(true)
     setErrorMessage('')
@@ -171,14 +184,15 @@ export default function TwistMessage({
     let objectUrl = ''
 
     try {
+      const settings = await loadTwistSettings(message.text)
       const file = await storage.getFile({
         bucketId: TWISTS_BUCKET_ID,
-        fileId: message.text,
+        fileId: settings.mediaFileId,
       })
 
       const fileUrl = await storage.getFileView({
         bucketId: TWISTS_BUCKET_ID,
-        fileId: message.text,
+        fileId: settings.mediaFileId,
       })
 
       const fileData = await client.call(
@@ -201,27 +215,33 @@ export default function TwistMessage({
         new Blob([fileData], { type: mimeType })
       )
 
-      // Registrera att användaren har öppnat Twisten.
-      await tablesDB.createRow({
-        databaseId: DATABASE_ID,
-        tableId: MESSAGE_READS_TABLE_ID,
-        rowId: ID.unique(),
-        data: {
-          messageId,
-          userId: currentUserId,
-        },
-        permissions: [
-          Permission.read(Role.users()),
-          Permission.update(Role.user(currentUserId)),
-          Permission.delete(Role.user(currentUserId)),
-        ],
-      })
+      if (!isMine && !hasOpened) {
+        await tablesDB.createRow({
+          databaseId: DATABASE_ID,
+          tableId: MESSAGE_READS_TABLE_ID,
+          rowId: ID.unique(),
+          data: {
+            messageId,
+            userId: currentUserId,
+          },
+          permissions: [
+            Permission.read(Role.users()),
+            Permission.update(Role.user(currentUserId)),
+            Permission.delete(Role.user(currentUserId)),
+          ],
+        })
+      }
 
-      // Visa Twisten.
+      setTwistSettings(settings)
+      setMediaReference(message.text)
+      setEditText(settings.text)
+      setEditPosition(settings.position)
+      setEditPlaybackRate(settings.playbackRate)
+      setIsEditing(edit)
       setMediaType(isVideo ? 'video' : 'image')
       setMediaUrl(objectUrl)
       objectUrl = ''
-      setHasOpened(true)
+      if (!isMine) setHasOpened(true)
 
     } catch (error) {
       console.error('TWIST ERROR:', {
@@ -265,8 +285,74 @@ export default function TwistMessage({
     }
   }
 
+  async function saveEdits() {
+    if (!isMine || !twistSettings || savingEdits) return
+
+    setSavingEdits(true)
+    setErrorMessage('')
+
+    try {
+      let videoBlob
+
+      if (
+        mediaType === 'video' &&
+        editPlaybackRate !== twistSettings.playbackRate
+      ) {
+        videoBlob = editPlaybackRate === 1
+          ? undefined
+          : await encodeVideoAtSpeed(
+              await getTwistFile(twistSettings.originalFileId),
+              editPlaybackRate
+            )
+      }
+
+      const result = await saveTwistEdits({
+        messageId,
+        reference: mediaReference,
+        settings: {
+          ...twistSettings,
+          text: editText,
+          position: editPosition,
+          playbackRate: editPlaybackRate,
+        },
+        ownerId: currentUserId,
+        videoBlob,
+      })
+
+      setMediaReference(result.reference)
+      setTwistSettings(result.settings)
+      setIsEditing(false)
+
+      if (mediaType === 'video' && videoBlob) {
+        setMediaUrl(URL.createObjectURL(videoBlob))
+      } else if (mediaType === 'video' && editPlaybackRate === 1) {
+        setMediaUrl(URL.createObjectURL(
+          await getTwistFile(result.settings.mediaFileId)
+        ))
+      }
+    } catch (error) {
+      console.error('Twist-redigeringen kunde inte sparas:', error)
+      setErrorMessage(
+        `Ändringarna kunde inte sparas: ${error.message || 'Okänt fel'}`
+      )
+    } finally {
+      setSavingEdits(false)
+    }
+  }
+
+  function cancelEdits() {
+    if (twistSettings) {
+      setEditText(twistSettings.text)
+      setEditPosition(twistSettings.position)
+      setEditPlaybackRate(twistSettings.playbackRate)
+    }
+    setIsEditing(false)
+  }
+
   function closeTwist() {
     setMediaUrl('')
+    setIsEditing(false)
+    setTwistSettings(null)
   }
 
   const openerNames = openedByIds.map((userId) => {
@@ -280,20 +366,29 @@ export default function TwistMessage({
     <>
       <div className="twist-message">
         {isMine ? (
-          <div
-            className={`twist-status ${
-              openerNames.length ? 'twist-opened twist-status-readers' : ''
-            }`}
-          >
-            <span className="twist-status-icon">
-              {openerNames.length ? '✓' : '✳'}
-            </span>
-            <span>
-              {openerNames.length
-                ? `ÖPPNAD AV ${openerNames.join(', ')}`
-                : 'TWIST SKICKAD'}
-            </span>
-          </div>
+          <>
+            <div
+              className={`twist-status ${
+                openerNames.length ? 'twist-opened twist-status-readers' : ''
+              }`}
+            >
+              <span className="twist-status-icon">
+                {openerNames.length ? '✓' : '✳'}
+              </span>
+              <span>
+                {openerNames.length
+                  ? `ÖPPNAD AV ${openerNames.join(', ')}`
+                  : 'TWIST SKICKAD'}
+              </span>
+            </div>
+            <button
+              className="twist-edit-trigger"
+              onClick={() => openTwist({ edit: true })}
+              disabled={opening}
+            >
+              {opening ? 'ÖPPNAR...' : 'Öppna / redigera Twist'}
+            </button>
+          </>
         ) : checking ? (
           <div className="twist-status">
             Hämtar Twist...
@@ -349,20 +444,99 @@ export default function TwistMessage({
             className="twist-media-container"
             onClick={(event) => event.stopPropagation()}
           >
-            {mediaType === 'video' ? (
-              <video
-                src={mediaUrl}
-                className="twist-media"
-                autoPlay
-                playsInline
-                controls
-              />
-            ) : (
-              <img
-                src={mediaUrl}
-                className="twist-media"
-                alt="Öppnad Twist"
-              />
+            <div className="twist-media-stage">
+              {mediaType === 'video' ? (
+                <video
+                  src={mediaUrl}
+                  className="twist-media"
+                  autoPlay
+                  playsInline
+                  controls
+                />
+              ) : (
+                <img
+                  src={mediaUrl}
+                  className="twist-media"
+                  alt="Öppnad Twist"
+                />
+              )}
+
+              {(isEditing ? editText : twistSettings?.text) && (
+                <div
+                  className="twist-text-overlay"
+                  style={{
+                    top: `${(isEditing ? editPosition : twistSettings.position) * 100}%`,
+                  }}
+                >
+                  {isEditing ? editText : twistSettings.text}
+                </div>
+              )}
+            </div>
+
+            {isEditing && (
+              <div className="twist-editor">
+                <label className="twist-editor-text-label">
+                  Text
+                  <textarea
+                    value={editText}
+                    onChange={(event) => setEditText(event.target.value)}
+                    maxLength={500}
+                    rows={2}
+                    placeholder="Skriv text på din Twist"
+                  />
+                </label>
+
+                <label className="twist-editor-position">
+                  <span>Placering upp / ner</span>
+                  <input
+                    type="range"
+                    min="10"
+                    max="90"
+                    value={Math.round(editPosition * 100)}
+                    onChange={(event) =>
+                      setEditPosition(Number(event.target.value) / 100)
+                    }
+                  />
+                </label>
+
+                {mediaType === 'video' && (
+                  <div className="twist-speed-control" role="group" aria-label="Videohastighet">
+                    {[0.5, 1, 2].map((rate) => (
+                      <button
+                        key={rate}
+                        type="button"
+                        aria-pressed={editPlaybackRate === rate}
+                        onClick={() => setEditPlaybackRate(rate)}
+                      >
+                        {rate.toLocaleString('sv-SE')}x
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {errorMessage && (
+                  <p className="twist-editor-error" role="alert">
+                    {errorMessage}
+                  </p>
+                )}
+
+                <div className="twist-editor-actions">
+                  <button
+                    type="button"
+                    onClick={cancelEdits}
+                    disabled={savingEdits}
+                  >
+                    Avbryt
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveEdits}
+                    disabled={savingEdits}
+                  >
+                    {savingEdits ? 'Sparar...' : 'Spara ändringar'}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>

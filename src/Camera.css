@@ -379,7 +379,8 @@
 }
 
 .capture-preview > img,
-.capture-preview > video {
+.capture-preview > video,
+.capture-preview-video {
   display: block;
   width: 100%;
   aspect-ratio: 1 / 1;
@@ -388,6 +389,33 @@
   border-radius: 26px;
   background: #170d1d;
   box-shadow: 0 18px 55px rgba(0, 0, 0, 0.2);
+}
+
+.capture-speed-control {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: -6px;
+}
+
+.capture-speed-control button {
+  min-width: 64px;
+  min-height: 38px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 7px;
+  color: white;
+  background: rgba(255, 255, 255, .1);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.capture-speed-control button[aria-pressed='true'] {
+  border-color: #d7ed9b;
+  color: #24132d;
+  background: #d7ed9b;
 }
 
 .capture-preview-actions {
