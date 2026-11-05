@@ -197,6 +197,9 @@ export default function Camera({ currentUser }) {
   const [filter, setFilter] = useState('none')
   const [capture, setCapture] = useState(null)
   const [capturePlaybackRate, setCapturePlaybackRate] = useState(1)
+  const [captureText, setCaptureText] = useState('')
+  const [captureTextPosition, setCaptureTextPosition] = useState(0.5)
+  const [showCaptureTextEditor, setShowCaptureTextEditor] = useState(false)
 
   const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
@@ -900,6 +903,9 @@ export default function Camera({ currentUser }) {
 
     setCapture(null)
     setCapturePlaybackRate(1)
+    setCaptureText('')
+    setCaptureTextPosition(0.5)
+    setShowCaptureTextEditor(false)
     setShowRecipients(false)
     setSelectedRecipientIds([])
     setSendMessage('')
@@ -1142,6 +1148,8 @@ export default function Camera({ currentUser }) {
         {
           mediaFileId,
           playbackRate: capture.type === 'video' ? capturePlaybackRate : 1,
+          text: captureText,
+          position: captureTextPosition,
         }
       )
 
@@ -1210,10 +1218,10 @@ export default function Camera({ currentUser }) {
         {cameraState === 'preview' && capture && (
           <div className="capture-preview">
 
-            {capture.type === 'photo' ? (
-              <img src={capture.url} alt="Din tagna bild" />
-            ) : (
-              <>
+            <div className="capture-preview-stage">
+              {capture.type === 'photo' ? (
+                <img src={capture.url} alt="Din tagna bild" />
+              ) : (
                 <video
                   ref={captureVideoRef}
                   src={capture.url}
@@ -1226,6 +1234,20 @@ export default function Camera({ currentUser }) {
                     event.currentTarget.playbackRate = capturePlaybackRate
                   }}
                 />
+              )}
+
+              {captureText && (
+                <div
+                  className="capture-text-overlay"
+                  style={{ top: `${captureTextPosition * 100}%` }}
+                >
+                  {captureText}
+                </div>
+              )}
+            </div>
+
+            {capture.type === 'video' && (
+              <>
                 <div className="capture-speed-control" role="group" aria-label="Videohastighet">
                   {[0.5, 1, 2].map((rate) => (
                     <button
@@ -1239,6 +1261,48 @@ export default function Camera({ currentUser }) {
                   ))}
                 </div>
               </>
+            )}
+
+            {!showRecipients && (
+              <div className="capture-text-tools">
+                <button
+                  type="button"
+                  className="capture-text-toggle"
+                  aria-expanded={showCaptureTextEditor}
+                  onClick={() =>
+                    setShowCaptureTextEditor((isVisible) => !isVisible)
+                  }
+                >
+                  {showCaptureTextEditor ? 'Dölj textfält' : 'Lägg till text'}
+                </button>
+
+                {showCaptureTextEditor && (
+                  <div className="capture-text-editor">
+                    <label>
+                      Text på din Twist
+                      <textarea
+                        value={captureText}
+                        onChange={(event) => setCaptureText(event.target.value)}
+                        maxLength={500}
+                        rows={2}
+                        placeholder="Skriv din text"
+                      />
+                    </label>
+                    <label>
+                      Placering upp / ner
+                      <input
+                        type="range"
+                        min="10"
+                        max="90"
+                        value={Math.round(captureTextPosition * 100)}
+                        onChange={(event) =>
+                          setCaptureTextPosition(Number(event.target.value) / 100)
+                        }
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
             )}
 
             {!showRecipients ? (
