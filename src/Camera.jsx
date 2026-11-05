@@ -201,6 +201,7 @@ export default function Camera({ currentUser }) {
   const [captureText, setCaptureText] = useState('')
   const [captureTextPosition, setCaptureTextPosition] = useState(0.5)
   const [showCaptureTextEditor, setShowCaptureTextEditor] = useState(false)
+  const [showCaptureSpeedControl, setShowCaptureSpeedControl] = useState(false)
 
   const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
@@ -913,6 +914,7 @@ export default function Camera({ currentUser }) {
     setCaptureText('')
     setCaptureTextPosition(0.5)
     setShowCaptureTextEditor(false)
+    setShowCaptureSpeedControl(false)
     setShowRecipients(false)
     setSelectedRecipientIds([])
     setSendMessage('')
@@ -1259,44 +1261,63 @@ export default function Camera({ currentUser }) {
                   onInput={(event) =>
                     setCaptureText(event.currentTarget.innerText)
                   }
-                >
-                  {captureText}
-                </div>
+                />
               )}
 
               {!showRecipients && (
-                <button
-                  type="button"
-                  className={`capture-text-toggle ${
-                    showCaptureTextEditor ? 'is-active' : ''
-                  }`}
-                  aria-label={showCaptureTextEditor ? 'Klar med text' : 'Lägg till text'}
-                  aria-expanded={showCaptureTextEditor}
-                  onClick={() =>
-                    setShowCaptureTextEditor((isVisible) => !isVisible)
-                  }
-                >
-                  T
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className={`capture-text-toggle ${
+                      showCaptureTextEditor ? 'is-active' : ''
+                    }`}
+                    aria-label={showCaptureTextEditor ? 'Klar med text' : 'Lägg till text'}
+                    aria-expanded={showCaptureTextEditor}
+                    onClick={() =>
+                      setShowCaptureTextEditor((isVisible) => !isVisible)
+                    }
+                  >
+                    T
+                  </button>
+
+                  {capture.type === 'video' && (
+                    <>
+                      <button
+                        type="button"
+                        className={`capture-speed-toggle ${
+                          showCaptureSpeedControl ? 'is-active' : ''
+                        }`}
+                        aria-label="Ändra videohastighet"
+                        aria-expanded={showCaptureSpeedControl}
+                        onClick={() =>
+                          setShowCaptureSpeedControl((isVisible) => !isVisible)
+                        }
+                      >
+                        ⏩
+                      </button>
+
+                      {showCaptureSpeedControl && (
+                        <div className="capture-speed-control" role="group" aria-label="Videohastighet">
+                          {[0.5, 1, 2].map((rate) => (
+                            <button
+                              key={rate}
+                              type="button"
+                              aria-pressed={capturePlaybackRate === rate}
+                              onClick={() => {
+                                setCapturePlaybackRate(rate)
+                                setShowCaptureSpeedControl(false)
+                              }}
+                            >
+                              {rate.toLocaleString('sv-SE')}x
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
               )}
             </div>
-
-            {capture.type === 'video' && (
-              <>
-                <div className="capture-speed-control" role="group" aria-label="Videohastighet">
-                  {[0.5, 1, 2].map((rate) => (
-                    <button
-                      key={rate}
-                      type="button"
-                      aria-pressed={capturePlaybackRate === rate}
-                      onClick={() => setCapturePlaybackRate(rate)}
-                    >
-                      {rate.toLocaleString('sv-SE')}x
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
 
             {!showRecipients && showCaptureTextEditor && (
               <label className="capture-text-position">

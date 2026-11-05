@@ -467,18 +467,25 @@
 }
 
 .capture-speed-control {
+  position: absolute;
+  z-index: 3;
+  top: 62px;
+  right: 62px;
   display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-top: -6px;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 8px;
+  background: rgba(20, 16, 22, .82);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .28);
 }
 
 .capture-speed-control button {
-  min-width: 64px;
-  min-height: 38px;
-  padding: 6px 12px;
-  border: 1px solid rgba(255, 255, 255, .2);
-  border-radius: 7px;
+  min-width: 46px;
+  min-height: 34px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
   color: white;
   background: rgba(255, 255, 255, .1);
   font: inherit;
@@ -488,6 +495,30 @@
 }
 
 .capture-speed-control button[aria-pressed='true'] {
+  border-color: #d7ed9b;
+  color: #24132d;
+  background: #d7ed9b;
+}
+
+.capture-speed-toggle {
+  position: absolute;
+  z-index: 2;
+  top: 62px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, .42);
+  border-radius: 8px;
+  color: white;
+  background: rgba(20, 16, 22, .58);
+  font-size: 19px;
+  cursor: pointer;
+}
+
+.capture-speed-toggle.is-active {
   border-color: #d7ed9b;
   color: #24132d;
   background: #d7ed9b;
