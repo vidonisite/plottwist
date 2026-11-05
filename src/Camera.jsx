@@ -29,12 +29,12 @@ import './Camera.css'
 
 const FILTERS = [
   { id: 'none', label: 'No filter', symbol: '' },
+  { id: 'big-eyes', label: 'Big eyes', symbol: '◉' },
   { id: 'fisheye', label: 'Fish Eye', symbol: '🐟' },
-  { id: 'glam', label: 'Glam Makeup', symbol: '💄' },
   { id: 'dreamy', label: 'Dreamy', symbol: '✦' },
   { id: 'alien', label: 'Alien', symbol: '👽' },
+  { id: 'glam', label: 'Glam Makeup', symbol: '💄' },
   { id: 'square-face', label: 'Square Face', symbol: '▣' },
-  { id: 'big-eyes', label: 'Big eyes', symbol: '◉' },
 ]
 
 const SIZE = 640
@@ -964,7 +964,10 @@ export default function Camera({ currentUser }) {
               conversationId: conversation.$id,
             },
             permissions: [
+              // Alla inloggade kan läsa medlemslistan, men varje användare
+              // får bara uppdatera sin egen medlemsrad (t.ex. lastReadAt).
               Permission.read(Role.users()),
+              Permission.update(Role.user(userId)),
             ],
           })
         } catch (createError) {
