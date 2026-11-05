@@ -10,9 +10,15 @@ const DATABASE_ID = process.env.APPWRITE_DATABASE_ID
 const MESSAGES_TABLE_ID = process.env.APPWRITE_MESSAGES_TABLE_ID
 const MEMBERS_TABLE_ID = process.env.APPWRITE_CONVERSATION_MEMBERS_TABLE_ID
 const SUBSCRIPTIONS_TABLE_ID = process.env.APPWRITE_PUSH_SUBSCRIPTIONS_TABLE_ID
+const CONTACTS_TABLE_ID = process.env.APPWRITE_CONTACTS_TABLE_ID
+const CONVERSATIONS_TABLE_ID = process.env.APPWRITE_CONVERSATIONS_TABLE_ID
+const USERS_TABLE_ID = process.env.APPWRITE_USERS_TABLE_ID
 
 function subscriptionRowId(endpoint) {
-  return createHash('sha256').update(endpoint).digest('hex').slice(0, 32)
+  return createHash('sha256')
+    .update(endpoint)
+    .digest('hex')
+    .slice(0, 32)
 }
 
 function getSubscription(req) {
@@ -31,6 +37,229 @@ function getSubscription(req) {
   return subscription
 }
 
+async function getUserById(tablesDB, userId) {
+  if (!userId) return null
+
+  const result = await tablesDB.listRows({
+    databaseId: DATABASE_ID,
+    tableId: USERS_TABLE_ID,
+    queries: [
+      Query.equal('userId', [userId]),
+      Query.limit(1),
+    ],
+  })
+
+  return result.rows[0] ?? null
+}
+
+async function getConversation(tablesDB, conversationId) {
+  if (!conversationId) return null
+
+  try {
+    return await tablesDB.getRow({
+      databaseId: DATABASE_ID,
+      tableId: CONVERSATIONS_TABLE_ID,
+      rowId: conversationId,
+    })
+  } catch {
+    return null
+  }
+}
+
+async function sendToUsers(tablesDB, userIds, payload, log, error) {
+  const recipientIds = [...new Set(userIds.filter(Boolean))]
+
+  if (!recipientIds.length) {
+    log('Inga mottagare för pushnotisen.')
+    return 0
+  }
+
+  const subscriptionResults = await Promise.all(
+    recipientIds.map((userId) =>
+      tablesDB.listRows({
+        databaseId: DATABASE_ID,
+        tableId: SUBSCRIPTIONS_TABLE_ID,
+        queries: [
+          Query.equal('userId', [userId]),
+          Query.limit(100),
+        ],
+      })
+    )
+  )
+
+  const pushRows = subscriptionResults.flatMap(
+    (result) => result.rows
+  )
+
+  const outcomes = await Promise.allSettled(
+    pushRows.map(async (row) => {
+      try {
+        await webpush.sendNotification(
+          JSON.parse(row.subscription),
+          payload
+        )
+      } catch (pushError) {
+        if (
+          pushError.statusCode === 404 ||
+          pushError.statusCode === 410
+        ) {
+          await tablesDB.deleteRow({
+            databaseId: DATABASE_ID,
+            tableId: SUBSCRIPTIONS_TABLE_ID,
+            rowId: row.$id,
+          })
+          return
+        }
+
+        throw pushError
+      }
+    })
+  )
+
+  const failed = outcomes.filter(
+    (outcome) => outcome.status === 'rejected'
+  )
+
+  for (const outcome of failed) {
+    error(
+      `Pushnotis kunde inte skickas: ${outcome.reason?.message}`
+    )
+  }
+
+  if (failed.length) {
+    throw new Error(
+      `${failed.length} pushnotis(er) kunde inte skickas.`
+    )
+  }
+
+  return pushRows.length
+}
+
+async function handleMessageEvent(
+  tablesDB,
+  message,
+  log,
+  error
+) {
+  if (
+    !message.conversationId ||
+    !message.senderId
+  ) {
+    log('Meddelandet saknar conversationId eller senderId.')
+    return resSkipped()
+  }
+
+  const [members, sender, conversation] = await Promise.all([
+    tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: MEMBERS_TABLE_ID,
+      queries: [
+        Query.equal('conversationId', [message.conversationId]),
+        Query.limit(100),
+      ],
+    }),
+    getUserById(tablesDB, message.senderId),
+    getConversation(tablesDB, message.conversationId),
+  ])
+
+  const recipientIds = members.rows
+    .map((member) => member.userId)
+    .filter(
+      (userId) => userId && userId !== message.senderId
+    )
+
+  if (!recipientIds.length) {
+    log('Meddelandet har inga andra konversationsmedlemmar.')
+    return { sent: 0 }
+  }
+
+  const senderName = sender?.username || 'Någon'
+  const isGroup = conversation?.type === 'group'
+  const isTwist = message.type === 'twist'
+
+  let title
+  let body
+
+  if (isGroup) {
+    title = conversation?.name || 'Gruppchatt'
+    body = isTwist
+      ? `${senderName} skickade en ny Twist.`
+      : `${senderName} skickade ett meddelande.`
+  } else {
+    title = senderName
+    body = isTwist
+      ? 'Du har fått en ny Twist.'
+      : 'Du har fått ett nytt meddelande.'
+  }
+
+  const payload = JSON.stringify({
+    title,
+    body,
+    url: '/',
+  })
+
+  const sent = await sendToUsers(
+    tablesDB,
+    recipientIds,
+    payload,
+    log,
+    error
+  )
+
+  log(`Skickade ${sent} meddelandenotiser.`)
+
+  return { sent }
+}
+
+async function handleContactEvent(
+  tablesDB,
+  contact,
+  log,
+  error
+) {
+  if (
+    !contact.ownerId ||
+    !contact.contactUserId
+  ) {
+    log('Kontaktförfrågan saknar ownerId eller contactUserId.')
+    return { sent: 0 }
+  }
+
+  if (contact.status !== 'pending') {
+    log(`Ignorerar kontakt med status ${contact.status}.`)
+    return { sent: 0 }
+  }
+
+  const sender = await getUserById(
+    tablesDB,
+    contact.ownerId
+  )
+
+  const senderName = sender?.username || 'Någon'
+
+  const payload = JSON.stringify({
+    title: 'Ny kontaktförfrågan',
+    body: `@${senderName} vill lägga till dig som kontakt.`,
+    url: '/',
+  })
+
+  const sent = await sendToUsers(
+    tablesDB,
+    [contact.contactUserId],
+    payload,
+    log,
+    error
+  )
+
+  log(`Skickade ${sent} kontaktförfrågenotiser.`)
+
+  return { sent }
+}
+
+function resSkipped() {
+  return { skipped: true, sent: 0 }
+}
+
 export default async ({ req, res, log, error }) => {
   try {
     if (
@@ -39,12 +268,10 @@ export default async ({ req, res, log, error }) => {
       !MEMBERS_TABLE_ID ||
       !SUBSCRIPTIONS_TABLE_ID
     ) {
-      throw new Error('Appwrite-tabellerna för pushnotiser är inte konfigurerade.')
+      throw new Error(
+        'Appwrite-tabellerna för pushnotiser är inte konfigurerade.'
+      )
     }
-
-    log(`Appwrite endpoint: ${process.env.APPWRITE_FUNCTION_API_ENDPOINT}`)
-    log(`Project ID finns: ${Boolean(process.env.APPWRITE_FUNCTION_PROJECT_ID)}`)
-    log(`API key finns: ${Boolean(process.env.APPWRITE_API_KEY)}`)
 
     const client = new Client()
       .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
@@ -53,11 +280,15 @@ export default async ({ req, res, log, error }) => {
 
     const tablesDB = new TablesDB(client)
 
+    // Hantera prenumerationer från frontend.
     if (req.headers['x-appwrite-trigger'] !== 'event') {
       const userId = req.headers['x-appwrite-user-id']
 
       if (!userId) {
-        return res.json({ message: 'Du måste vara inloggad.' }, 401)
+        return res.json(
+          { message: 'Du måste vara inloggad.' },
+          401
+        )
       }
 
       const subscription = getSubscription(req)
@@ -76,15 +307,6 @@ export default async ({ req, res, log, error }) => {
             },
           })
         } catch (createError) {
-          error(`CREATE ROW ERROR: ${JSON.stringify({
-            name: createError.name,
-            message: createError.message,
-            code: createError.code,
-            type: createError.type,
-            cause: createError.cause?.message,
-            stack: createError.stack,
-          })}`)
-
           if (createError.code !== 409) {
             throw createError
           }
@@ -112,15 +334,21 @@ export default async ({ req, res, log, error }) => {
             rowId,
           })
         } catch (deleteError) {
-          if (deleteError.code !== 404) throw deleteError
+          if (deleteError.code !== 404) {
+            throw deleteError
+          }
         }
 
         return res.json({ success: true })
       }
 
-      return res.json({ message: 'Ogiltig åtgärd.' }, 400)
+      return res.json(
+        { message: 'Ogiltig åtgärd.' },
+        400
+      )
     }
 
+    // Pushinställningar behövs bara för riktiga event.
     if (
       !process.env.VAPID_PUBLIC_KEY ||
       !process.env.VAPID_PRIVATE_KEY ||
@@ -142,106 +370,55 @@ export default async ({ req, res, log, error }) => {
       return res.json({ success: true, skipped: true })
     }
 
-    const message = req.bodyJson
+    const row = req.bodyJson
+    const tableId = row?.$tableId
 
-    if (
-      !message?.$id ||
-      !message.conversationId ||
-      !message.senderId ||
-      message.$tableId !== MESSAGES_TABLE_ID
-    ) {
-      log('Ignorerar event som inte innehåller en ny meddelanderad.')
+    if (!row?.$id || !tableId) {
+      log('Eventet saknar rad-ID eller tabell-ID.')
       return res.json({ success: true, skipped: true })
     }
 
-    const members = await tablesDB.listRows({
-      databaseId: DATABASE_ID,
-      tableId: MEMBERS_TABLE_ID,
-      queries: [
-        Query.equal('conversationId', [message.conversationId]),
-        Query.limit(100),
-      ],
-    })
-
-    const recipientIds = [
-      ...new Set(
-        members.rows
-          .map((member) => member.userId)
-          .filter((userId) => userId && userId !== message.senderId)
-      ),
-    ]
-
-    const subscriptions = await Promise.all(
-      recipientIds.map((userId) =>
-        tablesDB.listRows({
-          databaseId: DATABASE_ID,
-          tableId: SUBSCRIPTIONS_TABLE_ID,
-          queries: [
-            Query.equal('userId', [userId]),
-            Query.limit(100),
-          ],
-        })
+    // Nytt meddelande.
+    if (tableId === MESSAGES_TABLE_ID) {
+      const result = await handleMessageEvent(
+        tablesDB,
+        row,
+        log,
+        error
       )
-    )
 
-    const pushRows = subscriptions.flatMap((result) => result.rows)
-
-    const body =
-      message.type === 'twist'
-        ? 'Du har fått en ny Twist.'
-        : 'Du har fått ett nytt meddelande.'
-
-    const payload = JSON.stringify({
-      title: 'PLOT TWIST',
-      body,
-      url: '/',
-    })
-
-    const outcomes = await Promise.allSettled(
-      pushRows.map(async (row) => {
-        try {
-          await webpush.sendNotification(
-            JSON.parse(row.subscription),
-            payload
-          )
-        } catch (pushError) {
-          if (
-            pushError.statusCode === 404 ||
-            pushError.statusCode === 410
-          ) {
-            await tablesDB.deleteRow({
-              databaseId: DATABASE_ID,
-              tableId: SUBSCRIPTIONS_TABLE_ID,
-              rowId: row.$id,
-            })
-            return
-          }
-
-          throw pushError
-        }
+      return res.json({
+        success: true,
+        type: 'message',
+        ...result,
       })
-    )
-
-    const failedDeliveries = outcomes.filter(
-      (outcome) => outcome.status === 'rejected'
-    )
-
-    if (failedDeliveries.length) {
-      for (const outcome of failedDeliveries) {
-        error(`Pushnotis kunde inte skickas: ${outcome.reason.message}`)
-      }
-
-      return res.json(
-        { message: `${failedDeliveries.length} pushnotis(er) kunde inte skickas.` },
-        500
-      )
     }
 
-    log(`Skickade ${pushRows.length} pushnotis(er) för meddelande ${message.$id}.`)
+    // Ny kontaktförfrågan.
+    if (
+      CONTACTS_TABLE_ID &&
+      tableId === CONTACTS_TABLE_ID
+    ) {
+      const result = await handleContactEvent(
+        tablesDB,
+        row,
+        log,
+        error
+      )
 
-    return res.json({ success: true, sent: pushRows.length })
+      return res.json({
+        success: true,
+        type: 'contact',
+        ...result,
+      })
+    }
+
+    log(`Ignorerar event från tabell ${tableId}.`)
+
+    return res.json({ success: true, skipped: true })
   } catch (err) {
     error(`Pushnotiser misslyckades: ${err.message}`)
+
     return res.json(
       { message: 'Pushnotiserna kunde inte hanteras.' },
       500
