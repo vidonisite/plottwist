@@ -11,7 +11,7 @@ import {
 import TwistMessage from './TwistMessage.jsx'
 import './Chat.css'
 
-export default function Chat({ chat, currentUser }) {
+export default function Chat({ chat, currentUser, onRead }) {
   const [messages, setMessages] = useState([])
   const [draft, setDraft] = useState('')
   const [loading, setLoading] = useState(true)
@@ -20,6 +20,7 @@ export default function Chat({ chat, currentUser }) {
 
   const conversationId = chat?.id
   const currentUserId = currentUser?.$id
+  const membershipRowId = chat?.membershipRowId
 
   const loadMessages = useCallback(async () => {
     if (!conversationId) return
@@ -37,6 +38,15 @@ export default function Chat({ chat, currentUser }) {
 
       setMessages(response.rows)
       setErrorMessage('')
+
+      // Markera bara meddelanden som faktiskt har hämtats som lästa.
+      if (membershipRowId && onRead) {
+        const latestMessageAt =
+          response.rows[response.rows.length - 1]?.$createdAt ||
+          new Date().toISOString()
+
+        onRead(membershipRowId, conversationId, latestMessageAt)
+      }
     } catch (error) {
       console.error('Kunde inte hämta meddelanden:', error)
       setErrorMessage(
@@ -45,7 +55,7 @@ export default function Chat({ chat, currentUser }) {
     } finally {
       setLoading(false)
     }
-  }, [conversationId])
+  }, [conversationId, membershipRowId, onRead])
 
   useEffect(() => {
     setMessages([])
@@ -165,7 +175,6 @@ export default function Chat({ chat, currentUser }) {
     <section className="page chat-page">
       <div className="chat-panel">
         <div className="messages-list" aria-live="polite">
-
           {loading && (
             <p className="empty-search">Hämtar meddelanden...</p>
           )}
