@@ -832,3 +832,23 @@ input:focus-visible {
     padding-top: 25px;
   }
 }
+
+.chat-list-item {
+  position: relative;
+}
+
+.unread-badge {
+  flex: 0 0 auto;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #8C52FF;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
