@@ -52,6 +52,75 @@ function clearCanvas(canvas) {
   context?.clearRect(0, 0, canvas.width, canvas.height)
 }
 
+function drawDreamy(source, context) {
+  const { width, height } = source
+  const now = performance.now() / 1000
+
+  context.clearRect(0, 0, width, height)
+
+  // En mjuk, färgstark grundton med ett separat glow-lager ger filtret
+  // ett tydligare drömmigt uttryck utan att sudda ut ansiktet helt.
+  context.save()
+  context.filter = 'saturate(1.5) brightness(1.08) contrast(1.03)'
+  context.drawImage(source, 0, 0, width, height)
+  context.restore()
+
+  context.save()
+  context.globalCompositeOperation = 'screen'
+  context.globalAlpha = 0.48
+  context.filter = 'blur(18px) brightness(1.2)'
+  context.drawImage(source, 0, 0, width, height)
+  context.restore()
+
+  // Rosa/lila ljusläckage ger en tydlig pastellig ton över bilden.
+  context.save()
+  context.globalCompositeOperation = 'soft-light'
+  const wash = context.createLinearGradient(0, 0, width, height)
+  wash.addColorStop(0, 'rgba(255, 183, 218, 0.62)')
+  wash.addColorStop(0.48, 'rgba(197, 157, 255, 0.3)')
+  wash.addColorStop(1, 'rgba(255, 214, 174, 0.48)')
+  context.fillStyle = wash
+  context.fillRect(0, 0, width, height)
+  context.restore()
+
+  // Lätta, pulserande stjärnglitter – synliga i både foto och video.
+  const sparkles = [
+    [0.2, 0.22, 0.85],
+    [0.78, 0.18, 2.1],
+    [0.84, 0.58, 3.2],
+    [0.18, 0.76, 4.4],
+    [0.63, 0.84, 5.3],
+  ]
+
+  context.save()
+  context.globalCompositeOperation = 'screen'
+  context.fillStyle = 'rgba(255, 255, 255, 0.9)'
+  context.shadowColor = 'rgba(255, 220, 255, 0.95)'
+  context.shadowBlur = 12
+
+  sparkles.forEach(([x, y, phase]) => {
+    const pulse = (Math.sin(now * 2.2 + phase) + 1) / 2
+    const radius = 2 + pulse * 2.2
+    const centerX = x * width
+    const centerY = y * height
+
+    context.globalAlpha = 0.35 + pulse * 0.55
+    context.beginPath()
+    context.moveTo(centerX, centerY - radius * 2.4)
+    context.lineTo(centerX + radius * 0.45, centerY - radius * 0.45)
+    context.lineTo(centerX + radius * 2.4, centerY)
+    context.lineTo(centerX + radius * 0.45, centerY + radius * 0.45)
+    context.lineTo(centerX, centerY + radius * 2.4)
+    context.lineTo(centerX - radius * 0.45, centerY + radius * 0.45)
+    context.lineTo(centerX - radius * 2.4, centerY)
+    context.lineTo(centerX - radius * 0.45, centerY - radius * 0.45)
+    context.closePath()
+    context.fill()
+  })
+
+  context.restore()
+}
+
 async function stopAndDisposeGlam(instance) {
   if (!instance) return
 
@@ -587,10 +656,7 @@ export default function Camera({ currentUser }) {
       } else if (activeFilter === 'alien') {
         drawAlien(sourceCanvas, context)
       } else if (activeFilter === 'dreamy') {
-        context.clearRect(0, 0, SIZE, SIZE)
-        context.filter = 'saturate(1.35) brightness(1.12) blur(0.5px)'
-        context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
-        context.filter = 'none'
+        drawDreamy(sourceCanvas, context)
       } else if (activeFilter === 'none') {
         context.clearRect(0, 0, SIZE, SIZE)
         context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
