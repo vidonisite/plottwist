@@ -108,3 +108,54 @@
 }
 
 .message-form button:disabled { opacity: .4; }
+
+/* Lägg till längst ner i src/Chat.css. */
+
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.messages-area {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.messages-list {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.new-messages-indicator {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 28px);
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #8C52FF;
+  color: #FFFFFF;
+  box-shadow: 0 4px 18px rgba(50, 14, 59, 0.22);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.new-messages-indicator:hover {
+  filter: brightness(1.06);
+}
+
+.new-messages-indicator:focus-visible {
+  outline: 3px solid #F8A8E8;
+  outline-offset: 3px;
+}
