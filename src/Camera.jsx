@@ -170,6 +170,7 @@ async function stableId(value) {
 export default function Camera({ currentUser }) {
   const videoRef = useRef(null)
   const captureVideoRef = useRef(null)
+  const captureTextEditorRef = useRef(null)
   const canvasRef = useRef(null)
   const makeupCanvasRef = useRef(null)
 
@@ -232,6 +233,12 @@ export default function Camera({ currentUser }) {
       captureVideoRef.current.playbackRate = capturePlaybackRate
     }
   }, [capture, capturePlaybackRate])
+
+  useEffect(() => {
+    if (showCaptureTextEditor) {
+      captureTextEditorRef.current?.focus()
+    }
+  }, [showCaptureTextEditor])
 
   const stopRecordingTimers = useCallback(() => {
     window.clearTimeout(holdTimerRef.current)
@@ -1236,13 +1243,41 @@ export default function Camera({ currentUser }) {
                 />
               )}
 
-              {captureText && (
+              {(captureText || showCaptureTextEditor) && (
                 <div
-                  className="capture-text-overlay"
+                  className={`capture-text-overlay ${
+                    showCaptureTextEditor ? 'is-editing' : ''
+                  }`}
                   style={{ top: `${captureTextPosition * 100}%` }}
+                  ref={captureTextEditorRef}
+                  contentEditable={showCaptureTextEditor}
+                  suppressContentEditableWarning
+                  role="textbox"
+                  aria-label="Text på din Twist"
+                  aria-multiline="true"
+                  data-placeholder="Skriv här..."
+                  onInput={(event) =>
+                    setCaptureText(event.currentTarget.innerText)
+                  }
                 >
                   {captureText}
                 </div>
+              )}
+
+              {!showRecipients && (
+                <button
+                  type="button"
+                  className={`capture-text-toggle ${
+                    showCaptureTextEditor ? 'is-active' : ''
+                  }`}
+                  aria-label={showCaptureTextEditor ? 'Klar med text' : 'Lägg till text'}
+                  aria-expanded={showCaptureTextEditor}
+                  onClick={() =>
+                    setShowCaptureTextEditor((isVisible) => !isVisible)
+                  }
+                >
+                  T
+                </button>
               )}
             </div>
 
@@ -1263,46 +1298,19 @@ export default function Camera({ currentUser }) {
               </>
             )}
 
-            {!showRecipients && (
-              <div className="capture-text-tools">
-                <button
-                  type="button"
-                  className="capture-text-toggle"
-                  aria-expanded={showCaptureTextEditor}
-                  onClick={() =>
-                    setShowCaptureTextEditor((isVisible) => !isVisible)
+            {!showRecipients && showCaptureTextEditor && (
+              <label className="capture-text-position">
+                Placering upp / ner
+                <input
+                  type="range"
+                  min="10"
+                  max="90"
+                  value={Math.round(captureTextPosition * 100)}
+                  onChange={(event) =>
+                    setCaptureTextPosition(Number(event.target.value) / 100)
                   }
-                >
-                  {showCaptureTextEditor ? 'Dölj textfält' : 'Lägg till text'}
-                </button>
-
-                {showCaptureTextEditor && (
-                  <div className="capture-text-editor">
-                    <label>
-                      Text på din Twist
-                      <textarea
-                        value={captureText}
-                        onChange={(event) => setCaptureText(event.target.value)}
-                        maxLength={500}
-                        rows={2}
-                        placeholder="Skriv din text"
-                      />
-                    </label>
-                    <label>
-                      Placering upp / ner
-                      <input
-                        type="range"
-                        min="10"
-                        max="90"
-                        value={Math.round(captureTextPosition * 100)}
-                        onChange={(event) =>
-                          setCaptureTextPosition(Number(event.target.value) / 100)
-                        }
-                      />
-                    </label>
-                  </div>
-                )}
-              </div>
+                />
+              </label>
             )}
 
             {!showRecipients ? (
