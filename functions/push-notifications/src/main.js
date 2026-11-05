@@ -42,6 +42,10 @@ export default async ({ req, res, log, error }) => {
       throw new Error('Appwrite-tabellerna för pushnotiser är inte konfigurerade.')
     }
 
+    log(`Appwrite endpoint: ${process.env.APPWRITE_FUNCTION_API_ENDPOINT}`)
+    log(`Project ID finns: ${Boolean(process.env.APPWRITE_FUNCTION_PROJECT_ID)}`)
+    log(`API key finns: ${Boolean(process.env.APPWRITE_API_KEY)}`)
+
     const client = new Client()
       .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
       .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
