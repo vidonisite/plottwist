@@ -23,6 +23,7 @@ import { drawBigEyes } from './filters/bigeyes.jsx'
 import { drawFishEye } from './filters/fisheye.jsx'
 import { drawAlien } from './filters/alien.jsx'
 import { startGlam } from './filters/glam.jsx'
+import { startNoLips } from './filters/nolips.jsx'
 import { drawSquareFace } from './filters/squareface.jsx'
 
 import './Camera.css'
@@ -31,6 +32,7 @@ const FILTERS = [
   { id: 'none', label: 'No filter', symbol: '' },
   { id: 'fisheye', label: 'Fish Eye', symbol: '🐟' },
   { id: 'glam', label: 'Glam Makeup', symbol: '💄' },
+  { id: 'nolips', label: 'No Lips', symbol: '💋' },
   { id: 'dreamy', label: 'Dreamy', symbol: '✦' },
   { id: 'square-face', label: 'Square Face', symbol: '▣' },
   { id: 'alien', label: 'Alien', symbol: '👽' },
@@ -45,8 +47,8 @@ const HOLD_DELAY = 250
 function clearCanvas(canvas) {
   if (!canvas) return
 
-  // Glam använder WebGL och får inte tilldelas en 2D-context.
-  if (canvas.classList.contains('glam-canvas')) return
+  // OpenMakeup använder WebGL och får inte tilldelas en 2D-context.
+  if (canvas.classList.contains('makeup-canvas')) return
 
   const context = canvas.getContext('2d')
   context?.clearRect(0, 0, canvas.width, canvas.height)
@@ -121,19 +123,19 @@ function drawDreamy(source, context) {
   context.restore()
 }
 
-async function stopAndDisposeGlam(instance) {
+async function stopAndDisposeMakeup(instance) {
   if (!instance) return
 
   try {
     await instance.stop()
   } catch (error) {
-    console.warn('Kunde inte stoppa Glam:', error)
+    console.warn('Kunde inte stoppa makeup-filtret:', error)
   }
 
   try {
     instance.dispose()
   } catch (error) {
-    console.warn('Kunde inte frigöra Glam:', error)
+    console.warn('Kunde inte frigöra makeup-filtret:', error)
   }
 }
 
@@ -163,16 +165,16 @@ async function stableId(value) {
 export default function Camera({ currentUser }) {
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
-  const glamCanvasRef = useRef(null)
+  const makeupCanvasRef = useRef(null)
 
   const streamRef = useRef(null)
   const landmarkerRef = useRef(null)
   const animationRef = useRef(null)
-  const glamInstanceRef = useRef(null)
+  const makeupInstanceRef = useRef(null)
 
   const filterRef = useRef('none')
-  const glamLifecycleRef = useRef(Promise.resolve())
-  const glamStartRef = useRef(false)
+  const makeupLifecycleRef = useRef(Promise.resolve())
+  const makeupStartRef = useRef(false)
 
   const holdTimerRef = useRef(null)
   const recordingTimerRef = useRef(null)
@@ -232,8 +234,8 @@ export default function Camera({ currentUser }) {
   }, [])
 
   const getVisibleCanvas = useCallback(() => {
-    return filterRef.current === 'glam'
-      ? glamCanvasRef.current
+    return ['glam', 'nolips'].includes(filterRef.current)
+      ? makeupCanvasRef.current
       : canvasRef.current
   }, [])
 
@@ -496,15 +498,15 @@ export default function Camera({ currentUser }) {
 
       cancelAnimationFrame(animationRef.current)
 
-      const instance = glamInstanceRef.current
-      glamInstanceRef.current = null
+      const instance = makeupInstanceRef.current
+      makeupInstanceRef.current = null
 
       if (instance) {
-        void stopAndDisposeGlam(instance)
+        void stopAndDisposeMakeup(instance)
       }
 
       clearCanvas(canvasRef.current)
-      clearCanvas(glamCanvasRef.current)
+      clearCanvas(makeupCanvasRef.current)
 
       streamRef.current?.getTracks().forEach((track) => track.stop())
       streamRef.current = null
@@ -660,7 +662,7 @@ export default function Camera({ currentUser }) {
       } else if (activeFilter === 'none') {
         context.clearRect(0, 0, SIZE, SIZE)
         context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
-      } else if (activeFilter !== 'glam') {
+      } else if (!['glam', 'nolips'].includes(activeFilter)) {
         context.clearRect(0, 0, SIZE, SIZE)
         context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
       }
@@ -677,77 +679,78 @@ export default function Camera({ currentUser }) {
     }
   }, [cameraState, filter])
 
-  // Glam-filter.
+  // OpenMakeup-filter: Glam och No Lips delar en WebGL-canvas och körs aldrig samtidigt.
   useEffect(() => {
     if (cameraState !== 'live') {
-      const instance = glamInstanceRef.current
-      glamInstanceRef.current = null
-      glamStartRef.current = false
+      const instance = makeupInstanceRef.current
+      makeupInstanceRef.current = null
+      makeupStartRef.current = false
 
       if (instance) {
-        void stopAndDisposeGlam(instance)
+        void stopAndDisposeMakeup(instance)
       }
 
-      clearCanvas(glamCanvasRef.current)
+      clearCanvas(makeupCanvasRef.current)
       clearCanvas(canvasRef.current)
       return
     }
 
-    if (filter !== 'glam') {
-      const instance = glamInstanceRef.current
-      glamInstanceRef.current = null
-      glamStartRef.current = false
+    if (filter !== 'glam' && filter !== 'nolips') {
+      const instance = makeupInstanceRef.current
+      makeupInstanceRef.current = null
+      makeupStartRef.current = false
 
       if (instance) {
-        void stopAndDisposeGlam(instance)
+        void stopAndDisposeMakeup(instance)
       }
 
-      clearCanvas(glamCanvasRef.current)
+      clearCanvas(makeupCanvasRef.current)
       return
     }
 
     const video = videoRef.current
-    const canvas = glamCanvasRef.current
+    const canvas = makeupCanvasRef.current
 
     if (!video || !canvas) return
-    if (glamStartRef.current) return
+    if (makeupStartRef.current) return
 
     canvas.width = SIZE
     canvas.height = SIZE
     clearCanvas(canvas)
 
     let cancelled = false
-    glamStartRef.current = true
+    makeupStartRef.current = true
 
     async function initializeGlam() {
       try {
-        await glamLifecycleRef.current
+        await makeupLifecycleRef.current
         if (cancelled) return
 
         setErrorMessage('')
 
-        const instance = await startGlam(video, canvas)
+        const startFilter = filter === 'nolips' ? startNoLips : startGlam
+        const instance = await startFilter(video, canvas)
 
         if (cancelled) {
-          await stopAndDisposeGlam(instance)
+          await stopAndDisposeMakeup(instance)
           return
         }
 
-        glamInstanceRef.current = instance
+        makeupInstanceRef.current = instance
       } catch (error) {
-        console.error('Glam kunde inte startas:', error)
+        console.error('OpenMakeup-filtret kunde inte startas:', error)
 
         if (!cancelled) {
           const details =
             error instanceof Error ? error.message : String(error)
 
           setErrorMessage(
-            `Glam Makeup kunde inte laddas: ${details}`
+            `${filter === 'nolips' ? 'No Lips' : 'Glam Makeup'} kunde inte laddas: ${details}`
           )
         }
       } finally {
         if (!cancelled) {
-          glamStartRef.current = false
+          makeupStartRef.current = false
         }
       }
     }
@@ -756,25 +759,25 @@ export default function Camera({ currentUser }) {
 
     return () => {
       cancelled = true
-      glamStartRef.current = false
+      makeupStartRef.current = false
 
       const cleanupTask = (
-        glamLifecycleRef.current ?? Promise.resolve()
+        makeupLifecycleRef.current ?? Promise.resolve()
       ).then(async () => {
         await startTask
 
-        const instance = glamInstanceRef.current
+        const instance = makeupInstanceRef.current
 
         if (instance) {
-          glamInstanceRef.current = null
-          await stopAndDisposeGlam(instance)
+          makeupInstanceRef.current = null
+          await stopAndDisposeMakeup(instance)
         }
 
-        clearCanvas(glamCanvasRef.current)
+        clearCanvas(makeupCanvasRef.current)
       })
 
-      glamLifecycleRef.current = cleanupTask.catch((error) => {
-        console.error('Glam cleanup misslyckades:', error)
+      makeupLifecycleRef.current = cleanupTask.catch((error) => {
+        console.error('OpenMakeup cleanup misslyckades:', error)
       })
     }
   }, [cameraState, filter])
@@ -850,16 +853,16 @@ export default function Camera({ currentUser }) {
     cancelAnimationFrame(animationRef.current)
     animationRef.current = null
 
-    const instance = glamInstanceRef.current
-    glamInstanceRef.current = null
-    glamStartRef.current = false
+    const instance = makeupInstanceRef.current
+    makeupInstanceRef.current = null
+    makeupStartRef.current = false
 
     if (instance) {
-      await stopAndDisposeGlam(instance)
+      await stopAndDisposeMakeup(instance)
     }
 
     clearCanvas(canvasRef.current)
-    clearCanvas(glamCanvasRef.current)
+    clearCanvas(makeupCanvasRef.current)
 
     streamRef.current?.getTracks().forEach((track) => track.stop())
     streamRef.current = null
@@ -1392,15 +1395,15 @@ export default function Camera({ currentUser }) {
                     ref={canvasRef}
                     className="camera-canvas"
                     style={{
-                      display: filter === 'glam' ? 'none' : 'block',
+                      display: ['glam', 'nolips'].includes(filter) ? 'none' : 'block',
                     }}
                   />
 
                   <canvas
-                    ref={glamCanvasRef}
-                    className="camera-canvas glam-canvas"
+                    ref={makeupCanvasRef}
+                    className="camera-canvas makeup-canvas"
                     style={{
-                      display: filter === 'glam' ? 'block' : 'none',
+                      display: ['glam', 'nolips'].includes(filter) ? 'block' : 'none',
                     }}
                   />
 
@@ -1495,7 +1498,7 @@ export default function Camera({ currentUser }) {
               </div>
             </div>
 
-            {filter !== 'glam' && cameraState === 'live' && (
+            {!['glam', 'nolips'].includes(filter) && cameraState === 'live' && (
               <p className="selected-filter-label">
                 {FILTERS.find((item) => item.id === filter)?.label}
               </p>

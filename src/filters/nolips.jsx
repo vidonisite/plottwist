@@ -150,16 +150,6 @@ async function waitForMaterials(engine) {
 }
 
 export async function startNoLips(video, renderCanvas) {
-
-  console.log('GLAM CANVAS STATUS:', {
-    canvas: renderCanvas,
-    width: renderCanvas.width,
-    height: renderCanvas.height,
-    connected: renderCanvas.isConnected,
-    constructor: renderCanvas.constructor.name,
-  })
-
-
   await Promise.all([
     loadFaceMesh(),
     loadCameraUtils()
@@ -172,7 +162,7 @@ export async function startNoLips(video, renderCanvas) {
   })
 
   if (!gl) {
-    throw new Error('WebGL 2 kunde inte startas för Glam-filtret.')
+    throw new Error('WebGL 2 kunde inte startas för No Lips-filtret.')
   }
 
   const makeup = new OpenMakeup({
