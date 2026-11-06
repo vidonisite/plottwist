@@ -64,24 +64,42 @@ export default function App() {
         return
       }
 
+      setUpdatingNotifications(true)
+      setNotificationError('')
+
       try {
         const subscription = await getPushSubscription()
 
         if (subscription) {
           await registerPushSubscription(subscription)
+          if (!cancelled) setNotifications(true)
+          return
         }
 
-        if (!cancelled) {
-          setNotifications(Boolean(subscription))
+        if (Notification.permission === 'denied') {
+          if (!cancelled) {
+            setNotifications(false)
+            setNotificationError(
+              'Notiser är blockerade i webbläsaren. Ändra webbplatsens notisbehörighet i webbläsarinställningarna.'
+            )
+          }
+          return
         }
+
+        const newSubscription = await enablePushNotifications()
+        if (!cancelled) setNotifications(Boolean(newSubscription))
       } catch (error) {
         console.error('Kunde inte kontrollera pushnotiser:', error)
         if (!cancelled) {
           setNotifications(false)
           setNotificationError(
-            error.message || 'Pushnotisernas status kunde inte kontrolleras.'
+            Notification.permission === 'denied'
+              ? 'Notiser är blockerade i webbläsaren. Ändra webbplatsens notisbehörighet i webbläsarinställningarna.'
+              : error.message || 'Pushnotiserna kunde inte aktiveras.'
           )
         }
+      } finally {
+        if (!cancelled) setUpdatingNotifications(false)
       }
     }
 

@@ -1,5 +1,18 @@
 export const DEFAULT_AVATAR_STYLE = 'initials'
 
+const VARIANT_OPTIONS = new Set([
+  'top',
+  'eyes',
+  'eyebrows',
+  'mouth',
+  'clothes',
+  'clothesGraphic',
+  'accessories',
+  'facialHair',
+  'body',
+  'pattern',
+])
+
 export const AVATAR_STYLES = [
   { id: 'avataaars', label: 'Avataaars' },
   { id: 'clay', label: 'Clay' },
@@ -136,9 +149,26 @@ export function getAvatarUrl({ profile, userId, name, size = 96 }) {
 
   Object.entries(options).forEach(([key, value]) => {
     if (typeof value === 'string' || typeof value === 'number') {
-      parameters.set(key, String(value))
+      const parameter = VARIANT_OPTIONS.has(key) ? `${key}Variant` : key
+      parameters.set(parameter, String(value))
     }
   })
+
+  if (options.accessories && !options.accessoriesProbability) {
+    parameters.set('accessoriesProbability', '100')
+  }
+
+  if (options.facialHair && !options.facialHairProbability) {
+    parameters.set('facialHairProbability', '100')
+  }
+
+  if (style === 'clay' && options.top && !options.topProbability) {
+    parameters.set('topProbability', '100')
+  }
+
+  if (style === 'clay' && options.pattern && !options.patternProbability) {
+    parameters.set('patternProbability', '100')
+  }
 
   return `https://api.dicebear.com/10.x/${style}/svg?${parameters.toString()}`
 }

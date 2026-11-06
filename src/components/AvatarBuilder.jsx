@@ -81,6 +81,26 @@ function AvatarOption({ field, options, previewProfile, userId, name, onChange }
     if (value) avatarOptions[field.key] = value
     else delete avatarOptions[field.key]
 
+    const previewDefaults = {
+      hairColor: { top: 'bigHair' },
+      hatColor: { top: 'hat' },
+      clothesGraphic: { clothes: 'graphicShirt' },
+      clothesColor: { clothes: 'hoodie' },
+      accessoriesColor: { accessories: 'round' },
+      facialHairColor: { facialHair: 'beardLight' },
+      accentColor: { top: 'curl' },
+    }
+
+    Object.entries(previewDefaults[field.key] || {}).forEach(([key, fallback]) => {
+      if (
+        !avatarOptions[key] ||
+        (field.key === 'hatColor' && !HEADWEAR.has(avatarOptions.top)) ||
+        field.key === 'accentColor'
+      ) {
+        avatarOptions[key] = fallback
+      }
+    })
+
     return getAvatarUrl({
       profile: { ...previewProfile, avatarOptions },
       userId,
@@ -170,6 +190,23 @@ export default function AvatarBuilder({ profile, userId, name, onSaved }) {
       const next = { ...previous }
       if (value) next[key] = value
       else delete next[key]
+
+      const requiredBaseOptions = {
+        clothesGraphic: { clothes: 'graphicShirt' },
+        hatColor: { top: 'hat' },
+        accessoriesColor: { accessories: 'round' },
+        facialHairColor: { facialHair: 'beardLight' },
+        accentColor: { top: 'curl' },
+      }
+
+      if (value) {
+        Object.entries(requiredBaseOptions[key] || {}).forEach(([baseKey, fallback]) => {
+          if (!next[baseKey] || (key === 'hatColor' && !HEADWEAR.has(next.top))) {
+            next[baseKey] = fallback
+          }
+        })
+      }
+
       return next
     })
   }
