@@ -1235,10 +1235,10 @@ export default function Camera({ currentUser }) {
                   ref={captureVideoRef}
                   src={capture.url}
                   className="capture-preview-video"
-                  controls
                   autoPlay
                   playsInline
                   loop
+                  muted
                   onLoadedMetadata={(event) => {
                     event.currentTarget.playbackRate = capturePlaybackRate
                   }}

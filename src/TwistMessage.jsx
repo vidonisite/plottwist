@@ -451,7 +451,8 @@ export default function TwistMessage({
                   className="twist-media"
                   autoPlay
                   playsInline
-                  controls
+                  loop
+                  muted
                 />
               ) : (
                 <img
