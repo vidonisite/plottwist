@@ -27,6 +27,7 @@ import CreateGroup from './CreateGroup.jsx'
 import ProfileAvatar from './components/ProfileAvatar.jsx'
 import GroupAvatar from './components/GroupAvatar.jsx'
 import AvatarBuilder from './components/AvatarBuilder.jsx'
+import { addLatestMessageTimes } from './lib/groupMembers.js'
 
 import './App.css'
 
@@ -217,6 +218,45 @@ export default function App() {
     if (!currentUser?.$id) return
 
     const unsubscribe = client.subscribe(
+      `databases.${DATABASE_ID}.tables.${MESSAGES_TABLE_ID}.rows`,
+      ({ events = [], payload }) => {
+        if (events.some((event) => event.endsWith('.delete'))) {
+          setChatsRefresh((value) => value + 1)
+          return
+        }
+
+        if (!events.some((event) => event.endsWith('.create'))) return
+        if (!payload?.conversationId || !payload?.senderId || !payload?.$createdAt) return
+
+        const updateGroupActivity = (chat) => {
+          if (chat.type !== 'group' || chat.id !== payload.conversationId) return chat
+
+          const messageTime = new Date(payload.$createdAt).getTime()
+
+          return {
+            ...chat,
+            members: chat.members.map((member) => (
+              member.userId === payload.senderId &&
+                (!Number.isFinite(new Date(member.lastMessageAt).getTime()) ||
+                  messageTime > new Date(member.lastMessageAt).getTime())
+                ? { ...member, lastMessageAt: payload.$createdAt }
+                : member
+            )),
+          }
+        }
+
+        setChats((previous) => previous.map(updateGroupActivity))
+        setActiveChat((previous) => previous ? updateGroupActivity(previous) : previous)
+      }
+    )
+
+    return () => unsubscribe()
+  }, [currentUser?.$id])
+
+  useEffect(() => {
+    if (!currentUser?.$id) return
+
+    const unsubscribe = client.subscribe(
       `databases.${DATABASE_ID}.tables.${CONVERSATION_MEMBERS_TABLE_ID}.rows`,
       ({ events = [] }) => {
         if (events.some((event) => (
@@ -335,6 +375,10 @@ export default function App() {
                     ),
                   }
                 })
+                const groupMembersWithActivity = await addLatestMessageTimes(
+                  groupMembers,
+                  conversation.$id
+                )
 
                 return {
                   id: conversation.$id,
@@ -342,7 +386,7 @@ export default function App() {
                   name: conversation.name || 'Namnlös grupp',
                   username: conversation.name || 'Namnlös grupp',
                   initials: (conversation.name || 'G').slice(0, 1).toUpperCase(),
-                  members: groupMembers,
+                  members: groupMembersWithActivity,
                   memberCount,
                   preview: `${memberCount} medlemmar`,
                   membershipRowId: membership.$id,

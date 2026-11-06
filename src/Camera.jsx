@@ -33,6 +33,7 @@ import {
 import { encodeVideoAtSpeed } from './lib/videoSpeed.js'
 import ProfileAvatar from './components/ProfileAvatar.jsx'
 import GroupAvatar from './components/GroupAvatar.jsx'
+import { addLatestMessageTimes } from './lib/groupMembers.js'
 
 import './Camera.css'
 
@@ -1036,20 +1037,26 @@ export default function Camera({ currentUser }) {
               memberProfiles = [...memberProfiles, ...additionalProfilesResponse.rows]
             }
 
+            const groupMembers = members.map((member) => {
+              const memberProfile = memberProfiles.find(
+                (item) => item.userId === member.userId
+              )
+
+              return {
+                userId: member.userId,
+                username: memberProfile?.username || 'Okänd användare',
+                avatarProfile: memberProfile || null,
+              }
+            })
+            const groupMembersWithActivity = await addLatestMessageTimes(
+              groupMembers,
+              conversation.$id
+            )
+
             return {
               ...conversation,
               memberCount,
-              members: members.map((member) => {
-                const memberProfile = memberProfiles.find(
-                  (item) => item.userId === member.userId
-                )
-
-                return {
-                  userId: member.userId,
-                  username: memberProfile?.username || 'Okänd användare',
-                  avatarProfile: memberProfile || null,
-                }
-              }),
+              members: groupMembersWithActivity,
             }
           })
       )

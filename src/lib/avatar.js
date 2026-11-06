@@ -134,6 +134,14 @@ export function parseAvatarOptions(value) {
   }
 }
 
+export function getAvatarBackgroundColor(profile) {
+  const backgroundColor = parseAvatarOptions(profile?.avatarOptions).backgroundColor
+  if (typeof backgroundColor !== 'string') return null
+
+  const color = backgroundColor.replace(/^#/, '')
+  return /^[\da-f]{3,8}$/i.test(color) ? `#${color}` : null
+}
+
 export function getAvatarUrl({ profile, userId, name, size = 96 }) {
   const savedStyle = profile?.avatarStyle
   const style = savedStyle === 'avataaars' || savedStyle === 'clay'

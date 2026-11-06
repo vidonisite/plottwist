@@ -15,6 +15,7 @@ export default function ProfileAvatar({
   name,
   size = 42,
   className = '',
+  backgroundColor,
 }) {
   const src = getAvatarUrl({ profile, userId, name, size: size * 2 })
   const [failedSrc, setFailedSrc] = useState('')
@@ -28,7 +29,11 @@ export default function ProfileAvatar({
   return (
     <span
       className={`profile-avatar ${className}`.trim()}
-      style={{ width: size, height: size }}
+      style={{
+        width: size,
+        height: size,
+        ...(backgroundColor ? { backgroundColor } : {}),
+      }}
       aria-label={name ? `Profilbild för ${name}` : 'Profilbild'}
       role="img"
     >

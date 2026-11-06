@@ -1,4 +1,5 @@
 import ProfileAvatar from './ProfileAvatar.jsx'
+import { getAvatarBackgroundColor } from '../lib/avatar.js'
 
 export default function GroupAvatar({
   members = [],
@@ -7,43 +8,79 @@ export default function GroupAvatar({
   size = 42,
   className = '',
 }) {
-  const visibleMembers = members.slice(0, 5)
-  const layout = visibleMembers.length === 3
-    ? 'three'
-    : visibleMembers.length >= 4
-      ? 'stacked'
-      : 'pair'
-  const extraMembers = Math.max(0, memberCount - 5)
-  const avatarSize = size <= 42 ? 26 : 34
+  function getMemberMessageTime(member) {
+    const time = member.lastMessageAt
+      ? new Date(member.lastMessageAt).getTime()
+      : Number.NEGATIVE_INFINITY
+
+    return Number.isFinite(time) ? time : Number.NEGATIVE_INFINITY
+  }
+
+  const orderedMembers = members
+    .map((member, index) => ({ member, index }))
+    .sort((a, b) => {
+      const timeDifference =
+        getMemberMessageTime(b.member) - getMemberMessageTime(a.member)
+      return (
+        (Number.isNaN(timeDifference) ? 0 : timeDifference) ||
+        a.index - b.index
+      )
+    })
+    .map(({ member }) => member)
+  const visibleMembers = memberCount > 4
+    ? orderedMembers.slice(0, 3)
+    : orderedMembers
+  const layout = memberCount > 4
+    ? 'overflow'
+    : visibleMembers.length === 1
+      ? 'single'
+      : visibleMembers.length === 2
+        ? 'pair'
+        : visibleMembers.length === 3
+          ? 'three'
+          : 'grid'
+  const hiddenMemberCount = Math.max(0, memberCount - 3)
+  const avatarSize = layout === 'single' ? size : size / 2
 
   return (
     <span
-      className={`chat-avatar group-avatar group-avatar--${size <= 42 ? 'compact' : 'large'} ${className}`.trim()}
+      className={`chat-avatar group-avatar group-avatar--${layout} ${className}`.trim()}
       style={{ width: size, height: size }}
       role="img"
       aria-label={`Gruppbild för ${name || 'gruppen'}`}
     >
-      {visibleMembers.map((member, index) => {
-        const row = layout === 'stacked' && index < 2 ? 'rear' : 'front'
-        const positionIndex = layout === 'stacked' && index >= 2
-          ? index - 2
-          : index
+      {visibleMembers.map((member) => {
+        const backgroundColor =
+          getAvatarBackgroundColor(member.avatarProfile) || 'var(--surface-hover)'
 
         return (
-          <ProfileAvatar
-            key={member.userId || index}
-            profile={member.avatarProfile}
-            userId={member.userId}
-            name={member.username}
-            size={avatarSize}
-            className={`group-avatar-member group-avatar-member--${layout} group-avatar-member--${row} group-avatar-member--position-${positionIndex}`}
-          />
+          <span
+            key={member.userId}
+            className={`group-avatar-tile${
+              layout === 'three' && orderedMembers.indexOf(member) === 2
+                ? ' group-avatar-tile--wide'
+                : ''
+            }`}
+            style={{ backgroundColor }}
+          >
+            <ProfileAvatar
+              profile={member.avatarProfile}
+              userId={member.userId}
+              name={member.username}
+              size={avatarSize}
+              className="group-avatar-member"
+              backgroundColor={backgroundColor}
+            />
+          </span>
         )
       })}
 
-      {extraMembers > 0 && (
-        <span className="group-avatar-extra" aria-hidden="true">
-          +{extraMembers}
+      {memberCount > 4 && (
+        <span
+          className="group-avatar-extra"
+          style={{ fontSize: Math.max(8, size / 6) }}
+        >
+          +{hiddenMemberCount}
         </span>
       )}
     </span>
