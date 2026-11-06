@@ -212,7 +212,9 @@ export default function Camera({ currentUser }) {
   // Skickaflödet
   const [showRecipients, setShowRecipients] = useState(false)
   const [acceptedContacts, setAcceptedContacts] = useState([])
+  const [groupConversations, setGroupConversations] = useState([])
   const [selectedRecipientIds, setSelectedRecipientIds] = useState([])
+  const [selectedGroupIds, setSelectedGroupIds] = useState([])
   const [loadingContacts, setLoadingContacts] = useState(false)
   const [sendingTwist, setSendingTwist] = useState(false)
   const [sendMessage, setSendMessage] = useState('')
@@ -919,6 +921,7 @@ export default function Camera({ currentUser }) {
     setShowCaptureSpeedControl(false)
     setShowRecipients(false)
     setSelectedRecipientIds([])
+    setSelectedGroupIds([])
     setSendMessage('')
     setHasSent(false)
     setErrorMessage('')
@@ -944,31 +947,62 @@ export default function Camera({ currentUser }) {
     setErrorMessage('')
     setSendMessage('')
     setSelectedRecipientIds([])
+    setSelectedGroupIds([])
 
     try {
-      const response = await tablesDB.listRows({
-        databaseId: DATABASE_ID,
-        tableId: CONTACTS_TABLE_ID,
-        queries: [
-          Query.equal('ownerId', [currentUserId]),
-          Query.equal('status', ['accepted']),
-          Query.limit(500),
-        ],
-      })
-      const profilesResponse = response.rows.length
-        ? await tablesDB.listRows({
+      const [contactsResponse, membershipsResponse] = await Promise.all([
+        tablesDB.listRows({
+          databaseId: DATABASE_ID,
+          tableId: CONTACTS_TABLE_ID,
+          queries: [
+            Query.equal('ownerId', [currentUserId]),
+            Query.equal('status', ['accepted']),
+            Query.limit(500),
+          ],
+        }),
+        tablesDB.listRows({
+          databaseId: DATABASE_ID,
+          tableId: CONVERSATION_MEMBERS_TABLE_ID,
+          queries: [
+            Query.equal('userId', [currentUserId]),
+            Query.limit(100),
+          ],
+        }),
+      ])
+
+      const [profilesResponse, conversations] = await Promise.all([
+        contactsResponse.rows.length
+          ? tablesDB.listRows({
             databaseId: DATABASE_ID,
             tableId: USERS_TABLE_ID,
             queries: [Query.limit(100)],
           })
-        : { rows: [] }
+          : Promise.resolve({ rows: [] }),
+        Promise.all(membershipsResponse.rows.map(async (membership) => {
+          try {
+            return await tablesDB.getRow({
+              databaseId: DATABASE_ID,
+              tableId: CONVERSATIONS_TABLE_ID,
+              rowId: membership.conversationId,
+            })
+          } catch (error) {
+            if (error?.code !== 404) {
+              console.error('Kunde inte läsa en gruppkonversation:', error)
+            }
+            return null
+          }
+        })),
+      ])
 
-      setAcceptedContacts(response.rows.map((contact) => ({
+      setAcceptedContacts(contactsResponse.rows.map((contact) => ({
         ...contact,
         profile: profilesResponse.rows.find(
           (profile) => profile.userId === contact.contactUserId
         ),
       })))
+      setGroupConversations(conversations.filter(
+        (conversation) => conversation?.type === 'group'
+      ))
     } catch (error) {
       console.error('Kunde inte hämta kontakter:', error)
 
@@ -988,6 +1022,13 @@ export default function Camera({ currentUser }) {
 
       return [...previous, userId]
     })
+  }
+
+  function toggleGroupRecipient(conversationId) {
+    setSelectedGroupIds((previous) => previous.includes(conversationId)
+      ? previous.filter((id) => id !== conversationId)
+      : [...previous, conversationId]
+    )
   }
 
   // Skapar eller återanvänder exakt samma direktchatt som AddPeople.jsx.
@@ -1105,7 +1146,7 @@ export default function Camera({ currentUser }) {
     if (
       !capture ||
       !currentUserId ||
-      selectedRecipientIds.length === 0 ||
+      (selectedRecipientIds.length === 0 && selectedGroupIds.length === 0) ||
       sendingTwist
     ) {
       return
@@ -1118,6 +1159,16 @@ export default function Camera({ currentUser }) {
     let uploadedFileId = null
     let uploadedReference = null
     let sentCount = 0
+    const selectedTargets = [
+      ...selectedRecipientIds.map((recipientId) => ({
+        type: 'direct',
+        recipientId,
+      })),
+      ...selectedGroupIds.map((conversationId) => ({
+        type: 'group',
+        conversationId,
+      })),
+    ]
 
     try {
       // 1. Ladda upp filen EN gång.
@@ -1177,11 +1228,18 @@ export default function Camera({ currentUser }) {
       )
 
       // 2. Skapa ett Twist-meddelande i varje vald persons chatt.
-      for (const recipientId of selectedRecipientIds) {
-        const conversation = await ensureDirectConversation(
-          currentUserId,
-          recipientId
-        )
+      for (const target of selectedTargets) {
+        const conversation = target.type === 'group'
+          ? await tablesDB.getRow({
+              databaseId: DATABASE_ID,
+              tableId: CONVERSATIONS_TABLE_ID,
+              rowId: target.conversationId,
+            })
+          : await ensureDirectConversation(currentUserId, target.recipientId)
+
+        if (target.type === 'group' && conversation.type !== 'group') {
+          throw new Error('Den valda gruppkonversationen finns inte längre.')
+        }
 
         await tablesDB.createRow({
           databaseId: DATABASE_ID,
@@ -1209,7 +1267,7 @@ export default function Camera({ currentUser }) {
 
       if (sentCount > 0) {
         setErrorMessage(
-          `Twist skickades till ${sentCount} av ${selectedRecipientIds.length} personer. Ett fel uppstod: ${error.message || 'Okänt fel'}`
+          `Twist skickades till ${sentCount} av ${selectedTargets.length} mottagare. Ett fel uppstod: ${error.message || 'Okänt fel'}`
         )
       } else {
         setErrorMessage(
@@ -1426,10 +1484,10 @@ export default function Camera({ currentUser }) {
 
                 {loadingContacts ? (
                   <p>Laddar dina kontakter...</p>
-                ) : acceptedContacts.length === 0 ? (
+                ) : acceptedContacts.length === 0 && groupConversations.length === 0 ? (
                   <p>
-                    Du har inga accepterade kontakter ännu.
-                    Lägg till personer innan du skickar ett Twist.
+                    Du har inga accepterade kontakter eller grupper ännu.
+                    Lägg till personer eller gå med i en grupp innan du skickar ett Twist.
                   </p>
                 ) : (
                   <>
@@ -1489,6 +1547,33 @@ export default function Camera({ currentUser }) {
                           </label>
                         )
                       })}
+                      {groupConversations.length > 0 && (
+                        <>
+                          <p className="twist-recipient-group-heading">Grupper</p>
+                          {groupConversations.map((conversation) => {
+                            const selected = selectedGroupIds.includes(conversation.$id)
+
+                            return (
+                              <label
+                                key={`group-${conversation.$id}`}
+                                className={`twist-recipient-option ${selected ? 'selected' : ''}`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selected}
+                                  onChange={() => toggleGroupRecipient(conversation.$id)}
+                                  disabled={sendingTwist}
+                                />
+                                <span className="twist-recipient-group-icon" aria-hidden="true">♧</span>
+                                <span className="twist-recipient-group-copy">
+                                  <strong>{conversation.name || 'Namnlös grupp'}</strong>
+                                  <small>Gruppkonversation</small>
+                                </span>
+                              </label>
+                            )
+                          })}
+                        </>
+                      )}
                     </div>
 
                     <p
@@ -1498,7 +1583,7 @@ export default function Camera({ currentUser }) {
                         opacity: 0.65,
                       }}
                     >
-                      {selectedRecipientIds.length} valda
+                      {selectedRecipientIds.length + selectedGroupIds.length} valda
                     </p>
 
                     <button
@@ -1506,13 +1591,13 @@ export default function Camera({ currentUser }) {
                       className="capture-send-button"
                       onClick={sendTwist}
                       disabled={
-                        selectedRecipientIds.length === 0 ||
+                        (selectedRecipientIds.length === 0 && selectedGroupIds.length === 0) ||
                         sendingTwist
                       }
                       style={{
                         width: '100%',
                         opacity:
-                          selectedRecipientIds.length === 0 ||
+                          (selectedRecipientIds.length === 0 && selectedGroupIds.length === 0) ||
                           sendingTwist
                             ? 0.55
                             : 1,
@@ -1520,8 +1605,8 @@ export default function Camera({ currentUser }) {
                     >
                       {sendingTwist
                         ? 'Sending Twist...'
-                        : `Send Twist${selectedRecipientIds.length > 0
-                            ? ` to ${selectedRecipientIds.length}`
+                        : `Send Twist${selectedRecipientIds.length + selectedGroupIds.length > 0
+                          ? ` to ${selectedRecipientIds.length + selectedGroupIds.length}`
                             : ''
                           }`}
                     </button>
