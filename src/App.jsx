@@ -9,6 +9,7 @@ import {
 } from './lib/pushNotifications.js'
 
 import {
+  client,
   account,
   tablesDB,
   DATABASE_ID,
@@ -23,6 +24,8 @@ import Camera from './Camera.jsx'
 import Chat from './Chat.jsx'
 import AddPeople from './AddPeople.jsx'
 import CreateGroup from './CreateGroup.jsx'
+import ProfileAvatar from './components/ProfileAvatar.jsx'
+import AvatarBuilder from './components/AvatarBuilder.jsx'
 
 import './App.css'
 
@@ -126,6 +129,71 @@ export default function App() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!currentUser?.$id || profile?.userId === currentUser.$id) return
+
+    let cancelled = false
+
+    async function loadCurrentProfile() {
+      try {
+        const rowId = (currentUser.name || '').trim().toLowerCase()
+        if (!rowId) return
+
+        const loadedProfile = await tablesDB.getRow({
+          databaseId: DATABASE_ID,
+          tableId: USERS_TABLE_ID,
+          rowId,
+        })
+
+        if (!cancelled) setProfile(loadedProfile)
+      } catch (error) {
+        if (error?.code !== 404) {
+          console.error('Kunde inte hämta användarprofilen:', error)
+        }
+      }
+    }
+
+    loadCurrentProfile()
+
+    return () => {
+      cancelled = true
+    }
+  }, [currentUser?.$id, profile?.userId])
+
+  useEffect(() => {
+    if (!currentUser?.$id) return
+
+    const unsubscribe = client.subscribe(
+      `databases.${DATABASE_ID}.tables.${USERS_TABLE_ID}.rows`,
+      (event) => {
+        const updatedProfile = event.payload
+        if (!updatedProfile?.userId) return
+
+        if (updatedProfile.userId === currentUser.$id) {
+          setProfile(updatedProfile)
+        }
+
+        const applyProfile = (chat) => ({
+          ...chat,
+          avatarProfile:
+            chat.otherUserId === updatedProfile.userId
+              ? updatedProfile
+              : chat.avatarProfile,
+          members: chat.members?.map((member) =>
+            member.userId === updatedProfile.userId
+              ? { ...member, username: updatedProfile.username || member.username, avatarProfile: updatedProfile }
+              : member
+          ),
+        })
+
+        setChats((previous) => previous.map(applyProfile))
+        setActiveChat((previous) => previous ? applyProfile(previous) : previous)
+      }
+    )
+
+    return () => unsubscribe()
+  }, [currentUser?.$id])
+
   // Hämta alla konversationer där användaren är medlem.
   useEffect(() => {
     if (!currentUser) {
@@ -206,6 +274,9 @@ export default function App() {
                   return {
                     userId: member.userId,
                     username: memberProfile?.username || 'Okänd användare',
+                    avatarProfile: memberProfile || (
+                      member.userId === currentUser.$id ? profile : null
+                    ),
                   }
                 })
 
@@ -249,12 +320,17 @@ export default function App() {
                     userId: currentUser.$id,
                     username:
                       profile?.username || currentUser.name || 'Du',
+                    avatarProfile: profile || profiles.find(
+                      (item) => item.userId === currentUser.$id
+                    ),
                   },
                   {
                     userId: otherMember.userId,
                     username,
+                    avatarProfile: otherProfile,
                   },
                 ],
+                avatarProfile: otherProfile,
                 memberCount: 2,
                 preview: 'Privat konversation',
                 membershipRowId: membership.$id,
@@ -497,6 +573,22 @@ export default function App() {
     }
   }
 
+  async function saveAvatar(avatarData) {
+    if (!profile?.$id) {
+      throw new Error('Din användarprofil kunde inte hittas i Appwrite.')
+    }
+
+    const updatedProfile = await tablesDB.updateRow({
+      databaseId: DATABASE_ID,
+      tableId: USERS_TABLE_ID,
+      rowId: profile.$id,
+      data: avatarData,
+    })
+
+    setProfile(updatedProfile)
+    return updatedProfile
+  }
+
   function handleGroupCreated(conversation) {
     setChatsRefresh((value) => value + 1)
 
@@ -640,13 +732,16 @@ export default function App() {
               }`}
               onClick={() => openChat(chat)}
             >
-              <span
-                className={`chat-avatar ${
-                  chat.type === 'group' ? 'group-avatar' : ''
-                }`}
-              >
-                {chat.type === 'group' ? '♧' : chat.initials}
-              </span>
+              {chat.type === 'group' ? (
+                <span className="chat-avatar group-avatar">♧</span>
+              ) : (
+                <ProfileAvatar
+                  profile={chat.avatarProfile}
+                  userId={chat.otherUserId}
+                  name={chat.username}
+                  className="chat-avatar"
+                />
+              )}
 
               <span className="chat-list-copy">
                 <strong>{chat.name}</strong>
@@ -705,15 +800,17 @@ export default function App() {
         {activeView === 'chat' && (
           <>
             <div className="conversation-heading">
-              <div
-                className={`chat-avatar large ${
-                  activeChat?.type === 'group' ? 'group-avatar' : ''
-                }`}
-              >
-                {activeChat?.type === 'group'
-                  ? '♧'
-                  : activeChat?.initials || '♡'}
-              </div>
+              {activeChat?.type === 'group' ? (
+                <div className="chat-avatar large group-avatar">♧</div>
+              ) : (
+                <ProfileAvatar
+                  profile={activeChat?.avatarProfile}
+                  userId={activeChat?.otherUserId}
+                  name={activeChat?.username || activeChat?.name}
+                  size={56}
+                  className="chat-avatar large"
+                />
+              )}
 
               <div>
                 <h1>
@@ -759,6 +856,13 @@ export default function App() {
             <p className="view-description">
               Anpassa din plats på PLOT TWIST.
             </p>
+
+            <AvatarBuilder
+              profile={profile}
+              userId={currentUser.$id}
+              name={profile?.username || currentUser.name}
+              onSaved={saveAvatar}
+            />
 
             <div className="settings-card">
               <label htmlFor="display-name">Visningsnamn</label>

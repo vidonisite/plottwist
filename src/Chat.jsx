@@ -9,6 +9,7 @@ import {
 } from './lib/appwrite.js'
 
 import TwistMessage from './TwistMessage.jsx'
+import ProfileAvatar from './components/ProfileAvatar.jsx'
 import './Chat.css'
 
 export default function Chat({ chat, currentUser, onRead }) {
@@ -459,6 +460,15 @@ export default function Chat({ chat, currentUser, onRead }) {
                   <div
                     className={`message-row ${isMine ? 'mine' : 'theirs'}`}
                   >
+                    {!isMine && (
+                      <ProfileAvatar
+                        profile={chat?.members?.find((member) => member.userId === message.senderId)?.avatarProfile}
+                        userId={message.senderId}
+                        name={chat?.members?.find((member) => member.userId === message.senderId)?.username}
+                        size={32}
+                        className="message-avatar"
+                      />
+                    )}
                     {message.type === 'twist' ? (
                       <TwistMessage
                         message={message}
@@ -480,6 +490,15 @@ export default function Chat({ chat, currentUser, onRead }) {
                           )}
                         </span>
                       </div>
+                    )}
+                    {isMine && (
+                      <ProfileAvatar
+                        profile={chat?.members?.find((member) => member.userId === message.senderId)?.avatarProfile}
+                        userId={message.senderId}
+                        name={chat?.members?.find((member) => member.userId === message.senderId)?.username}
+                        size={32}
+                        className="message-avatar"
+                      />
                     )}
                   </div>
                 </div>

@@ -10,6 +10,7 @@ import {
   CONVERSATION_MEMBERS_TABLE_ID,
 } from './lib/appwrite.js'
 import './AddPeople.css'
+import ProfileAvatar from './components/ProfileAvatar.jsx'
 
 // Skapar ett stabilt ID som är högst 32 tecken långt.
 // Samma indata ger alltid samma ID.
@@ -450,9 +451,7 @@ export default function AddPeople() {
 
             return (
               <div className="people-contact" key={request.$id}>
-                <div className="people-avatar">
-                  {(sender?.username || '?').slice(0, 1).toUpperCase()}
-                </div>
+                <ProfileAvatar profile={sender} userId={sender?.userId || request.ownerId} name={sender?.username || request.contactUsername} className="people-avatar" />
 
                 <div className="people-user-info">
                   <strong>
@@ -530,9 +529,7 @@ export default function AddPeople() {
 
             return (
               <div className="people-contact" key={profile.$id}>
-                <div className="people-avatar">
-                  {(profile.username || '?').slice(0, 1).toUpperCase()}
-                </div>
+                <ProfileAvatar profile={profile} userId={profile.userId} name={profile.username} className="people-avatar" />
 
                 <div className="people-user-info">
                   <strong>@{profile.username}</strong>

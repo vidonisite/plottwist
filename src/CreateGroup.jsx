@@ -11,6 +11,7 @@ import {
 } from './lib/appwrite.js'
 
 import './CreateGroup.css'
+import ProfileAvatar from './components/ProfileAvatar.jsx'
 
 export default function CreateGroup({
   currentUser,
@@ -64,6 +65,7 @@ export default function CreateGroup({
               profile?.username ||
               contact.contactUsername ||
               'Okänd användare',
+            avatarProfile: profile,
           }
         })
 
@@ -274,9 +276,13 @@ export default function CreateGroup({
                 }`}
                 onClick={() => toggleContact(contact.userId)}
               >
-                <span className="create-group-avatar">
-                  {contact.username.slice(0, 1).toUpperCase()}
-                </span>
+                <ProfileAvatar
+                  profile={contact.avatarProfile}
+                  userId={contact.userId}
+                  name={contact.username}
+                  size={39}
+                  className="create-group-avatar"
+                />
 
                 <span className="create-group-contact-name">
                   @{contact.username}

@@ -12,6 +12,7 @@ import {
   tablesDB,
   storage,
   DATABASE_ID,
+  USERS_TABLE_ID,
   CONTACTS_TABLE_ID,
   CONVERSATIONS_TABLE_ID,
   CONVERSATION_MEMBERS_TABLE_ID,
@@ -30,6 +31,7 @@ import {
   uploadTwistVideoVersion,
 } from './lib/twistMedia.js'
 import { encodeVideoAtSpeed } from './lib/videoSpeed.js'
+import ProfileAvatar from './components/ProfileAvatar.jsx'
 
 import './Camera.css'
 
@@ -953,8 +955,20 @@ export default function Camera({ currentUser }) {
           Query.limit(500),
         ],
       })
+      const profilesResponse = response.rows.length
+        ? await tablesDB.listRows({
+            databaseId: DATABASE_ID,
+            tableId: USERS_TABLE_ID,
+            queries: [Query.limit(100)],
+          })
+        : { rows: [] }
 
-      setAcceptedContacts(response.rows)
+      setAcceptedContacts(response.rows.map((contact) => ({
+        ...contact,
+        profile: profilesResponse.rows.find(
+          (profile) => profile.userId === contact.contactUserId
+        ),
+      })))
     } catch (error) {
       console.error('Kunde inte hämta kontakter:', error)
 
@@ -1463,19 +1477,13 @@ export default function Camera({ currentUser }) {
                               }}
                             />
 
-                            <span
-                              style={{
-                                width: '36px',
-                                height: '36px',
-                                borderRadius: '50%',
-                                display: 'grid',
-                                placeItems: 'center',
-                                background: '#EADCF4',
-                                fontWeight: 700,
-                              }}
-                            >
-                              {username.slice(0, 1).toUpperCase()}
-                            </span>
+                            <ProfileAvatar
+                              profile={contact.profile}
+                              userId={contact.contactUserId}
+                              name={username}
+                              size={36}
+                              className="recipient-profile-avatar"
+                            />
 
                             <strong>@{username}</strong>
                           </label>

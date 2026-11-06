@@ -27,6 +27,13 @@ behöver notiser även vara tillåtna för webbläsaren i Windows-inställningar
 
 ### Appwrite
 
+Profilbildsval sparas på den befintliga användarraden. Lägg till tre valfria
+String-kolumner i `USERS_TABLE_ID`: `avatarStyle` (max 20 tecken),
+`avatarOptions` (max 2048 tecken) och `avatarSeed` (max 128 tecken). Klienten
+visar DiceBear-stilen `initials` deterministiskt för rader som saknar dessa
+värden, så befintliga konton behöver inte migreras. Anpassade avatarer använder
+DiceBear API v10.
+
 Twist-text och videohastighet sparas som JSON-sidecar-filer i den befintliga
 `TWISTS_BUCKET_ID`-bucketen. Ingen ny tabell eller kolumn behövs. Om bucketens
 filändelse-allowlist är aktiverad behöver den tillåta `.json` utöver bild- och

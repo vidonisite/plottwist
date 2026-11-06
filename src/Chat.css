@@ -40,6 +40,11 @@
 .message-row { display: flex; }
 .message-row.mine { justify-content: flex-end; }
 .message-row.theirs { justify-content: flex-start; }
+.message-avatar {
+  align-self: flex-end;
+  margin: 0 7px 4px;
+  border-radius: 11px;
+}
 
 .message-bubble {
   display: flex;
