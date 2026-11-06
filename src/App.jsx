@@ -25,6 +25,7 @@ import Chat from './Chat.jsx'
 import AddPeople from './AddPeople.jsx'
 import CreateGroup from './CreateGroup.jsx'
 import ProfileAvatar from './components/ProfileAvatar.jsx'
+import GroupAvatar from './components/GroupAvatar.jsx'
 import AvatarBuilder from './components/AvatarBuilder.jsx'
 
 import './App.css'
@@ -212,6 +213,23 @@ export default function App() {
     return () => unsubscribe()
   }, [currentUser?.$id])
 
+  useEffect(() => {
+    if (!currentUser?.$id) return
+
+    const unsubscribe = client.subscribe(
+      `databases.${DATABASE_ID}.tables.${CONVERSATION_MEMBERS_TABLE_ID}.rows`,
+      ({ events = [] }) => {
+        if (events.some((event) => (
+          event.endsWith('.create') || event.endsWith('.delete')
+        ))) {
+          setChatsRefresh((value) => value + 1)
+        }
+      }
+    )
+
+    return () => unsubscribe()
+  }, [currentUser?.$id])
+
   // Hämta alla konversationer där användaren är medlem.
   useEffect(() => {
     if (!currentUser) {
@@ -266,6 +284,26 @@ export default function App() {
               })
 
               const members = membersResponse.rows
+              const memberCount = membersResponse.total ?? members.length
+              const memberUserIds = members.map((member) => member.userId)
+              let memberProfiles = profiles.filter((item) =>
+                memberUserIds.includes(item.userId)
+              )
+              const missingProfileUserIds = memberUserIds.filter(
+                (userId) => !memberProfiles.some((item) => item.userId === userId)
+              )
+
+              if (missingProfileUserIds.length > 0) {
+                const additionalProfilesResponse = await tablesDB.listRows({
+                  databaseId: DATABASE_ID,
+                  tableId: USERS_TABLE_ID,
+                  queries: [
+                    Query.equal('userId', missingProfileUserIds),
+                    Query.limit(100),
+                  ],
+                })
+                memberProfiles = [...memberProfiles, ...additionalProfilesResponse.rows]
+              }
 
               // Hämta olästa meddelanden som skickats efter senaste läsningen.
               const lastReadAt = membership.lastReadAt || membership.$createdAt
@@ -284,8 +322,8 @@ export default function App() {
               const unreadCount = unreadResponse.total || 0
 
               if (conversation.type === 'group') {
-                const memberProfiles = members.map((member) => {
-                  const memberProfile = profiles.find(
+                const groupMembers = members.map((member) => {
+                  const memberProfile = memberProfiles.find(
                     (item) => item.userId === member.userId
                   )
 
@@ -304,9 +342,9 @@ export default function App() {
                   name: conversation.name || 'Namnlös grupp',
                   username: conversation.name || 'Namnlös grupp',
                   initials: (conversation.name || 'G').slice(0, 1).toUpperCase(),
-                  members: memberProfiles,
-                  memberCount: members.length,
-                  preview: `${members.length} medlemmar`,
+                  members: groupMembers,
+                  memberCount,
+                  preview: `${memberCount} medlemmar`,
                   membershipRowId: membership.$id,
                   lastReadAt,
                   unreadCount,
@@ -319,7 +357,7 @@ export default function App() {
 
               if (!otherMember) return null
 
-              const otherProfile = profiles.find(
+              const otherProfile = memberProfiles.find(
                 (item) => item.userId === otherMember.userId
               )
 
@@ -751,7 +789,11 @@ export default function App() {
               onClick={() => openChat(chat)}
             >
               {chat.type === 'group' ? (
-                <span className="chat-avatar group-avatar">♧</span>
+                <GroupAvatar
+                  members={chat.members}
+                  memberCount={chat.memberCount}
+                  name={chat.name}
+                />
               ) : (
                 <ProfileAvatar
                   profile={chat.avatarProfile}
@@ -836,7 +878,13 @@ export default function App() {
           <>
             <div className="conversation-heading">
               {activeChat?.type === 'group' ? (
-                <div className="chat-avatar large group-avatar">♧</div>
+                <GroupAvatar
+                  members={activeChat.members}
+                  memberCount={activeChat.memberCount}
+                  name={activeChat.name}
+                  size={56}
+                  className="large"
+                />
               ) : (
                 <ProfileAvatar
                   profile={activeChat?.avatarProfile}

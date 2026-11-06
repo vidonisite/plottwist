@@ -32,6 +32,7 @@ import {
 } from './lib/twistMedia.js'
 import { encodeVideoAtSpeed } from './lib/videoSpeed.js'
 import ProfileAvatar from './components/ProfileAvatar.jsx'
+import GroupAvatar from './components/GroupAvatar.jsx'
 
 import './Camera.css'
 
@@ -1000,9 +1001,60 @@ export default function Camera({ currentUser }) {
           (profile) => profile.userId === contact.contactUserId
         ),
       })))
-      setGroupConversations(conversations.filter(
-        (conversation) => conversation?.type === 'group'
-      ))
+
+      const loadedGroupConversations = await Promise.all(
+        conversations
+          .filter((conversation) => conversation?.type === 'group')
+          .map(async (conversation) => {
+            const membersResponse = await tablesDB.listRows({
+              databaseId: DATABASE_ID,
+              tableId: CONVERSATION_MEMBERS_TABLE_ID,
+              queries: [
+                Query.equal('conversationId', [conversation.$id]),
+                Query.limit(100),
+              ],
+            })
+            const members = membersResponse.rows
+            const memberCount = membersResponse.total ?? members.length
+            const memberUserIds = members.map((member) => member.userId)
+            let memberProfiles = profilesResponse.rows.filter((profile) =>
+              memberUserIds.includes(profile.userId)
+            )
+            const missingProfileUserIds = memberUserIds.filter(
+              (userId) => !memberProfiles.some((profile) => profile.userId === userId)
+            )
+
+            if (missingProfileUserIds.length > 0) {
+              const additionalProfilesResponse = await tablesDB.listRows({
+                databaseId: DATABASE_ID,
+                tableId: USERS_TABLE_ID,
+                queries: [
+                  Query.equal('userId', missingProfileUserIds),
+                  Query.limit(100),
+                ],
+              })
+              memberProfiles = [...memberProfiles, ...additionalProfilesResponse.rows]
+            }
+
+            return {
+              ...conversation,
+              memberCount,
+              members: members.map((member) => {
+                const memberProfile = memberProfiles.find(
+                  (item) => item.userId === member.userId
+                )
+
+                return {
+                  userId: member.userId,
+                  username: memberProfile?.username || 'Okänd användare',
+                  avatarProfile: memberProfile || null,
+                }
+              }),
+            }
+          })
+      )
+
+      setGroupConversations(loadedGroupConversations)
     } catch (error) {
       console.error('Kunde inte hämta kontakter:', error)
 
@@ -1564,7 +1616,13 @@ export default function Camera({ currentUser }) {
                                   onChange={() => toggleGroupRecipient(conversation.$id)}
                                   disabled={sendingTwist}
                                 />
-                                <span className="twist-recipient-group-icon" aria-hidden="true">♧</span>
+                                <GroupAvatar
+                                  members={conversation.members}
+                                  memberCount={conversation.memberCount}
+                                  name={conversation.name}
+                                  size={36}
+                                  className="twist-recipient-group-icon"
+                                />
                                 <span className="twist-recipient-group-copy">
                                   <strong>{conversation.name || 'Namnlös grupp'}</strong>
                                   <small>Gruppkonversation</small>
