@@ -19,12 +19,27 @@
 .avatar-builder {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  max-width: 560px;
+  gap: 14px;
+  width: min(100%, 720px);
+  max-width: 720px;
   margin-bottom: 18px;
-  padding: 18px;
+  padding: 0 18px 18px;
   border: 1px solid var(--border);
   border-radius: 16px;
+  background: var(--surface);
+}
+
+.avatar-builder-sticky {
+  position: sticky;
+  z-index: 3;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 -18px;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid var(--border);
+  border-radius: 15px 15px 0 0;
   background: var(--surface);
 }
 
@@ -80,79 +95,112 @@
   box-shadow: 0 2px 6px rgba(50, 14, 59, .06);
 }
 
-.avatar-options-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.avatar-options-grid label {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 750;
-}
-
-.avatar-color-field {
+.avatar-category-tabs {
   display: flex;
-  flex-direction: column;
-  gap: 7px;
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 750;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 1px 1px 5px;
+  scrollbar-width: thin;
 }
 
-.avatar-options-grid select {
-  width: 100%;
-  min-width: 0;
-  height: 38px;
-  padding: 0 9px;
-  border: 1px solid var(--border-strong);
-  border-radius: 9px;
+.avatar-category-tabs button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  color: var(--text-muted);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.avatar-category-tabs button:hover {
   color: var(--text);
   background: white;
-  font-size: 11px;
 }
 
-.avatar-clay-options {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 750;
+.avatar-category-tabs button.selected {
+  border-color: var(--purple-border);
+  color: var(--purple-dark);
+  background: var(--purple-soft);
+  box-shadow: inset 0 -2px 0 var(--purple-dark);
 }
 
-.avatar-color-picker {
-  display: flex;
-  flex-wrap: wrap;
+.avatar-category-content {
+  min-height: 140px;
+}
+
+.avatar-choice-group {
+  margin: 4px 0 20px;
+}
+
+.avatar-choice-group h3 {
+  margin: 0 0 10px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.avatar-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
   gap: 9px;
 }
 
-.avatar-color-picker button {
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 30px;
-  height: 30px;
+.avatar-choice {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
   padding: 0;
-  border: 3px solid white;
-  border-radius: 50%;
-  outline: 1px solid transparent;
-  background: var(--swatch);
-}
-
-.avatar-color-picker button.selected {
-  outline-color: var(--purple-dark);
-}
-
-.avatar-color-picker .avatar-color-random {
-  border: 1px solid var(--border-strong);
-  color: var(--text-muted);
+  border: 2px solid transparent;
+  border-radius: 13px;
   background: white;
-  font-size: 18px;
+  box-shadow: 0 1px 4px rgba(50, 14, 59, .08);
+  transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+
+.avatar-choice:hover {
+  z-index: 1;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 12px rgba(50, 14, 59, .14);
+}
+
+.avatar-choice.selected {
+  border-color: var(--purple-dark);
+  box-shadow: 0 0 0 2px white, 0 0 0 4px var(--purple-dark);
+}
+
+.avatar-choice img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-choice > span:not(.avatar-choice-swatch) {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 4px 2px;
+  color: var(--text);
+  background: rgba(255, 255, 255, .88);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.avatar-choice-swatch {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 16px;
+  height: 16px;
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .25);
 }
 
 .avatar-builder-message {
@@ -193,11 +241,22 @@
 }
 
 @media (max-width: 520px) {
-  .avatar-options-grid {
-    grid-template-columns: 1fr;
+  .avatar-choice-grid {
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 8px;
   }
 
   .avatar-builder {
-    padding: 14px;
+    padding: 0 12px 14px;
+  }
+
+  .avatar-builder-sticky {
+    margin-inline: -12px;
+    padding: 12px 12px 9px;
+  }
+
+  .avatar-builder-preview {
+    width: 70px !important;
+    height: 70px !important;
   }
 }

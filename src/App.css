@@ -297,11 +297,18 @@
   padding-top: 24px;
 }
 
-.sidebar-action {
+.sidebar-bottom-actions {
   display: flex;
   align-items: center;
+  gap: 7px;
+}
+
+.sidebar-action {
+  display: flex;
+  flex: 1;
+  align-items: center;
   gap: 12px;
-  width: 100%;
+  width: auto;
   padding: 13px 12px;
   border: 0;
   border-radius: 14px;
@@ -320,6 +327,34 @@
 
 .sidebar-action-icon {
   font-size: 19px;
+}
+
+.profile-settings-button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 4px;
+  border: 2px solid transparent;
+  border-radius: 16px;
+  background: transparent;
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+
+.profile-settings-button:hover {
+  transform: translateY(-2px);
+  border-color: var(--purple-border);
+  background: var(--purple-soft);
+}
+
+.profile-settings-button.selected {
+  border-color: var(--purple-dark);
+  background: var(--purple-soft);
+}
+
+.profile-settings-avatar {
+  border-radius: 12px;
 }
 
 .sidebar-footer {
@@ -656,6 +691,13 @@
   transform: translateX(18px);
 }
 
+.avatar-settings-view {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px;
+}
+
 /* FOKUS */
 
 button:focus-visible,
@@ -786,8 +828,24 @@ input:focus-visible {
   }
 
   .sidebar-action {
-    width: auto;
+    flex: 0 0 auto;
     padding: 8px 10px;
+  }
+
+  .sidebar-bottom-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .profile-settings-button {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+  }
+
+  .profile-settings-avatar {
+    width: 34px !important;
+    height: 34px !important;
   }
 
   .sidebar-footer {
@@ -805,6 +863,10 @@ input:focus-visible {
 
   .workspace-view {
     padding: 20px;
+  }
+
+  .avatar-settings-view {
+    padding: 12px;
   }
 
   .camera-view {

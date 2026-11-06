@@ -17,6 +17,7 @@ export default function Chat({ chat, currentUser, onRead }) {
   const [draft, setDraft] = useState('')
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
+  const [deletingMessageId, setDeletingMessageId] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
   const [newMessagesCount, setNewMessagesCount] = useState(0)
 
@@ -372,6 +373,50 @@ export default function Chat({ chat, currentUser, onRead }) {
     }
   }
 
+  async function deleteMessage(message) {
+    if (
+      !message?.$id ||
+      message.senderId !== currentUserId ||
+      message.type === 'deleted' ||
+      deletingMessageId
+    ) {
+      return
+    }
+
+    const itemName = message.type === 'twist' ? 'Twist' : 'meddelandet'
+    const confirmed = window.confirm(`Ta bort ${itemName}?`)
+    if (!confirmed) return
+
+    setDeletingMessageId(message.$id)
+    setErrorMessage('')
+
+    const senderName = chat?.members?.find(
+      (member) => member.userId === currentUserId
+    )?.username || currentUser?.name || 'Du'
+    const deletedItem = message.type === 'twist' ? 'twist' : 'chatt'
+
+    try {
+      await tablesDB.updateRow({
+        databaseId: DATABASE_ID,
+        tableId: MESSAGES_TABLE_ID,
+        rowId: message.$id,
+        data: {
+          type: 'deleted',
+          text: `${senderName} raderade en ${deletedItem}`,
+        },
+      })
+
+      await loadMessages()
+    } catch (error) {
+      console.error('Meddelandet kunde inte tas bort:', error)
+      setErrorMessage(
+        `Meddelandet kunde inte tas bort: ${error.message || 'Okänt fel'}`
+      )
+    } finally {
+      setDeletingMessageId(null)
+    }
+  }
+
   function getDayLabel(date) {
     const messageDate = new Date(date)
     const today = new Date()
@@ -477,7 +522,7 @@ export default function Chat({ chat, currentUser, onRead }) {
                         members={chat?.members || []}
                       />
                     ) : (
-                      <div className="message-bubble">
+                      <div className={`message-bubble ${message.type === 'deleted' ? 'message-deleted' : ''}`}>
                         {message.text}
 
                         <span className="message-time">
@@ -490,6 +535,21 @@ export default function Chat({ chat, currentUser, onRead }) {
                           )}
                         </span>
                       </div>
+                    )}
+                    {isMine && message.type !== 'deleted' && (
+                      <button
+                        type="button"
+                        className="message-delete-button"
+                        onClick={() => deleteMessage(message)}
+                        disabled={deletingMessageId === message.$id}
+                        aria-label={
+                          message.type === 'twist'
+                            ? 'Ta bort Twist'
+                            : 'Ta bort meddelande'
+                        }
+                      >
+                        {deletingMessageId === message.$id ? 'Tar bort...' : 'Ta bort'}
+                      </button>
                     )}
                     {isMine && (
                       <ProfileAvatar

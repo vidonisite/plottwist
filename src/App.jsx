@@ -766,15 +766,32 @@ export default function App() {
         </div>
 
         <div className="sidebar-bottom">
-          <button
-            className={`sidebar-action ${
-              activeView === 'settings' ? 'selected' : ''
-            }`}
-            onClick={() => showView('settings')}
-          >
-            <span className="sidebar-action-icon">⚙</span>
-            <span>Inställningar</span>
-          </button>
+          <div className="sidebar-bottom-actions">
+            <button
+              className={`sidebar-action ${
+                activeView === 'settings' ? 'selected' : ''
+              }`}
+              onClick={() => showView('settings')}
+            >
+              <span className="sidebar-action-icon">⚙</span>
+              <span>Inställningar</span>
+            </button>
+            <button
+              type="button"
+              className={`profile-settings-button ${activeView === 'avatar-settings' ? 'selected' : ''}`}
+              onClick={() => showView('avatar-settings')}
+              aria-label="Profilbild och avatarinställningar"
+              title="Profilbild och avatarinställningar"
+            >
+              <ProfileAvatar
+                profile={profile}
+                userId={currentUser.$id}
+                name={profile?.username || currentUser.name}
+                size={38}
+                className="profile-settings-avatar"
+              />
+            </button>
+          </div>
 
           <div className="sidebar-footer">
             <span className="footer-dot" />
@@ -857,13 +874,6 @@ export default function App() {
               Anpassa din plats på PLOT TWIST.
             </p>
 
-            <AvatarBuilder
-              profile={profile}
-              userId={currentUser.$id}
-              name={profile?.username || currentUser.name}
-              onSaved={saveAvatar}
-            />
-
             <div className="settings-card">
               <label htmlFor="display-name">Visningsnamn</label>
               <input
@@ -929,6 +939,17 @@ export default function App() {
                 {authError}
               </p>
             )}
+          </section>
+        )}
+
+        {activeView === 'avatar-settings' && (
+          <section className="workspace-view avatar-settings-view">
+            <AvatarBuilder
+              profile={profile}
+              userId={currentUser.$id}
+              name={profile?.username || currentUser.name}
+              onSaved={saveAvatar}
+            />
           </section>
         )}
       </main>
