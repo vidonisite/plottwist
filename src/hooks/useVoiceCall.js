@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ID, Permission, Query, Role } from 'appwrite'
+import { ID, Query } from 'appwrite'
 import {
   client,
+  functions,
   tablesDB,
   DATABASE_ID,
   CALL_SIGNALS_TABLE_ID,
@@ -13,6 +14,7 @@ import {
 const CALL_TIMEOUT_MS = 30_000
 const ENDED_NOTICE_MS = 4_000
 const SIGNAL_RETENTION_MS = 24 * 60 * 60 * 1000
+const PUSH_FUNCTION_ID = import.meta.env.VITE_APPWRITE_PUSH_FUNCTION_ID
 
 function parsePayload(value) {
   try {
@@ -82,7 +84,7 @@ export default function useVoiceCall(currentUser) {
         rowId: signal.$id,
       })
     } catch (error) {
-      if (error?.code !== 404 && error?.code !== 401 && error?.code !== 403) {
+      if (error?.code !== 404) {
         console.warn('Kunde inte rensa samtalssignal:', error)
       }
     }
@@ -93,24 +95,42 @@ export default function useVoiceCall(currentUser) {
       throw new Error('Samtalssignalen saknar mottagare eller konversation.')
     }
 
-    return tablesDB.createRow({
-      databaseId: DATABASE_ID,
-      tableId: CALL_SIGNALS_TABLE_ID,
-      rowId: ID.unique(),
-      data: {
+    if (!PUSH_FUNCTION_ID) {
+      throw new Error('Samtalsfunktionen är inte konfigurerad.')
+    }
+
+    const execution = await functions.createExecution({
+      functionId: PUSH_FUNCTION_ID,
+      body: JSON.stringify({
+        action: 'call-signal',
         conversationId: callData.conversationId,
-        senderId: currentUserId,
         recipientId: callData.remoteUserId,
         type,
         payload: JSON.stringify({ callId: callData.callId, ...payload }),
-      },
-      permissions: [
-        Permission.read(Role.user(currentUserId)),
-        Permission.read(Role.user(callData.remoteUserId)),
-        Permission.delete(Role.user(currentUserId)),
-        Permission.delete(Role.user(callData.remoteUserId)),
-      ],
+      }),
+      async: false,
     })
+
+    let response
+    try {
+      response = JSON.parse(execution.responseBody)
+    } catch {
+      throw new Error('Samtalsfunktionen returnerade ett ogiltigt svar.')
+    }
+
+    if (
+      !response ||
+      typeof response !== 'object' ||
+      execution.responseStatusCode < 200 ||
+      execution.responseStatusCode >= 300 ||
+      !response.signal?.$id
+    ) {
+      throw new Error(
+        response?.message || 'Samtalssignalen kunde inte skickas.'
+      )
+    }
+
+    return response.signal
   }, [currentUserId])
 
   const releaseMediaAndPeer = useCallback(() => {
@@ -655,7 +675,7 @@ export default function useVoiceCall(currentUser) {
           (signal) => signal.type === 'offer' && !staleSignals.includes(signal)
         )
         await Promise.all(staleSignals.map(deleteSignal))
-        for (const offer of offers.rows) {
+        for (const offer of offers) {
           const createdAt = new Date(offer.$createdAt).getTime()
           if (active && createdAt >= Date.now() - SIGNAL_RETENTION_MS) {
             await signalHandlerRef.current?.(offer)

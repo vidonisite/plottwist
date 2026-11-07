@@ -36,10 +36,17 @@ Tabellen använder bara fälten `conversationId`, `senderId`, `recipientId`,
 `type` och `payload`; ge `payload` tillräcklig stränglängd för en SDP-offer,
 minst 16 KB. Inga nya tabeller eller funktioner behövs.
 
-Aktivera row-level security och tillåt inloggade användare att skapa rader.
-Klienten sätter läs- och raderingsbehörighet för samtalets två deltagare på
-varje signalrad. Skapa ett index på `recipientId` så att inkommande och gamla
-signaler kan hämtas effektivt.
+Aktivera **Row Security** och ge inga klientroller tabellbehörigheterna
+**Create**, **Read**, **Update** eller **Delete**. Tabellbehörigheter gäller
+alla signalrader, medan radbehörigheter bara gäller den enskilda raden.
+Klienten skickar signaler via den befintliga `push-notifications`-funktionen.
+Funktionen kontrollerar att avsändare och mottagare är de två medlemmarna i en
+privat konversation och skapar raden med Appwrite-behörigheter för endast dessa två:
+`Permission.read(Role.user(id))` och `Permission.delete(Role.user(id))`.
+Signalrader uppdateras inte; svar och ICE-kandidater skapas som separata rader.
+Klientens listning och Realtime-prenumeration begränsas av radbehörigheterna.
+Skapa ett index på `recipientId` så att inkommande och gamla signaler kan
+hämtas effektivt.
 
 För inkommande samtals-push återanvänds `functions/push-notifications`.
 Lägg till funktionsvariabeln `APPWRITE_CALL_SIGNALS_TABLE_ID` med värdet
@@ -81,6 +88,10 @@ videoformaten; filbehörigheterna sätts per fil av appen.
    `APPWRITE_CONVERSATION_MEMBERS_TABLE_ID`,
    `APPWRITE_PUSH_SUBSCRIPTIONS_TABLE_ID`, `VAPID_PUBLIC_KEY`,
    `VAPID_PRIVATE_KEY` och `VAPID_SUBJECT` (t.ex. `mailto:du@example.com`).
+   `APPWRITE_CONVERSATIONS_TABLE_ID` och `APPWRITE_USERS_TABLE_ID` behövs också.
+   API-nyckeln behöver skapa rader i `call_signals` samt läsa konversations-,
+   medlemskaps- och användartabellerna för att validera deltagarna och skicka
+   pushnotiser.
    `APPWRITE_FUNCTION_API_ENDPOINT` och `APPWRITE_FUNCTION_PROJECT_ID` sätts
    av Appwrite.
 4. Generera VAPID-nycklar med `npx web-push generate-vapid-keys` i

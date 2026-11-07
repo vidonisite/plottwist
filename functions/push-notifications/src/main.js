@@ -1,7 +1,10 @@
 import { createHash } from 'node:crypto'
 import {
   Client,
+  ID,
+  Permission,
   Query,
+  Role,
   TablesDB,
 } from 'node-appwrite'
 import webpush from 'web-push'
@@ -328,6 +331,97 @@ async function handleCallSignalEvent(
   return { sent }
 }
 
+async function createCallSignal(tablesDB, userId, body, res) {
+  const { conversationId, recipientId, type, payload } = body ?? {}
+  const signalTypes = new Set([
+    'offer',
+    'answer',
+    'ice-candidate',
+    'end',
+    'reject',
+  ])
+
+  if (!CALL_SIGNALS_TABLE_ID) {
+    return res.json(
+      { message: 'Samtalssignaler är inte konfigurerade.' },
+      500
+    )
+  }
+
+  if (
+    !conversationId ||
+    !recipientId ||
+    recipientId === userId ||
+    !signalTypes.has(type) ||
+    typeof payload !== 'string'
+  ) {
+    return res.json({ message: 'Ogiltig samtalssignal.' }, 400)
+  }
+
+  let parsedPayload
+  try {
+    parsedPayload = JSON.parse(payload)
+  } catch {
+    return res.json({ message: 'Ogiltig samtalssignal.' }, 400)
+  }
+
+  if (
+    !parsedPayload ||
+    typeof parsedPayload !== 'object' ||
+    typeof parsedPayload.callId !== 'string' ||
+    !parsedPayload.callId
+  ) {
+    return res.json({ message: 'Ogiltig samtalssignal.' }, 400)
+  }
+
+  const [conversation, members] = await Promise.all([
+    getConversation(tablesDB, conversationId),
+    tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: MEMBERS_TABLE_ID,
+      queries: [
+        Query.equal('conversationId', [conversationId]),
+        Query.limit(3),
+      ],
+    }),
+  ])
+
+  const memberIds = [...new Set(members.rows.map((member) => member.userId))]
+  if (
+    conversation?.type !== 'direct' ||
+    members.rows.length !== 2 ||
+    memberIds.length !== 2 ||
+    !memberIds.includes(userId) ||
+    !memberIds.includes(recipientId)
+  ) {
+    return res.json(
+      { message: 'Samtalssignaler är bara tillåtna mellan privata konversationsmedlemmar.' },
+      403
+    )
+  }
+
+  const signal = await tablesDB.createRow({
+    databaseId: DATABASE_ID,
+    tableId: CALL_SIGNALS_TABLE_ID,
+    rowId: ID.unique(),
+    data: {
+      conversationId,
+      senderId: userId,
+      recipientId,
+      type,
+      payload,
+    },
+    permissions: [
+      Permission.read(Role.user(userId)),
+      Permission.read(Role.user(recipientId)),
+      Permission.delete(Role.user(userId)),
+      Permission.delete(Role.user(recipientId)),
+    ],
+  })
+
+  return res.json({ success: true, signal })
+}
+
 function resSkipped() {
   return { skipped: true, sent: 0 }
 }
@@ -361,6 +455,10 @@ export default async ({ req, res, log, error }) => {
           { message: 'Du måste vara inloggad.' },
           401
         )
+      }
+
+      if (req.bodyJson.action === 'call-signal') {
+        return await createCallSignal(tablesDB, userId, req.bodyJson, res)
       }
 
       const subscription = getSubscription(req)
