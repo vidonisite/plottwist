@@ -71,12 +71,7 @@ export default function GroupAvatar({
                 ? ' group-avatar-tile--wide'
                 : ''
             }`}
-            style={{
-              backgroundColor:
-                layout === 'three' && member === wideMember
-                  ? 'inherit'
-                  : backgroundColor,
-            }}
+            style={{ backgroundColor }}
           >
             <ProfileAvatar
               profile={member.avatarProfile}
@@ -84,7 +79,11 @@ export default function GroupAvatar({
               name={member.username}
               size={avatarSize}
               className="group-avatar-member"
-              backgroundColor={backgroundColor}
+              backgroundColor={
+                layout === 'three' && member === wideMember
+                  ? 'transparent'
+                  : backgroundColor
+              }
             />
           </span>
         )
