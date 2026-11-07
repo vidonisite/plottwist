@@ -61,13 +61,9 @@ export default function GroupAvatar({
           <span
             key={member.userId}
             className={`group-avatar-tile${
-              layout === 'three' && member === wideMember
-                ? ' group-avatar-tile--wide'
-                : ''
+              member === wideMember ? ' group-avatar-tile--wide' : ''
             }`}
-            style={{
-              backgroundColor,
-            }}
+            style={{ backgroundColor }}
           >
             <ProfileAvatar
               profile={member.avatarProfile}

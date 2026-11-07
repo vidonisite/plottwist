@@ -273,9 +273,10 @@
 }
 
 .group-avatar-tile--wide {
+  display: flex;
+  align-items: center;
   grid-column: 1 / -1;
-  position: relative;
-  background: var(--surface-hover);
+  justify-content: center;
 }
 
 .group-avatar-member {
@@ -283,7 +284,7 @@
   background: transparent;
 }
 
-.group-avatar-member img {
+.chat-avatar.group-avatar .group-avatar-member img {
   object-fit: contain;
 }
 
