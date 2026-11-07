@@ -18,6 +18,10 @@ export default function Chat({ chat, currentUser, onRead }) {
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [deletingMessageId, setDeletingMessageId] = useState(null)
+  const [editingMessageId, setEditingMessageId] = useState(null)
+  const [editingText, setEditingText] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [messageMenu, setMessageMenu] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
   const [newMessagesCount, setNewMessagesCount] = useState(0)
 
@@ -417,6 +421,77 @@ export default function Chat({ chat, currentUser, onRead }) {
     }
   }
 
+  function openMessageMenu(event, message) {
+    if (message.senderId !== currentUserId || message.type === 'deleted') return
+
+    event.preventDefault()
+    setMessageMenu({
+      message,
+      x: Math.max(8, Math.min(event.clientX, window.innerWidth - 170)),
+      y: Math.max(8, Math.min(event.clientY, window.innerHeight - 100)),
+    })
+  }
+
+  function startEditingMessage(message) {
+    setEditingMessageId(message.$id)
+    setEditingText(message.text || '')
+    setMessageMenu(null)
+  }
+
+  async function saveEditedMessage(event, message) {
+    event.preventDefault()
+    const text = editingText.trim()
+
+    if (!text || text === message.text || savingEdit) {
+      if (text === message.text) setEditingMessageId(null)
+      return
+    }
+
+    setSavingEdit(true)
+    setErrorMessage('')
+
+    try {
+      await tablesDB.updateRow({
+        databaseId: DATABASE_ID,
+        tableId: MESSAGES_TABLE_ID,
+        rowId: message.$id,
+        data: { text },
+      })
+      setEditingMessageId(null)
+      setEditingText('')
+      await loadMessages()
+    } catch (error) {
+      console.error('Meddelandet kunde inte ändras:', error)
+      setErrorMessage(
+        `Meddelandet kunde inte ändras: ${error.message || 'Okänt fel'}`
+      )
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!messageMenu) return
+
+    function dismissMenu(event) {
+      if (event.type === 'keydown' && event.key === 'Escape') {
+        setMessageMenu(null)
+      } else if (
+        event.type !== 'keydown' &&
+        !event.target.closest?.('.message-context-menu')
+      ) {
+        setMessageMenu(null)
+      }
+    }
+
+    window.addEventListener('pointerdown', dismissMenu)
+    window.addEventListener('keydown', dismissMenu)
+    return () => {
+      window.removeEventListener('pointerdown', dismissMenu)
+      window.removeEventListener('keydown', dismissMenu)
+    }
+  }, [messageMenu])
+
   function getDayLabel(date) {
     const messageDate = new Date(date)
     const today = new Date()
@@ -504,6 +579,7 @@ export default function Chat({ chat, currentUser, onRead }) {
 
                   <div
                     className={`message-row ${isMine ? 'mine' : 'theirs'}`}
+                    onContextMenu={(event) => openMessageMenu(event, message)}
                   >
                     {!isMine && (
                       <ProfileAvatar
@@ -522,8 +598,44 @@ export default function Chat({ chat, currentUser, onRead }) {
                         members={chat?.members || []}
                       />
                     ) : (
-                      <div className={`message-bubble ${message.type === 'deleted' ? 'message-deleted' : ''}`}>
-                        {message.text}
+                      <div
+                        className={`message-bubble ${message.type === 'deleted' ? 'message-deleted' : ''}`}
+                      >
+                        {editingMessageId === message.$id ? (
+                          <form
+                            className="message-edit-form"
+                            onSubmit={(event) => saveEditedMessage(event, message)}
+                          >
+                            <textarea
+                              value={editingText}
+                              onChange={(event) => setEditingText(event.target.value)}
+                              maxLength={2000}
+                              autoFocus
+                              aria-label="Ändra meddelande"
+                            />
+                            <span className="message-edit-actions">
+                              <button type="submit" disabled={savingEdit || !editingText.trim()}>
+                                {savingEdit ? 'Sparar...' : 'Spara'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingMessageId(null)}
+                                disabled={savingEdit}
+                              >
+                                Avbryt
+                              </button>
+                            </span>
+                          </form>
+                        ) : (
+                          <>
+                            {message.text}
+                            {message.$updatedAt &&
+                              message.$updatedAt !== message.$createdAt &&
+                              message.type !== 'deleted' && (
+                                <span className="message-edited">ändrat</span>
+                              )}
+                          </>
+                        )}
 
                         <span className="message-time">
                           {new Date(message.$createdAt).toLocaleTimeString(
@@ -535,21 +647,6 @@ export default function Chat({ chat, currentUser, onRead }) {
                           )}
                         </span>
                       </div>
-                    )}
-                    {isMine && message.type !== 'deleted' && (
-                      <button
-                        type="button"
-                        className="message-delete-button"
-                        onClick={() => deleteMessage(message)}
-                        disabled={deletingMessageId === message.$id}
-                        aria-label={
-                          message.type === 'twist'
-                            ? 'Ta bort Twist'
-                            : 'Ta bort meddelande'
-                        }
-                      >
-                        {deletingMessageId === message.$id ? 'Tar bort...' : 'Ta bort'}
-                      </button>
                     )}
                     {isMine && (
                       <ProfileAvatar
@@ -564,6 +661,37 @@ export default function Chat({ chat, currentUser, onRead }) {
                 </div>
               )
             })}
+
+            {messageMenu && (
+              <div
+                className="message-context-menu"
+                role="menu"
+                style={{ left: messageMenu.x, top: messageMenu.y }}
+              >
+                {messageMenu.message.type === 'text' && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => startEditingMessage(messageMenu.message)}
+                  >
+                    Ändra
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="message-context-delete"
+                  disabled={deletingMessageId === messageMenu.message.$id}
+                  onClick={() => {
+                    const message = messageMenu.message
+                    setMessageMenu(null)
+                    deleteMessage(message)
+                  }}
+                >
+                  {deletingMessageId === messageMenu.message.$id ? 'Tar bort...' : 'Ta bort'}
+                </button>
+              </div>
+            )}
 
             {errorMessage && (
               <p className="camera-error" role="alert">

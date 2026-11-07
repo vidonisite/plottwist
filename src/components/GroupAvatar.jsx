@@ -41,11 +41,21 @@ export default function GroupAvatar({
           : 'grid'
   const hiddenMemberCount = Math.max(0, memberCount - 3)
   const avatarSize = layout === 'single' ? size : size / 2
+  const wideMember = layout === 'three' ? visibleMembers[2] : null
+  const wideBackgroundColor = wideMember
+    ? getAvatarBackgroundColor(wideMember.avatarProfile) || 'var(--surface-hover)'
+    : undefined
 
   return (
     <span
       className={`chat-avatar group-avatar group-avatar--${layout} ${className}`.trim()}
-      style={{ width: size, height: size }}
+      style={{
+        width: size,
+        height: size,
+        ...(wideBackgroundColor
+          ? { backgroundColor: wideBackgroundColor }
+          : {}),
+      }}
       role="img"
       aria-label={`Gruppbild för ${name || 'gruppen'}`}
     >
@@ -61,7 +71,12 @@ export default function GroupAvatar({
                 ? ' group-avatar-tile--wide'
                 : ''
             }`}
-            style={{ backgroundColor }}
+            style={{
+              backgroundColor:
+                layout === 'three' && member === wideMember
+                  ? 'inherit'
+                  : backgroundColor,
+            }}
           >
             <ProfileAvatar
               profile={member.avatarProfile}
