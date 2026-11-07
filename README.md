@@ -27,6 +27,33 @@ behöver notiser även vara tillåtna för webbläsaren i Windows-inställningar
 
 ### Appwrite
 
+#### Röstsamtal
+
+Röstsamtal använder den befintliga `call_signals`-tabellen med ID
+`6aef5ebd003a301c8bae` i databasen `6adf8b78003b4b9d6b30`. Klientens
+`VITE_APPWRITE_DATABASE_ID` ska därför vara `6adf8b78003b4b9d6b30`.
+Tabellen använder bara fälten `conversationId`, `senderId`, `recipientId`,
+`type` och `payload`; ge `payload` tillräcklig stränglängd för en SDP-offer,
+minst 16 KB. Inga nya tabeller eller funktioner behövs.
+
+Aktivera row-level security och tillåt inloggade användare att skapa rader.
+Klienten sätter läs- och raderingsbehörighet för samtalets två deltagare på
+varje signalrad. Skapa ett index på `recipientId` så att inkommande och gamla
+signaler kan hämtas effektivt.
+
+För inkommande samtals-push återanvänds `functions/push-notifications`.
+Lägg till funktionsvariabeln `APPWRITE_CALL_SIGNALS_TABLE_ID` med värdet
+`6aef5ebd003a301c8bae` och lägg till denna databas-trigger på samma befintliga
+funktion:
+`databases.6adf8b78003b4b9d6b30.tables.6aef5ebd003a301c8bae.rows.*`.
+Funktionen skickar notis endast för `offer`; övriga signaler skickar inga
+notiser. Notisklick öppnar den aktuella privata konversationen.
+
+STUN används som standard. Om TURN behövs kan klientbygget konfigureras med
+`VITE_WEBRTC_TURN_URL`, `VITE_WEBRTC_TURN_USERNAME` och
+`VITE_WEBRTC_TURN_CREDENTIAL`. Vite-variabler är synliga för klienter; använd
+kortlivade TURN-legitimationer, inte permanenta serverhemligheter.
+
 Profilbildsval sparas på den befintliga användarraden. Lägg till tre valfria
 String-kolumner i `USERS_TABLE_ID`: `avatarStyle` (max 20 tecken),
 `avatarOptions` (max 2048 tecken) och `avatarSeed` (max 128 tecken). Klienten

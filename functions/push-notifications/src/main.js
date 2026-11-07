@@ -13,6 +13,7 @@ const SUBSCRIPTIONS_TABLE_ID = process.env.APPWRITE_PUSH_SUBSCRIPTIONS_TABLE_ID
 const CONTACTS_TABLE_ID = process.env.APPWRITE_CONTACTS_TABLE_ID
 const CONVERSATIONS_TABLE_ID = process.env.APPWRITE_CONVERSATIONS_TABLE_ID
 const USERS_TABLE_ID = process.env.APPWRITE_USERS_TABLE_ID
+const CALL_SIGNALS_TABLE_ID = process.env.APPWRITE_CALL_SIGNALS_TABLE_ID
 
 function subscriptionRowId(endpoint) {
   return createHash('sha256')
@@ -256,6 +257,77 @@ async function handleContactEvent(
   return { sent }
 }
 
+async function handleCallSignalEvent(
+  tablesDB,
+  signal,
+  log,
+  error
+) {
+  if (signal.type !== 'offer') {
+    return { sent: 0, skipped: true }
+  }
+
+  if (!signal.conversationId || !signal.senderId || !signal.recipientId) {
+    log('Samtalssignalen saknar avsändare, mottagare eller konversation.')
+    return { sent: 0, skipped: true }
+  }
+
+  const [members, sender, conversation] = await Promise.all([
+    tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: MEMBERS_TABLE_ID,
+      queries: [
+        Query.equal('conversationId', [signal.conversationId]),
+        Query.limit(3),
+      ],
+    }),
+    getUserById(tablesDB, signal.senderId),
+    getConversation(tablesDB, signal.conversationId),
+  ])
+
+  const memberIds = members.rows.map((member) => member.userId)
+  if (
+    conversation?.type !== 'direct' ||
+    memberIds.length !== 2 ||
+    !memberIds.includes(signal.senderId) ||
+    !memberIds.includes(signal.recipientId)
+  ) {
+    log('Ignorerar samtalsnotis för en ogiltig privat konversation.')
+    return { sent: 0, skipped: true }
+  }
+
+  const senderName = sender?.username || 'Någon'
+  const call = (() => {
+    try {
+      return JSON.parse(signal.payload || '{}')
+    } catch {
+      return {}
+    }
+  })()
+  const params = new URLSearchParams({
+    conversationId: signal.conversationId,
+    ...(call.callId ? { callId: call.callId } : {}),
+  })
+  const payload = JSON.stringify({
+    title: `Röstsamtal från @${senderName}`,
+    body: `Inkommande samtal i ${conversation.name || 'privat chatt'}`,
+    url: `/?${params.toString()}`,
+    type: 'incoming-call',
+    conversationId: signal.conversationId,
+  })
+
+  const sent = await sendToUsers(
+    tablesDB,
+    [signal.recipientId],
+    payload,
+    log,
+    error
+  )
+
+  log(`Skickade ${sent} inkommande samtalsnotiser.`)
+  return { sent }
+}
+
 function resSkipped() {
   return { skipped: true, sent: 0 }
 }
@@ -409,6 +481,21 @@ export default async ({ req, res, log, error }) => {
       return res.json({
         success: true,
         type: 'contact',
+        ...result,
+      })
+    }
+
+    if (CALL_SIGNALS_TABLE_ID && tableId === CALL_SIGNALS_TABLE_ID) {
+      const result = await handleCallSignalEvent(
+        tablesDB,
+        row,
+        log,
+        error
+      )
+
+      return res.json({
+        success: true,
+        type: 'call',
         ...result,
       })
     }

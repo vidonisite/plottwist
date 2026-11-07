@@ -523,6 +523,32 @@
   border-bottom: 1px solid var(--border);
 }
 
+.conversation-call-button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  margin-left: auto;
+  border: 1px solid var(--purple-border);
+  border-radius: 14px;
+  color: var(--purple-dark);
+  background: var(--purple-soft);
+  transition: color .18s ease, background .18s ease, transform .18s ease;
+}
+
+.conversation-call-button:hover {
+  transform: translateY(-2px);
+  color: white;
+  background: var(--purple-dark);
+}
+
+.conversation-call-button svg {
+  width: 19px;
+  height: 19px;
+  stroke-width: 2.2;
+}
+
 .chat-avatar.large {
   width: 45px;
   height: 45px;

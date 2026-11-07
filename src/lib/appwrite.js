@@ -24,6 +24,7 @@ export const CONVERSATION_MEMBERS_TABLE_ID =
 
 export const MESSAGES_TABLE_ID = '6ae0920b0030a589abcf'
 export const MESSAGE_READS_TABLE_ID = '6ae09f460017666a0a81'
+export const CALL_SIGNALS_TABLE_ID = '6aef5ebd003a301c8bae'
 
 
 import { Storage } from 'appwrite'

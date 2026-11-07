@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Query } from 'appwrite'
+import { Phone } from 'lucide-react'
 import {
   disablePushNotifications,
   enablePushNotifications,
@@ -28,6 +29,8 @@ import ProfileAvatar from './components/ProfileAvatar.jsx'
 import GroupAvatar from './components/GroupAvatar.jsx'
 import AvatarBuilder from './components/AvatarBuilder.jsx'
 import { addLatestMessageTimes } from './lib/groupMembers.js'
+import useVoiceCall from './hooks/useVoiceCall.js'
+import VoiceCallOverlay from './components/VoiceCallOverlay.jsx'
 
 import './App.css'
 
@@ -56,6 +59,7 @@ export default function App() {
   const [loadingChats, setLoadingChats] = useState(false)
   const [chatError, setChatError] = useState('')
   const [chatsRefresh, setChatsRefresh] = useState(0)
+  const voiceCall = useVoiceCall(currentUser)
 
   useEffect(() => {
     let cancelled = false
@@ -501,6 +505,22 @@ export default function App() {
     }
   }, [currentUser, chatsRefresh])
 
+  useEffect(() => {
+    if (!currentUser?.$id || loadingChats) return
+
+    const conversationId = new URLSearchParams(window.location.search)
+      .get('conversationId')
+    if (!conversationId) return
+
+    const requestedChat = chats.find(
+      (chat) => chat.id === conversationId && chat.type === 'direct'
+    )
+    if (requestedChat) {
+      setActiveChat(requestedChat)
+      setActiveView('chat')
+    }
+  }, [chats, currentUser?.$id, loadingChats])
+
   const handleChatRead = useCallback(
     async (membershipRowId, conversationId, latestMessageAt) => {
       if (!membershipRowId || !conversationId || !latestMessageAt || !currentUser?.$id) {
@@ -575,6 +595,7 @@ export default function App() {
     setAuthError('')
 
     try {
+      await voiceCall.endCall()
       let subscription = null
       let pushCleanupError = ''
 
@@ -633,20 +654,32 @@ export default function App() {
   }, [chats, search])
 
   function openChat(chat) {
+    if (voiceCall.call && voiceCall.call.conversationId !== chat.id) {
+      void voiceCall.endCall()
+    }
     // Behåll den sparade läspositionen och eventuella olästa meddelanden.
     // Chat-komponenten flyttar fram läspositionen när meddelanden faktiskt syns.
     setActiveChat(chat)
     setActiveView('chat')
+    window.history.replaceState(
+      null,
+      '',
+      `/?conversationId=${encodeURIComponent(chat.id)}`
+    )
   }
 
   function showCamera() {
+    if (voiceCall.call) void voiceCall.endCall()
     setActiveChat(null)
     setActiveView('camera')
+    window.history.replaceState(null, '', '/')
   }
 
   function showView(view) {
+    if (voiceCall.call) void voiceCall.endCall()
     setActiveChat(null)
     setActiveView(view)
+    window.history.replaceState(null, '', '/')
   }
 
   async function togglePushNotifications() {
@@ -952,6 +985,23 @@ export default function App() {
                     : 'Privat konversation'}
                 </p>
               </div>
+
+              {activeChat?.type === 'direct' && !voiceCall.call && (
+                <button
+                  type="button"
+                  className="conversation-call-button"
+                  aria-label={`Ring @${activeChat.username || activeChat.name}`}
+                  title="Starta röstsamtal"
+                  onClick={() => voiceCall.startCall({
+                    conversationId: activeChat.id,
+                    recipientId: activeChat.otherUserId,
+                    recipientName: activeChat.username || activeChat.name,
+                    recipientProfile: activeChat.avatarProfile,
+                  })}
+                >
+                  <Phone aria-hidden="true" />
+                </button>
+              )}
             </div>
 
             <section className="workspace-view chat-view">
@@ -1063,6 +1113,16 @@ export default function App() {
           </section>
         )}
       </main>
+
+      <VoiceCallOverlay
+        call={voiceCall.call}
+        muted={voiceCall.muted}
+        onAnswer={voiceCall.answerCall}
+        onReject={() => voiceCall.rejectCall('rejected')}
+        onEnd={voiceCall.endCall}
+        onToggleMute={voiceCall.toggleMute}
+        onDismiss={voiceCall.dismissCall}
+      />
     </div>
   )
 }
