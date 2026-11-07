@@ -274,6 +274,8 @@
 
 .group-avatar-tile--wide {
   grid-column: 1 / -1;
+  position: relative;
+  background: var(--surface-hover);
 }
 
 .group-avatar-member {
