@@ -46,30 +46,64 @@
   font: inherit;
 }
 
+/* Knappar */
+
 .people-search button,
 .people-add-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 18px;
   border: 0;
-  border-radius: 22px;
-  padding: 11px 17px;
+  border-radius: 20px;
   background: #320e3b;
   color: white;
-  font: inherit;
-  font-weight: 100;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
-  transition: transform 0.15s, opacity 0.15s;
+  transition: background 0.15s, opacity 0.15s;
 }
 
 .people-search button:hover,
 .people-add-button:hover {
-  transform: translateY(-1px);
+  background: #51205d;
 }
 
 .people-search button:disabled,
 .people-add-button:disabled {
   cursor: default;
   opacity: 0.55;
-  transform: none;
 }
+
+.people-add-button {
+  background: var(--pink);
+  color: #320e3b;
+}
+
+.people-add-button:hover {
+  background: #f59bd8;
+}
+
+.people-add-button.is-added {
+  background: #f1e8f8;
+  color: #74478a;
+  cursor: default;
+}
+
+.people-add-button.is-added:hover {
+  background: #f1e8f8;
+}
+
+.people-add-button span {
+  font-size: 16px;
+}
+
+/* Meddelanden */
 
 .people-message {
   margin: 16px 0;
@@ -80,6 +114,8 @@
   font-size: 14px;
   line-height: 1.5;
 }
+
+/* Sökresultat */
 
 .people-result,
 .people-contact {
@@ -98,6 +134,8 @@
   background: #fdf9ff;
 }
 
+/* Profilbilder */
+
 .people-avatar {
   display: grid;
   flex: 0 0 44px;
@@ -105,10 +143,10 @@
   height: 44px;
   place-items: center;
   border-radius: 15px;
-  background: linear-gradient(135deg, #ff72b6, #a66bff);
+  background: #a66bff;
   color: white;
   font-size: 19px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .people-user-info {
@@ -129,11 +167,13 @@
   font-size: 12px;
 }
 
-.people-add-button {
-  background: var(--pink);
-  white-space: nowrap;
-  height: 26px;
+.people-added {
+  color: #8c52a1;
+  font-size: 12px;
+  font-weight: 700;
 }
+
+/* Rubrik ovanför användarlistan */
 
 .people-list-heading {
   display: flex;
@@ -157,31 +197,40 @@
   background: #f5edf8;
   color: #7c4d88;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
 }
+
+/* Hela användarlistan */
 
 .people-list {
   display: flex;
   flex-direction: column;
-  gap: 0px;
-  background: #fdf9ff;
-  border-radius: 20px;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid #eee5f0;
+  border-radius: 18px;
+  background: #fff;
 }
 
-.people-contact {
-  border-color: transparent;
+/* Enskilda rader i listan */
+
+.people-list > .people-contact {
+  border: 0;
   border-bottom: 1px solid #eee5f0;
+  border-radius: 0;
+  background: transparent;
+  transition: background 0.15s;
 }
 
-.people-added {
-  color: #8c52a1;
-  font-size: 12px;
-  font-weight: 700;
+.people-list > .people-contact:hover {
+  background: #fdf9ff;
 }
 
-.people-contact:last-child {
+.people-list > .people-contact:last-child {
   border-bottom: 0;
 }
+
+/* Tom lista */
 
 .people-empty {
   padding: 36px 20px;
@@ -207,6 +256,50 @@
   line-height: 1.6;
 }
 
+/* Inkommande vänförfrågningar */
+
+.incoming-requests {
+  margin-bottom: 28px;
+}
+
+.request-accept,
+.request-decline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 20px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.request-accept {
+  background: #a66bff;
+  color: white;
+}
+
+.request-decline {
+  background: #f5edf8;
+  color: #6b4c75;
+}
+
+.request-accept:hover {
+  background: #8f4fe8;
+}
+
+.request-decline:hover {
+  background: #eadcf0;
+}
+
+/* Mobilanpassning */
+
 @media (max-width: 600px) {
   .people-page {
     padding: 24px 18px;
@@ -227,7 +320,7 @@
   }
 
   .people-search button {
-    padding: 10px 12px;
+    padding: 0 13px;
   }
 
   .people-result,
@@ -237,80 +330,25 @@
   }
 
   .people-add-button {
-    padding: 10px;
+    min-height: 34px;
+    padding: 0 13px;
     font-size: 12px;
   }
-}
 
-
-.people-clear {
-  border: 0;
-  background: transparent;
-  color: #887a8c;
-  font-size: 24px;
-  cursor: pointer;
-}
-
-.people-add-button.is-added {
-  background: #f1e8f8;
-  color: #74478a;
-  cursor: default;
-}
-
-.people-add-button span {
-  font-size: 17px;
-}
-
-.people-contact {
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.people-contact:hover {
-  border-color: #ead9f7;
-  background: #fdf9ff;
+  .request-accept,
+  .request-decline {
+    min-height: 34px;
+    padding: 0 12px;
+  }
 }
 
 @media (max-width: 480px) {
   .people-contact .people-add-button {
     max-width: 105px;
-    white-space: normal;
+    white-space: nowrap;
   }
 
   .people-user-info strong {
     font-size: 13px;
   }
-}
-
-
-.incoming-requests {
-  margin-bottom: 28px;
-}
-
-.request-accept,
-.request-decline {
-  border: 0;
-  border-radius: 12px;
-  padding: 10px 13px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.request-accept {
-  background: #a66bff;
-  color: white;
-}
-
-.request-decline {
-  background: #f5edf8;
-  color: #6b4c75;
-}
-
-.request-accept:hover {
-  background: #8f4fe8;
-}
-
-.request-decline:hover {
-  background: #eadcf0;
 }

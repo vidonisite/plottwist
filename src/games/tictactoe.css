@@ -155,30 +155,35 @@
   display: grid;
   place-items: center;
   padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 18px;
   color: var(--text);
-  background: var(--panel);
   font-size: clamp(42px, 12vw, 82px);
   font-weight: 900;
+  background-color: #ff72b6;
+  border: 2px solid #ff258f;
+  box-shadow: 4px 4px 0px 0px #ff258f;
   cursor: pointer;
+  transition: background-color 0.1s ease, transform 0.05s ease, box-shadow 0.05s ease;
+  border-radius: 20px;
 }
 
 .tic-tac-toe-cell:disabled {
   cursor: default;
+  background-color: #e6e6e6;
+  box-shadow: 4px 4px 0px 0px #bfb
 }
 
 .tic-tac-toe-cell:not(:disabled):hover {
-  border-color: var(--purple);
-  background: var(--surface-soft);
+  background-color: #ff90c6;
 }
 
 .tic-tac-toe-cell.mark-x {
   color: #ff76ad;
+  background-color: #e6e6e6;
 }
 
 .tic-tac-toe-cell.mark-o {
   color: #aa7bff;
+  background-color: #e6e6e6;
 }
 
 .game-primary-button {
