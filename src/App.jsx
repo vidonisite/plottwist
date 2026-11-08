@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Query } from 'appwrite'
-import { Phone } from 'lucide-react'
+import { Gamepad2, Phone } from 'lucide-react'
 import {
   disablePushNotifications,
   enablePushNotifications,
@@ -23,6 +23,7 @@ import {
 import AuthPage from './auth/AuthPage.jsx'
 import Camera from './Camera.jsx'
 import Chat from './Chat.jsx'
+import Games from './games.jsx'
 import AddPeople from './AddPeople.jsx'
 import CreateGroup from './CreateGroup.jsx'
 import ProfileAvatar from './components/ProfileAvatar.jsx'
@@ -59,6 +60,8 @@ export default function App() {
   const [loadingChats, setLoadingChats] = useState(false)
   const [chatError, setChatError] = useState('')
   const [chatsRefresh, setChatsRefresh] = useState(0)
+  const [gameInvite, setGameInvite] = useState(null)
+  const [gameReturnView, setGameReturnView] = useState('camera')
   const voiceCall = useVoiceCall(currentUser)
 
   useEffect(() => {
@@ -359,6 +362,7 @@ export default function App() {
                   Query.equal('conversationId', [conversation.$id]),
                   Query.greaterThan('$createdAt', lastReadAt),
                   Query.notEqual('senderId', [currentUser.$id]),
+                  Query.notEqual('type', ['game_move', 'game_invite_response']),
                   Query.limit(1),
                 ],
               })
@@ -536,6 +540,7 @@ export default function App() {
             Query.equal('conversationId', [conversationId]),
             Query.greaterThan('$createdAt', latestMessageAt),
             Query.notEqual('senderId', [currentUser.$id]),
+            Query.notEqual('type', ['game_move', 'game_invite_response']),
             Query.limit(500),
           ],
         })
@@ -680,6 +685,18 @@ export default function App() {
     setActiveChat(null)
     setActiveView(view)
     window.history.replaceState(null, '', '/')
+  }
+
+  function showGames() {
+    setGameInvite(null)
+    setGameReturnView('camera')
+    setActiveView('games')
+  }
+
+  function joinGameInvite(invite) {
+    setGameInvite(invite)
+    setGameReturnView('chat')
+    setActiveView('games')
   }
 
   async function togglePushNotifications() {
@@ -948,6 +965,15 @@ export default function App() {
         {activeView === 'camera' && (
           <section className="workspace-view camera-view">
             <Camera currentUser={currentUser} />
+            <button
+              type="button"
+              className="camera-games-button"
+              onClick={showGames}
+              aria-label="Öppna spel"
+              title="Spel"
+            >
+              <Gamepad2 aria-hidden="true" />
+            </button>
           </section>
         )}
 
@@ -1010,6 +1036,7 @@ export default function App() {
                   chat={activeChat}
                   currentUser={currentUser}
                   onRead={handleChatRead}
+                  onAcceptGameInvite={joinGameInvite}
                 />
               </div>
             </section>
@@ -1017,6 +1044,17 @@ export default function App() {
         )}
 
         {activeView === 'add' && <AddPeople />}
+
+        {activeView === 'games' && (
+          <Games
+            currentUser={currentUser}
+            initialInvite={gameInvite}
+            onExit={() => {
+              setGameInvite(null)
+              setActiveView(gameReturnView)
+            }}
+          />
+        )}
 
         {activeView === 'create-group' && (
           <CreateGroup

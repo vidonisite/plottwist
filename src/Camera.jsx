@@ -38,7 +38,7 @@ import { addLatestMessageTimes } from './lib/groupMembers.js'
 import './Camera.css'
 
 const FILTERS = [
-  { id: 'none', label: 'No filter', symbol: '' },
+  { id: 'none', label: 'No filter', symbol: '📷' },
   { id: 'fisheye', label: 'Fish Eye', symbol: '🐟' },
   { id: 'glam', label: 'Glam Makeup', symbol: '💄' },
   { id: 'nolips', label: 'No Lips', symbol: '💋' },
@@ -195,6 +195,7 @@ export default function Camera({
   const recordingTimerRef = useRef(null)
   const pointerDownRef = useRef(false)
   const recordingStartedRef = useRef(false)
+  const pointerClickHandledRef = useRef(false)
   const mediaRecorderRef = useRef(null)
   const recordedChunksRef = useRef([])
   const recordingStreamRef = useRef(null)
@@ -508,6 +509,7 @@ export default function Camera({
 
   const handleShutterPointerCancel = useCallback(() => {
     pointerDownRef.current = false
+    pointerClickHandledRef.current = false
     stopRecordingTimers()
 
     if (recordingStartedRef.current) {
@@ -1417,6 +1419,30 @@ export default function Camera({
     setErrorMessage('')
   }
 
+  function handleFilterPointerDown(event, item) {
+    pointerClickHandledRef.current = true
+
+    if (filter === item.id) {
+      handleShutterPointerDown(event)
+    } else {
+      selectFilter(item)
+    }
+  }
+
+  function handleFilterClick(item) {
+    if (pointerClickHandledRef.current) {
+      pointerClickHandledRef.current = false
+      return
+    }
+
+    if (filter === item.id) {
+      if (cameraState === 'live' && !isRecording) takePhoto()
+      return
+    }
+
+    selectFilter(item)
+  }
+
   const recordingProgress = Math.min(
     (recordingTime / MAX_RECORDING_TIME) * 100,
     100
@@ -1866,24 +1892,6 @@ export default function Camera({
             </div>
 
             <div className="camera-controls">
-              <div className="shutter-slot">
-                {cameraState === 'live' && (
-                  <button
-                    className={`shutter-button ${
-                      isRecording ? 'recording' : ''
-                    }`}
-                    onPointerDown={handleShutterPointerDown}
-                    onPointerUp={handleShutterPointerUp}
-                    onPointerLeave={handleShutterPointerCancel}
-                    onPointerCancel={handleShutterPointerCancel}
-                    aria-label="Tryck för foto, håll in för video"
-                    disabled={
-                      isRecording && !pointerDownRef.current
-                    }
-                  />
-                )}
-              </div>
-
               <div className="filter-carousel-window">
                 <div
                   className="filter-carousel"
@@ -1894,13 +1902,26 @@ export default function Camera({
                   {FILTERS.map((item) => (
                     <button
                       key={item.id}
+                      type="button"
                       className={`filter-option ${
                         filter === item.id ? 'selected' : ''
-                      }`}
-                      onClick={() => selectFilter(item)}
-                      aria-label={item.label}
+                      } ${filter === item.id && isRecording ? 'recording' : ''}`}
+                      onPointerDown={(event) =>
+                        handleFilterPointerDown(event, item)
+                      }
+                      onPointerUp={handleShutterPointerUp}
+                      onPointerLeave={handleShutterPointerCancel}
+                      onPointerCancel={handleShutterPointerCancel}
+                      onClick={() => handleFilterClick(item)}
+                      aria-label={filter === item.id
+                        ? `Ta foto med ${item.label}; håll in för video`
+                        : `Välj ${item.label}`}
                       aria-pressed={filter === item.id}
                       title={item.label}
+                      disabled={
+                        cameraState !== 'live' ||
+                        (isRecording && !pointerDownRef.current)
+                      }
                     >
                       {item.symbol && <span>{item.symbol}</span>}
                     </button>

@@ -1,0 +1,214 @@
+.tic-tac-toe {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  width: min(100%, 560px);
+  margin: 0 auto;
+}
+
+.game-mode-picker {
+  display: grid;
+  width: min(100%, 460px);
+  gap: 12px;
+}
+
+.game-mode-picker > p {
+  margin: 0 0 4px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.game-mode-picker > button {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 3px 12px;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  color: var(--text);
+  background: var(--panel);
+  text-align: left;
+  cursor: pointer;
+}
+
+.game-mode-picker > button:hover,
+.game-friend-option:hover {
+  border-color: var(--purple);
+  background: var(--surface-soft);
+}
+
+.game-mode-picker > button > span {
+  grid-row: span 2;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 13px;
+  background: var(--purple-soft);
+  font-size: 22px;
+}
+
+.game-mode-picker strong {
+  font-size: 14px;
+}
+
+.game-mode-picker small {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.game-friend-picker {
+  display: grid;
+  width: min(100%, 460px);
+  gap: 9px;
+}
+
+.game-friend-picker h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.game-friend-picker > p {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.game-friend-option {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  color: var(--text);
+  background: var(--panel);
+  text-align: left;
+  cursor: pointer;
+}
+
+.game-friend-avatar {
+  display: grid;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 13px;
+  color: #fff;
+  background: var(--purple);
+  font-weight: 800;
+}
+
+.game-friend-option strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.game-friend-option > span:last-child {
+  margin-left: auto;
+  color: var(--purple);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.tic-tac-toe-match {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+
+.game-opponent,
+.game-status {
+  margin: 0;
+  text-align: center;
+}
+
+.game-opponent {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.game-status {
+  min-height: 24px;
+  color: var(--purple);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.game-status.waiting {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.tic-tac-toe-board {
+  display: grid;
+  width: min(74vw, 360px);
+  aspect-ratio: 1;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 9px;
+}
+
+.tic-tac-toe-cell {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  color: var(--text);
+  background: var(--panel);
+  font-size: clamp(42px, 12vw, 82px);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.tic-tac-toe-cell:disabled {
+  cursor: default;
+}
+
+.tic-tac-toe-cell:not(:disabled):hover {
+  border-color: var(--purple);
+  background: var(--surface-soft);
+}
+
+.tic-tac-toe-cell.mark-x {
+  color: #ff76ad;
+}
+
+.tic-tac-toe-cell.mark-o {
+  color: #aa7bff;
+}
+
+.game-primary-button {
+  padding: 11px 18px;
+  border: 0;
+  border-radius: 12px;
+  color: #fff;
+  background: var(--purple);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.game-text-button {
+  padding: 7px 10px;
+  border: 0;
+  color: var(--text-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.game-text-button:hover {
+  color: var(--text);
+}
+
+.game-error {
+  margin: 0;
+  color: #ff8795;
+  font-size: 12px;
+  text-align: center;
+}

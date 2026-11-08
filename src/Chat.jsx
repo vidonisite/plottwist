@@ -27,6 +27,7 @@ export default function Chat({ chat, currentUser, onRead }) {
   const [errorMessage, setErrorMessage] = useState('')
   const [newMessagesCount, setNewMessagesCount] = useState(0)
   const [showTwistCamera, setShowTwistCamera] = useState(false)
+  const [acceptingGameInviteId, setAcceptingGameInviteId] = useState(null)
 
   const messagesListRef = useRef(null)
   const knownMessageIdsRef = useRef(new Set())
@@ -194,6 +195,8 @@ export default function Chat({ chat, currentUser, onRead }) {
     const remainingUnread = messages.filter((message) => {
       return (
         message.senderId !== currentUserId &&
+        message.type !== 'game_move' &&
+        message.type !== 'game_invite_response' &&
         new Date(message.$createdAt).getTime() > readTime
       )
     }).length
@@ -344,6 +347,50 @@ export default function Chat({ chat, currentUser, onRead }) {
 
     if (!text || sending || !conversationId || !currentUserId) {
       return
+    }
+
+    async function acceptGameInvite(invite) {
+      if (!invite?.inviteId || !conversationId || !currentUserId || acceptingGameInviteId) {
+        return
+      }
+
+      setAcceptingGameInviteId(invite.inviteId)
+      setErrorMessage('')
+
+      try {
+        await tablesDB.createRow({
+          databaseId: DATABASE_ID,
+          tableId: MESSAGES_TABLE_ID,
+          rowId: ID.unique(),
+          data: {
+            conversationId,
+            senderId: currentUserId,
+            text: JSON.stringify({
+              inviteId: invite.inviteId,
+              status: 'accepted',
+              playerId: currentUserId,
+            }),
+            type: 'game_invite_response',
+          },
+          permissions: [
+            Permission.read(Role.users()),
+            Permission.update(Role.user(currentUserId)),
+            Permission.delete(Role.user(currentUserId)),
+          ],
+        })
+
+        onAcceptGameInvite?.({
+          ...invite,
+          conversationId,
+        })
+      } catch (error) {
+        console.error('Spelinbjudan kunde inte godkännas:', error)
+        setErrorMessage(
+          `Spelinbjudan kunde inte godkännas: ${error.message || 'Okänt fel'}`
+        )
+      } finally {
+        setAcceptingGameInviteId(null)
+      }
     }
 
     setSending(true)
@@ -561,6 +608,13 @@ export default function Chat({ chat, currentUser, onRead }) {
             )}
 
             {messages.map((message, index) => {
+              if (
+                message.type === 'game_invite_response' ||
+                message.type === 'game_move'
+              ) {
+                return null
+              }
+
               const isMine = message.senderId === currentUserId
 
               const isFirstMessageOfDay =
@@ -593,7 +647,64 @@ export default function Chat({ chat, currentUser, onRead }) {
                         className="message-avatar"
                       />
                     )}
-                    {message.type === 'twist' ? (
+                    {message.type === 'game_invite' ? (
+                      (() => {
+                        let invite = null
+                        try {
+                          invite = JSON.parse(message.text)
+                        } catch (error) {
+                          console.error('Ogiltig spelinbjudan:', error)
+                        }
+                        if (!invite?.inviteId) {
+                          return <div className="message-bubble">Ogiltig spelinbjudan.</div>
+                        }
+
+                        const response = messages.find((item) => {
+                          if (item.type !== 'game_invite_response') return false
+                          try {
+                            return JSON.parse(item.text).inviteId === invite.inviteId
+                          } catch {
+                            return false
+                          }
+                        })
+                        let responseStatus = null
+                        if (response) {
+                          try {
+                            responseStatus = JSON.parse(response.text).status
+                          } catch (error) {
+                            console.error('Ogiltigt svar på spelinbjudan:', error)
+                          }
+                        }
+                        const canJoin =
+                          invite.toUserId === currentUserId &&
+                          responseStatus !== 'accepted'
+
+                        return (
+                          <div className="game-invite-card">
+                            <span className="game-invite-icon" aria-hidden="true">⭕</span>
+                            <strong>Tic-tac-toe-inbjudan</strong>
+                            <span>
+                              {responseStatus === 'accepted'
+                                ? 'Inbjudan accepterad'
+                                : invite.fromName
+                                  ? `${invite.fromName} vill spela med dig`
+                                  : 'Du har blivit inbjuden att spela'}
+                            </span>
+                            {canJoin && (
+                              <button
+                                type="button"
+                                disabled={acceptingGameInviteId === invite.inviteId}
+                                onClick={() => acceptGameInvite(invite)}
+                              >
+                                {acceptingGameInviteId === invite.inviteId
+                                  ? 'Ansluter...'
+                                  : 'Acceptera och spela'}
+                              </button>
+                            )}
+                          </div>
+                        )
+                      })()
+                    ) : message.type === 'twist' ? (
                       <TwistMessage
                         message={message}
                         currentUserId={currentUserId}

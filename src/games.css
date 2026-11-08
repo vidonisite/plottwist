@@ -1,0 +1,222 @@
+.camera-view {
+  position: relative;
+}
+
+.camera-games-button {
+  position: absolute;
+  z-index: 8;
+  right: 24px;
+  bottom: 24px;
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .3);
+  border-radius: 20px;
+  color: #fff;
+  background: linear-gradient(145deg, #a76bff, #7438df);
+  box-shadow: 0 10px 28px rgba(89, 46, 155, .4);
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.camera-games-button:hover {
+  transform: translateY(-3px) scale(1.04);
+  box-shadow: 0 14px 32px rgba(89, 46, 155, .5);
+}
+
+.camera-games-button svg {
+  width: 27px;
+  height: 27px;
+}
+
+.games-view {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  min-height: 0;
+  padding: clamp(20px, 5vw, 56px);
+  overflow: auto;
+  color: var(--text);
+}
+
+.games-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.games-back-button {
+  display: grid;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  color: var(--text);
+  background: var(--surface-soft);
+  cursor: pointer;
+}
+
+.games-back-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.games-eyebrow {
+  margin: 0 0 5px;
+  color: var(--purple);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .16em;
+}
+
+.games-header h1 {
+  margin: 0;
+  font-size: clamp(24px, 4vw, 34px);
+}
+
+.game-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 340px));
+  gap: 18px;
+}
+
+.game-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  color: var(--text);
+  background: var(--panel);
+  text-align: left;
+  cursor: pointer;
+  transition: transform .18s ease, border-color .18s ease;
+}
+
+.game-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--purple);
+}
+
+.game-card-preview {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 15px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(196, 146, 255, .6), transparent 34%),
+    linear-gradient(135deg, #261938, #563477);
+}
+
+.tic-tac-toe-preview {
+  display: grid;
+  width: 126px;
+  height: 126px;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 5px;
+  transform: rotate(-7deg);
+}
+
+.tic-tac-toe-preview i {
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  color: #edcfff;
+  background: rgba(255, 255, 255, .14);
+  font-size: 28px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.tic-tac-toe-preview i:nth-child(5) {
+  color: #ff9ac4;
+}
+
+.game-card-copy {
+  display: grid;
+  gap: 6px;
+  padding: 15px 6px 6px;
+}
+
+.game-card-copy strong {
+  font-size: 17px;
+}
+
+.game-card-copy span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.game-card-icon {
+  position: absolute;
+  right: 17px;
+  bottom: 18px;
+  width: 20px;
+  color: var(--purple);
+}
+
+.game-invite-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 280px;
+  padding: 14px;
+  border: 1px solid rgba(140, 82, 255, .25);
+  border-radius: 14px;
+  color: #320e3b;
+  background: #f7efff;
+  font-size: 12px;
+}
+
+.game-invite-card strong {
+  font-size: 14px;
+}
+
+.game-invite-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 11px;
+  background: #eadbff;
+  font-size: 19px;
+}
+
+.game-invite-card button {
+  margin-top: 3px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  background: #7d3de0;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.game-invite-card button:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+@media (max-width: 600px) {
+  .camera-games-button {
+    right: 14px;
+    bottom: 14px;
+    width: 52px;
+    height: 52px;
+  }
+
+  .games-view {
+    gap: 22px;
+    padding: 20px 16px;
+  }
+}

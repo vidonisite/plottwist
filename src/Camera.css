@@ -220,43 +220,6 @@
   min-height: 76px;
   display: flex;
   align-items: center;
-  gap: 18px;
-}
-
-.shutter-slot {
-  width: 76px;
-  height: 76px;
-  flex: 0 0 76px;
-  display: grid;
-  place-items: center;
-}
-
-.shutter-button {
-  width: 66px;
-  height: 66px;
-  padding: 0;
-  border: 5px solid white;
-  border-radius: 50%;
-  background: #f6f0fa;
-  box-shadow:
-    0 0 0 2px rgba(50, 14, 59, 0.18),
-    0 5px 18px rgba(0, 0, 0, 0.18);
-  cursor: pointer;
-  touch-action: none;
-  transition:
-    transform 150ms ease,
-    background 150ms ease,
-    border-radius 150ms ease;
-}
-
-.shutter-button:active {
-  transform: scale(0.9);
-}
-
-.shutter-button.recording {
-  border-radius: 21px;
-  background: #ff4c68;
-  transform: scale(0.82);
 }
 
 .filter-carousel-window {
@@ -267,6 +230,7 @@
   overflow: hidden;
   display: flex;
   align-items: center;
+  justify-content: center;
   -webkit-mask-image: linear-gradient(
     90deg,
     transparent,
@@ -304,6 +268,7 @@
   color: #320e3b;
   font-size: 23px;
   cursor: pointer;
+  touch-action: none;
   opacity: 0.68;
   transform: scale(0.88);
   transition:
@@ -325,6 +290,17 @@
   border-color: #8c52ff;
   background: white;
   box-shadow: 0 0 0 4px rgba(140, 82, 255, 0.16);
+}
+
+.filter-option:disabled {
+  cursor: default;
+}
+
+.filter-option.recording {
+  border-color: #ff4c68;
+  border-radius: 18px;
+  background: #ff4c68;
+  transform: scale(0.92);
 }
 
 .filter-option span {
@@ -592,33 +568,10 @@
 
   .camera-controls {
     width: min(100%, 420px);
-    gap: 10px;
-  }
-
-  .shutter-slot {
-    width: 66px;
-    height: 66px;
-    flex-basis: 66px;
-  }
-
-  .shutter-button {
-    width: 58px;
-    height: 58px;
   }
 
   .filter-carousel-window {
-    height: 66px;
-  }
-
-  .filter-option {
-    width: 48px;
-    height: 48px;
-    flex-basis: 48px;
-    font-size: 21px;
-  }
-
-  .filter-carousel {
-    gap: 8px;
+    height: 76px;
   }
 
   .capture-preview {
@@ -637,7 +590,6 @@
 @media (prefers-reduced-motion: reduce) {
   .filter-carousel,
   .filter-option,
-  .shutter-button,
   .capture-preview,
   .capture-preview-actions button {
     transition: none;
