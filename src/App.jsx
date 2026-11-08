@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Query } from 'appwrite'
 import { Gamepad2, Phone } from 'lucide-react'
 import {
@@ -62,6 +62,9 @@ export default function App() {
   const [chatsRefresh, setChatsRefresh] = useState(0)
   const [gameInvite, setGameInvite] = useState(null)
   const [gameReturnView, setGameReturnView] = useState('camera')
+  const [gameTransition, setGameTransition] = useState(null)
+  const [gameViewEntering, setGameViewEntering] = useState(false)
+  const mainPanelRef = useRef(null)
   const voiceCall = useVoiceCall(currentUser)
 
   useEffect(() => {
@@ -362,7 +365,8 @@ export default function App() {
                   Query.equal('conversationId', [conversation.$id]),
                   Query.greaterThan('$createdAt', lastReadAt),
                   Query.notEqual('senderId', [currentUser.$id]),
-                  Query.notEqual('type', ['game_move', 'game_invite_response']),
+                  Query.notEqual('type', ['game_move']),
+                  Query.notEqual('type', ['game_invite_response']),
                   Query.limit(1),
                 ],
               })
@@ -540,7 +544,8 @@ export default function App() {
             Query.equal('conversationId', [conversationId]),
             Query.greaterThan('$createdAt', latestMessageAt),
             Query.notEqual('senderId', [currentUser.$id]),
-            Query.notEqual('type', ['game_move', 'game_invite_response']),
+            Query.notEqual('type', ['game_move']),
+            Query.notEqual('type', ['game_invite_response']),
             Query.limit(500),
           ],
         })
@@ -687,13 +692,42 @@ export default function App() {
     window.history.replaceState(null, '', '/')
   }
 
-  function showGames() {
+  function showGames(event) {
+    const panel = mainPanelRef.current
+    const button = event.currentTarget
+    if (!panel || gameTransition) return
+
+    const panelRect = panel.getBoundingClientRect()
+    const buttonRect = button.getBoundingClientRect()
+    const panelLeft = panelRect.left + panel.clientLeft
+    const panelTop = panelRect.top + panel.clientTop
+
     setGameInvite(null)
     setGameReturnView('camera')
+    setGameViewEntering(false)
+    setGameTransition({
+      startLeft: buttonRect.left - panelLeft + panel.scrollLeft,
+      startTop: buttonRect.top - panelTop + panel.scrollTop,
+      startWidth: buttonRect.width,
+      startHeight: buttonRect.height,
+      endLeft: panel.scrollLeft,
+      endTop: panel.scrollTop,
+      endWidth: panel.clientWidth,
+      endHeight: panel.clientHeight,
+    })
+  }
+
+  function finishGameTransition(event) {
+    if (event.animationName !== 'games-panel-expand') return
+
+    setGameTransition(null)
     setActiveView('games')
+    setGameViewEntering(true)
   }
 
   function joinGameInvite(invite) {
+    setGameTransition(null)
+    setGameViewEntering(false)
     setGameInvite(invite)
     setGameReturnView('chat')
     setActiveView('games')
@@ -954,7 +988,7 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="main-panel">
+      <main className="main-panel" ref={mainPanelRef}>
         <div className="mobile-brand">
           <span className="brand-mark">✳</span>
           <span className="brand-name">
@@ -969,6 +1003,7 @@ export default function App() {
               type="button"
               className="camera-games-button"
               onClick={showGames}
+              disabled={Boolean(gameTransition)}
               aria-label="Öppna spel"
               title="Spel"
             >
@@ -1049,6 +1084,8 @@ export default function App() {
           <Games
             currentUser={currentUser}
             initialInvite={gameInvite}
+            animateIn={gameViewEntering}
+            onEntranceAnimationEnd={() => setGameViewEntering(false)}
             onExit={() => {
               setGameInvite(null)
               setActiveView(gameReturnView)
@@ -1149,6 +1186,26 @@ export default function App() {
               onSaved={saveAvatar}
             />
           </section>
+        )}
+
+        {gameTransition && (
+          <div
+            className="games-panel-transition"
+            style={{
+              '--game-start-left': `${gameTransition.startLeft}px`,
+              '--game-start-top': `${gameTransition.startTop}px`,
+              '--game-start-width': `${gameTransition.startWidth}px`,
+              '--game-start-height': `${gameTransition.startHeight}px`,
+              '--game-end-left': `${gameTransition.endLeft}px`,
+              '--game-end-top': `${gameTransition.endTop}px`,
+              '--game-end-width': `${gameTransition.endWidth}px`,
+              '--game-end-height': `${gameTransition.endHeight}px`,
+            }}
+            onAnimationEnd={finishGameTransition}
+            aria-hidden="true"
+          >
+            <Gamepad2 />
+          </div>
         )}
       </main>
 

@@ -19,7 +19,13 @@ const GAME_LIST = [
   },
 ]
 
-export default function Games({ currentUser, initialInvite, onExit }) {
+export default function Games({
+  currentUser,
+  initialInvite,
+  animateIn = false,
+  onEntranceAnimationEnd,
+  onExit,
+}) {
   const [selectedGame, setSelectedGame] = useState(
     initialInvite ? 'tic-tac-toe' : null
   )
@@ -91,7 +97,17 @@ export default function Games({ currentUser, initialInvite, onExit }) {
   }, [currentUser?.$id])
 
   return (
-    <section className="workspace-view games-view">
+    <section
+      className={`workspace-view games-view ${animateIn ? 'is-entering' : ''}`}
+      onAnimationEnd={(event) => {
+        if (
+          event.target === event.currentTarget &&
+          event.animationName === 'games-view-reveal'
+        ) {
+          onEntranceAnimationEnd?.()
+        }
+      }}
+    >
       <header className="games-header">
         <button
           type="button"
