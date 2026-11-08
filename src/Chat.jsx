@@ -14,7 +14,12 @@ import Camera from './Camera.jsx'
 import ProfileAvatar from './components/ProfileAvatar.jsx'
 import './Chat.css'
 
-export default function Chat({ chat, currentUser, onRead }) {
+export default function Chat({
+  chat,
+  currentUser,
+  onRead,
+  onAcceptGameInvite,
+}) {
   const [messages, setMessages] = useState([])
   const [draft, setDraft] = useState('')
   const [loading, setLoading] = useState(true)
