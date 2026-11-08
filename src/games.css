@@ -20,8 +20,12 @@
 }
 
 .camera-games-button:hover {
-  border-radius: 20%;
+  border-radius: 20px;
 }
+.camera-games-button:hover {
+  border-radius: 20px;
+}
+
 
 .camera-games-button svg {
   width: 27px;
