@@ -202,6 +202,7 @@ export default function Chat({
         message.senderId !== currentUserId &&
         message.type !== 'game_move' &&
         message.type !== 'game_invite_response' &&
+        message.type !== 'game_session_start' &&
         new Date(message.$createdAt).getTime() > readTime
       )
     }).length
@@ -615,7 +616,8 @@ export default function Chat({
             {messages.map((message, index) => {
               if (
                 message.type === 'game_invite_response' ||
-                message.type === 'game_move'
+                message.type === 'game_move' ||
+                message.type === 'game_session_start'
               ) {
                 return null
               }
@@ -680,17 +682,28 @@ export default function Chat({
                             console.error('Ogiltigt svar på spelinbjudan:', error)
                           }
                         }
+                        const gameStarted = messages.some((item) => {
+                          if (item.type !== 'game_session_start') return false
+                          try {
+                            return JSON.parse(item.text).inviteId === invite.inviteId
+                          } catch {
+                            return false
+                          }
+                        })
                         const canJoin =
                           invite.toUserId === currentUserId &&
-                          responseStatus !== 'accepted'
+                          responseStatus !== 'accepted' &&
+                          !gameStarted
 
                         return (
                           <div className="game-invite-card">
                             <span className="game-invite-icon" aria-hidden="true">⭕</span>
-                            <strong>Tic-tac-toe-inbjudan</strong>
+                            <strong>{invite.gameName || 'Spelinbjudan'}</strong>
                             <span>
                               {responseStatus === 'accepted'
                                 ? 'Inbjudan accepterad'
+                                : gameStarted
+                                  ? 'Spelet har redan startat'
                                 : invite.fromName
                                   ? `${invite.fromName} vill spela med dig`
                                   : 'Du har blivit inbjuden att spela'}

@@ -146,6 +146,15 @@ async function handleMessageEvent(
   error
 ) {
   if (
+    message.type === 'game_move' ||
+    message.type === 'game_invite_response' ||
+    message.type === 'game_session_start'
+  ) {
+    log(`Ignorerar pushnotis för spelhändelsen ${message.type}.`)
+    return resSkipped()
+  }
+
+  if (
     !message.conversationId ||
     !message.senderId
   ) {

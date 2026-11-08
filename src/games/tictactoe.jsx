@@ -5,8 +5,6 @@ import {
   client,
   tablesDB,
   DATABASE_ID,
-  CONVERSATIONS_TABLE_ID,
-  CONVERSATION_MEMBERS_TABLE_ID,
   MESSAGES_TABLE_ID,
 } from '../lib/appwrite.js'
 import './tictactoe.css'
@@ -51,102 +49,6 @@ function minimax(board, player) {
   }, null)
 }
 
-async function stableId(value) {
-  const bytes = new TextEncoder().encode(value)
-  const hash = await crypto.subtle.digest('SHA-256', bytes)
-  return Array.from(new Uint8Array(hash))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('')
-    .slice(0, 32)
-}
-
-async function ensureDirectConversation(userAId, userBId) {
-  const directKey = [userAId, userBId].sort().join(':')
-  const conversationId = await stableId(`direct:${directKey}`)
-  let conversation
-
-  try {
-    conversation = await tablesDB.getRow({
-      databaseId: DATABASE_ID,
-      tableId: CONVERSATIONS_TABLE_ID,
-      rowId: conversationId,
-    })
-  } catch (error) {
-    if (error.code !== 404) throw error
-
-    try {
-      conversation = await tablesDB.createRow({
-        databaseId: DATABASE_ID,
-        tableId: CONVERSATIONS_TABLE_ID,
-        rowId: conversationId,
-        data: {
-          type: 'direct',
-          name: 'Privat chatt',
-          createdBy: userAId,
-          directKey,
-        },
-        permissions: [
-          Permission.read(Role.users()),
-          Permission.update(Role.users()),
-          Permission.delete(Role.users()),
-        ],
-      })
-    } catch (createError) {
-      try {
-        conversation = await tablesDB.getRow({
-          databaseId: DATABASE_ID,
-          tableId: CONVERSATIONS_TABLE_ID,
-          rowId: conversationId,
-        })
-      } catch {
-        throw createError
-      }
-    }
-  }
-
-  if (conversation.type !== 'direct' || conversation.directKey !== directKey) {
-    throw new Error('Den privata konversationen kunde inte verifieras.')
-  }
-
-  for (const userId of [userAId, userBId]) {
-    const memberId = await stableId(`member:${conversation.$id}:${userId}`)
-    try {
-      await tablesDB.getRow({
-        databaseId: DATABASE_ID,
-        tableId: CONVERSATION_MEMBERS_TABLE_ID,
-        rowId: memberId,
-      })
-    } catch (error) {
-      if (error.code !== 404) throw error
-
-      try {
-        await tablesDB.createRow({
-          databaseId: DATABASE_ID,
-          tableId: CONVERSATION_MEMBERS_TABLE_ID,
-          rowId: memberId,
-          data: { userId, conversationId: conversation.$id },
-          permissions: [
-            Permission.read(Role.users()),
-            Permission.update(Role.user(userId)),
-          ],
-        })
-      } catch (createError) {
-        try {
-          await tablesDB.getRow({
-            databaseId: DATABASE_ID,
-            tableId: CONVERSATION_MEMBERS_TABLE_ID,
-            rowId: memberId,
-          })
-        } catch {
-          throw createError
-        }
-      }
-    }
-  }
-
-  return conversation
-}
-
 function parseMessage(message) {
   try {
     return JSON.parse(message.text)
@@ -158,14 +60,13 @@ function parseMessage(message) {
 
 export default function TicTacToe({
   currentUser,
-  friends,
   initialInvite,
-  loadingFriends,
-  friendsError,
+  onlineSession,
+  onInviteFriends,
   onBack,
 }) {
   const currentUserId = currentUser?.$id
-  const [session, setSession] = useState(() => initialInvite
+  const [session, setSession] = useState(() => onlineSession || (initialInvite
     ? {
       ...initialInvite,
       role: 'guest',
@@ -173,11 +74,14 @@ export default function TicTacToe({
       opponentUserId: currentUser?.$id,
       opponentName: initialInvite.fromName || 'Din kompis',
     }
-    : null)
+    : null))
   const [mode, setMode] = useState(null)
   const [board, setBoard] = useState(Array(9).fill(null))
   const [moves, setMoves] = useState([])
   const [accepted, setAccepted] = useState(Boolean(initialInvite))
+  const [startState, setStartState] = useState(
+    onlineSession ? 'started' : initialInvite ? 'waiting' : null
+  )
   const [loadingGame, setLoadingGame] = useState(false)
   const [sendingMove, setSendingMove] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -190,6 +94,12 @@ export default function TicTacToe({
       ? nextSymbol === 'X'
       : nextSymbol === 'O'
 
+  useEffect(() => {
+    if (!onlineSession) return
+    setSession(onlineSession)
+    setStartState('started')
+  }, [onlineSession])
+
   const updateOnlineGame = useCallback(async () => {
     if (!session?.conversationId || !session.inviteId) return
     setLoadingGame(true)
@@ -200,20 +110,30 @@ export default function TicTacToe({
         tableId: MESSAGES_TABLE_ID,
         queries: [
           Query.equal('conversationId', [session.conversationId]),
-          Query.equal('type', ['game_move', 'game_invite_response']),
+          Query.equal('type', [
+            'game_move',
+            'game_invite_response',
+            'game_session_start',
+          ]),
           Query.orderDesc('$createdAt'),
           Query.limit(500),
         ],
       })
       const relevantMessages = response.rows.filter((message) => {
         if (message.type !== 'game_move' &&
-          message.type !== 'game_invite_response') return false
+          message.type !== 'game_invite_response' &&
+          message.type !== 'game_session_start') return false
         return parseMessage(message)?.inviteId === session.inviteId
       })
       const acceptedResponse = relevantMessages.some((message) =>
         message.type === 'game_invite_response' &&
         parseMessage(message)?.status === 'accepted'
       )
+      const startMessage = relevantMessages.find((message) =>
+        message.type === 'game_session_start' &&
+        parseMessage(message)?.startedBy === session.hostUserId
+      )
+      const startContent = startMessage ? parseMessage(startMessage) : null
       const onlineMoves = relevantMessages
         .filter((message) => message.type === 'game_move')
         .map((message) => ({
@@ -250,6 +170,15 @@ export default function TicTacToe({
       })
 
       setAccepted(acceptedResponse || session.role === 'guest')
+      if (session.role === 'host') {
+        setStartState('started')
+      } else if (startContent) {
+        setStartState(startContent.playerIds?.includes(currentUserId)
+          ? 'started'
+          : 'excluded')
+      } else {
+        setStartState('waiting')
+      }
       setMoves(legalMoves)
       setErrorMessage('')
     } catch (error) {
@@ -260,7 +189,7 @@ export default function TicTacToe({
     } finally {
       setLoadingGame(false)
     }
-  }, [session])
+  }, [session, currentUserId])
 
   useEffect(() => {
     if (!session?.conversationId) return
@@ -272,7 +201,8 @@ export default function TicTacToe({
         if (
           payload?.conversationId === session.conversationId &&
           (payload.type === 'game_move' ||
-            payload.type === 'game_invite_response')
+            payload.type === 'game_invite_response' ||
+            payload.type === 'game_session_start')
         ) {
           updateOnlineGame()
         }
@@ -311,60 +241,11 @@ export default function TicTacToe({
     return () => window.clearTimeout(timer)
   }, [mode, board, nextSymbol, winner, isDraw])
 
-  async function sendInvitation(friend) {
-    if (!currentUserId || !friend?.userId) return
-    setErrorMessage('')
-
-    try {
-      const conversation = await ensureDirectConversation(
-        currentUserId,
-        friend.userId
-      )
-      const inviteId = ID.unique()
-      const invite = {
-        inviteId,
-        gameId: 'tic-tac-toe',
-        fromUserId: currentUserId,
-        fromName: currentUser.name || 'Din kompis',
-        toUserId: friend.userId,
-      }
-      await tablesDB.createRow({
-        databaseId: DATABASE_ID,
-        tableId: MESSAGES_TABLE_ID,
-        rowId: ID.unique(),
-        data: {
-          conversationId: conversation.$id,
-          senderId: currentUserId,
-          text: JSON.stringify(invite),
-          type: 'game_invite',
-        },
-        permissions: [
-          Permission.read(Role.users()),
-          Permission.update(Role.user(currentUserId)),
-          Permission.delete(Role.user(currentUserId)),
-        ],
-      })
-      setSession({
-        ...invite,
-        conversationId: conversation.$id,
-        role: 'host',
-        hostUserId: currentUserId,
-        opponentUserId: friend.userId,
-        opponentName: friend.username,
-      })
-      setAccepted(false)
-    } catch (error) {
-      console.error('Spelinbjudan kunde inte skickas:', error)
-      setErrorMessage(
-        `Spelinbjudan kunde inte skickas: ${error.message || 'Okänt fel'}`
-      )
-    }
-  }
-
   async function makeOnlineMove(cell) {
     if (
       !session ||
       !accepted ||
+      startState !== 'started' ||
       !isMyTurn ||
       board[cell] ||
       winner ||
@@ -421,6 +302,12 @@ export default function TicTacToe({
   }
 
   const statusText = useMemo(() => {
+    if (session?.role === 'guest' && startState === 'excluded') {
+      return 'Spelet har redan startat utan dig.'
+    }
+    if (session?.role === 'guest' && startState !== 'started') {
+      return 'Väntar på att hosten startar spelet...'
+    }
     if (winner) {
       if (mode === 'bot') return winner === 'X' ? 'Du vann!' : 'Boten vann!'
       return winner === (session?.role === 'host' ? 'X' : 'O')
@@ -431,7 +318,7 @@ export default function TicTacToe({
     if (mode === 'bot') return nextSymbol === 'X' ? 'Din tur' : 'Boten tänker...'
     if (!accepted) return 'Väntar på att kompisen ska acceptera...'
     return isMyTurn ? 'Din tur' : `${session?.opponentName || 'Kompisen'}s tur`
-  }, [winner, mode, session, isDraw, nextSymbol, accepted, isMyTurn])
+  }, [winner, mode, session, isDraw, nextSymbol, accepted, isMyTurn, startState])
 
   return (
     <div className="tic-tac-toe">
@@ -443,42 +330,10 @@ export default function TicTacToe({
             <strong>Spela mot bot</strong>
             <small>En klurig motståndare, direkt här.</small>
           </button>
-          <button type="button" onClick={() => setMode('friend-select')}>
+          <button type="button" onClick={onInviteFriends}>
             <span aria-hidden="true">👯</span>
             <strong>Spela med kompis</strong>
             <small>Bjud in en kompis till en match.</small>
-          </button>
-        </div>
-      )}
-
-      {!session && mode === 'friend-select' && (
-        <div className="game-friend-picker">
-          <h2>Välj en kompis</h2>
-          {loadingFriends && <p>Laddar kompisar...</p>}
-          {friendsError && <p className="game-error" role="alert">{friendsError}</p>}
-          {!loadingFriends && !friendsError && friends.length === 0 && (
-            <p>Du har inga accepterade kompisar att bjuda in ännu.</p>
-          )}
-          {friends.map((friend) => (
-            <button
-              type="button"
-              className="game-friend-option"
-              key={friend.userId}
-              onClick={() => sendInvitation(friend)}
-            >
-              <span className="game-friend-avatar">
-                {friend.username.slice(0, 1).toUpperCase()}
-              </span>
-              <strong>@{friend.username}</strong>
-              <span>Skicka inbjudan</span>
-            </button>
-          ))}
-          <button
-            type="button"
-            className="game-text-button"
-            onClick={() => setMode(null)}
-          >
-            Tillbaka
           </button>
         </div>
       )}
@@ -502,7 +357,9 @@ export default function TicTacToe({
                   Boolean(cell) ||
                   Boolean(winner) ||
                   isDraw ||
-                  (mode === 'bot' ? !isMyTurn : !accepted || !isMyTurn || sendingMove)
+                  (mode === 'bot'
+                    ? !isMyTurn
+                    : !accepted || startState !== 'started' || !isMyTurn || sendingMove)
                 }
                 aria-label={`Ruta ${index + 1}${cell ? `: ${cell}` : ''}`}
               >

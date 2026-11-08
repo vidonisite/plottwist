@@ -32,8 +32,7 @@
   cursor: pointer;
 }
 
-.game-mode-picker > button:hover,
-.game-friend-option:hover {
+.game-mode-picker > button:hover {
   border-color: var(--purple);
   background: var(--surface-soft);
 }
@@ -58,76 +57,15 @@
   font-size: 11px;
 }
 
-.game-friend-picker {
-  display: grid;
-  width: min(100%, 460px);
-  gap: 9px;
-}
-
-.game-friend-picker h2 {
-  margin: 0 0 6px;
-  font-size: 18px;
-}
-
-.game-friend-picker > p {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.game-friend-option {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  min-width: 0;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  color: var(--text);
-  background: var(--panel);
-  text-align: left;
-  cursor: pointer;
-}
-
-.game-friend-avatar {
-  display: grid;
-  flex: 0 0 38px;
-  width: 38px;
-  height: 38px;
-  place-items: center;
-  border-radius: 13px;
-  color: #fff;
-  background: var(--purple);
-  font-weight: 800;
-}
-
-.game-friend-option strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.game-friend-option > span:last-child {
-  margin-left: auto;
-  color: var(--purple);
-  font-size: 11px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
 .tic-tac-toe-match {
   display: grid;
   justify-items: center;
   gap: 14px;
 }
 
-.game-opponent,
 .game-status {
   margin: 0;
   text-align: center;
-}
-
-.game-opponent {
-  color: var(--text-muted);
-  font-size: 13px;
 }
 
 .game-status {
@@ -164,6 +102,13 @@
   cursor: pointer;
   transition: background-color 0.1s ease, transform 0.05s ease, box-shadow 0.05s ease;
   border-radius: 20px;
+}
+
+tic-tac-toe-cell:active {
+  /* Flyttar knappen lika långt som skuggan (4px ner och åt höger) */
+  transform: translate(4px, 4px);
+  /* Tar bort skuggan helt så den ser "in tryckt" ut */
+  box-shadow: 0px 0px 0px 0px #000000;
 }
 
 .tic-tac-toe-cell:disabled {

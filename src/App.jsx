@@ -367,6 +367,7 @@ export default function App() {
                   Query.notEqual('senderId', [currentUser.$id]),
                   Query.notEqual('type', ['game_move']),
                   Query.notEqual('type', ['game_invite_response']),
+                  Query.notEqual('type', ['game_session_start']),
                   Query.limit(1),
                 ],
               })
@@ -546,6 +547,7 @@ export default function App() {
             Query.notEqual('senderId', [currentUser.$id]),
             Query.notEqual('type', ['game_move']),
             Query.notEqual('type', ['game_invite_response']),
+            Query.notEqual('type', ['game_session_start']),
             Query.limit(500),
           ],
         })
