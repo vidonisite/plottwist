@@ -76,6 +76,7 @@ export default function Hangman({
   currentUser,
   initialInvite,
   onlineSession,
+  onInviteFriends,
   onBack,
 }) {
   const currentUserId = currentUser?.$id
@@ -587,9 +588,18 @@ export default function Hangman({
     <div className="hangman">
       {loadingGame && <p className="hangman-status">Synkroniserar spelet...</p>}
       {!session && !loadingGame && (
-        <p className="hangman-status">
-          {errorMessage || 'Väntar på att hosten startar spelet...'}
-        </p>
+        <>
+          <p className="hangman-status">
+            {errorMessage || 'Bjud in kompisar för att starta Hangman.'}
+          </p>
+          <button
+            type="button"
+            className="game-primary-button"
+            onClick={onInviteFriends}
+          >
+            Bjud in kompisar
+          </button>
+        </>
       )}
       {session && !gameState && (
         <p className="hangman-status">Väntar på spelstatus...</p>
