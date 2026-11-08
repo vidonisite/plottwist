@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Query } from 'appwrite'
 import { Gamepad2, Phone } from 'lucide-react'
 import {
@@ -1013,8 +1013,8 @@ export default function App() {
         )}
 
         {activeView === 'chat' && (
-          <>
-            <div className="conversation-heading" key={activeChat?.id}>
+          <Fragment key={activeChat?.id}>
+            <div className="conversation-heading">
               {activeChat?.type === 'group' ? (
                 <GroupAvatar
                   members={activeChat.members}
@@ -1065,10 +1065,9 @@ export default function App() {
               )}
             </div>
 
-            <section className="workspace-view chat-view" key={activeChat?.id}>
+            <section className="workspace-view chat-view">
               <div className="conversation-content">
                 <Chat
-                  key={activeChat?.id}
                   chat={activeChat}
                   currentUser={currentUser}
                   onRead={handleChatRead}
@@ -1076,7 +1075,7 @@ export default function App() {
                 />
               </div>
             </section>
-          </>
+          </Fragment>
         )}
 
         {activeView === 'add' && <AddPeople />}
