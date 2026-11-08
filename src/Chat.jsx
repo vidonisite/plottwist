@@ -203,6 +203,10 @@ export default function Chat({
         message.type !== 'game_move' &&
         message.type !== 'game_invite_response' &&
         message.type !== 'game_session_start' &&
+        message.type !== 'game_hangman_state' &&
+        message.type !== 'game_hangman_word' &&
+        message.type !== 'game_hangman_guess' &&
+        message.type !== 'game_hangman_replay' &&
         new Date(message.$createdAt).getTime() > readTime
       )
     }).length
@@ -617,7 +621,11 @@ export default function Chat({
               if (
                 message.type === 'game_invite_response' ||
                 message.type === 'game_move' ||
-                message.type === 'game_session_start'
+                message.type === 'game_session_start' ||
+                message.type === 'game_hangman_state' ||
+                message.type === 'game_hangman_word' ||
+                message.type === 'game_hangman_guess' ||
+                message.type === 'game_hangman_replay'
               ) {
                 return null
               }
@@ -697,7 +705,9 @@ export default function Chat({
 
                         return (
                           <div className="game-invite-card">
-                            <span className="game-invite-icon" aria-hidden="true">⭕</span>
+                            <span className="game-invite-icon" aria-hidden="true">
+                              {invite.gameId === 'hangman' ? '🕯️' : '⭕'}
+                            </span>
                             <strong>{invite.gameName || 'Spelinbjudan'}</strong>
                             <span>
                               {responseStatus === 'accepted'

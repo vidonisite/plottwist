@@ -148,7 +148,8 @@ async function handleMessageEvent(
   if (
     message.type === 'game_move' ||
     message.type === 'game_invite_response' ||
-    message.type === 'game_session_start'
+    message.type === 'game_session_start' ||
+    message.type?.startsWith('game_hangman_')
   ) {
     log(`Ignorerar pushnotis för spelhändelsen ${message.type}.`)
     return resSkipped()

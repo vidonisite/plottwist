@@ -13,6 +13,7 @@ import {
   CONTACTS_TABLE_ID,
 } from './lib/appwrite.js'
 import TicTacToe from './games/tictactoe.jsx'
+import Hangman from './games/hangman.jsx'
 import './games.css'
 
 const GAME_LIST = [
@@ -22,7 +23,17 @@ const GAME_LIST = [
     description: 'Tre i rad mot en kompis eller bot.',
     minPlayers: 2,
     maxPlayers: 2,
+    icon: '⭕',
     Component: TicTacToe,
+  },
+  {
+    id: 'hangman',
+    name: 'Hangman',
+    description: 'Gissa ord tillsammans innan ljusen slocknar.',
+    minPlayers: 2,
+    maxPlayers: 10,
+    icon: '🕯️',
+    Component: Hangman,
   },
 ]
 
@@ -151,6 +162,7 @@ export default function Games({
   const [sendingInvites, setSendingInvites] = useState(false)
   const [startingGame, setStartingGame] = useState(false)
   const [lobbyError, setLobbyError] = useState('')
+  const [wordChooserId, setWordChooserId] = useState('')
 
   const selectedGame = GAME_LIST.find((game) => game.id === selectedGameId)
   const inviteGame = GAME_LIST.find((game) => game.id === inviteGameId)
@@ -427,10 +439,33 @@ export default function Games({
       setLobbyError(`Minst ${selectedGame.minPlayers} spelare krävs för att starta.`)
       return
     }
+    if (
+      selectedGame.id === 'hangman' &&
+      ![currentUserId, ...acceptedInvitees.map((invitee) => invitee.userId)]
+        .includes(wordChooserId)
+    ) {
+      setLobbyError('Välj vem som ska välja det första ordet.')
+      return
+    }
 
     setStartingGame(true)
     setLobbyError('')
-    const playerIds = [currentUserId, ...acceptedInvitees.map((invitee) => invitee.userId)]
+    const players = [
+      {
+        userId: currentUserId,
+        username: currentUser.username || currentUser.name || 'Du',
+        conversationId: null,
+      },
+      ...acceptedInvitees.map((invitee) => ({
+        userId: invitee.userId,
+        username: invitee.username,
+        conversationId: invitee.conversationId,
+      })),
+    ]
+    const playerIds = players.map((player) => player.userId)
+    const firstChooserId = selectedGame.id === 'hangman'
+      ? wordChooserId
+      : null
 
     try {
       await Promise.all(inviteLobby.invitees
@@ -446,6 +481,8 @@ export default function Games({
               inviteId: inviteLobby.inviteId,
               gameId: selectedGame.id,
               playerIds,
+              players,
+              wordChooserId: firstChooserId,
               startedBy: currentUserId,
             }),
             type: 'game_session_start',
@@ -467,6 +504,8 @@ export default function Games({
         opponentUserId: opponent.userId,
         opponentName: opponent.username,
         playerIds,
+        players,
+        wordChooserId: firstChooserId,
       })
       setInviteLobby(null)
       setInviteGameId(null)
@@ -484,6 +523,7 @@ export default function Games({
     setInviteLobby(null)
     setOnlineSession(null)
     setLobbyError('')
+    setWordChooserId('')
   }
 
   const acceptedCount = inviteLobby?.invitees.filter(
@@ -600,6 +640,30 @@ export default function Games({
               </div>
             ))}
             {lobbyError && <p className="game-error" role="alert">{lobbyError}</p>}
+            {selectedGame.id === 'hangman' && (
+              <label className="game-word-chooser">
+                Vem ska välja ordet?
+                <select
+                  value={wordChooserId}
+                  onChange={(event) => {
+                    setWordChooserId(event.target.value)
+                    setLobbyError('')
+                  }}
+                >
+                  <option value="">Välj spelare</option>
+                  {[{
+                    userId: currentUserId,
+                    username: currentUser.username || currentUser.name || 'Du',
+                  }, ...inviteLobby.invitees.filter(
+                    (invitee) => invitee.status === 'accepted'
+                  )].map((player) => (
+                    <option key={player.userId} value={player.userId}>
+                      @{player.username}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             {inviteLobby.invitees.length < selectedGame.maxPlayers - 1 && (
               <button
                 type="button"
@@ -613,7 +677,11 @@ export default function Games({
               type="button"
               className="game-primary-button"
               onClick={startOnlineGame}
-              disabled={!minimumPlayersMet || startingGame}
+              disabled={
+                !minimumPlayersMet ||
+                startingGame ||
+                (selectedGame.id === 'hangman' && !wordChooserId)
+              }
             >
               {startingGame ? 'Startar...' : 'Starta spelet'}
             </button>
@@ -646,11 +714,15 @@ export default function Games({
               }}
             >
               <span className="game-card-preview" aria-hidden="true">
-                <span className="tic-tac-toe-preview">
-                  <i>×</i><i /><i>○</i>
-                  <i /><i>×</i><i />
-                  <i>○</i><i /><i>×</i>
-                </span>
+                {game.id === 'tic-tac-toe' ? (
+                  <span className="tic-tac-toe-preview">
+                    <i>×</i><i /><i>○</i>
+                    <i /><i>×</i><i />
+                    <i>○</i><i /><i>×</i>
+                  </span>
+                ) : (
+                  <span className="game-card-game-icon">{game.icon}</span>
+                )}
               </span>
               <span className="game-card-copy">
                 <strong>{game.name}</strong>

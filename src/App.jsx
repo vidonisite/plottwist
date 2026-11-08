@@ -368,6 +368,10 @@ export default function App() {
                   Query.notEqual('type', ['game_move']),
                   Query.notEqual('type', ['game_invite_response']),
                   Query.notEqual('type', ['game_session_start']),
+                  Query.notEqual('type', ['game_hangman_state']),
+                  Query.notEqual('type', ['game_hangman_word']),
+                  Query.notEqual('type', ['game_hangman_guess']),
+                  Query.notEqual('type', ['game_hangman_replay']),
                   Query.limit(1),
                 ],
               })
@@ -548,6 +552,10 @@ export default function App() {
             Query.notEqual('type', ['game_move']),
             Query.notEqual('type', ['game_invite_response']),
             Query.notEqual('type', ['game_session_start']),
+            Query.notEqual('type', ['game_hangman_state']),
+            Query.notEqual('type', ['game_hangman_word']),
+            Query.notEqual('type', ['game_hangman_guess']),
+            Query.notEqual('type', ['game_hangman_replay']),
             Query.limit(500),
           ],
         })
