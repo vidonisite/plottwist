@@ -171,7 +171,11 @@ async function stableId(value) {
     .slice(0, 32)
 }
 
-export default function Camera({ currentUser }) {
+export default function Camera({
+  currentUser,
+  targetConversation = null,
+  onClose,
+}) {
   const videoRef = useRef(null)
   const captureVideoRef = useRef(null)
   const captureTextEditorRef = useRef(null)
@@ -996,12 +1000,49 @@ export default function Camera({ currentUser }) {
         })),
       ])
 
-      setAcceptedContacts(contactsResponse.rows.map((contact) => ({
-        ...contact,
-        profile: profilesResponse.rows.find(
-          (profile) => profile.userId === contact.contactUserId
-        ),
-      })))
+      const membershipByConversationId = new Map(
+        membershipsResponse.rows.map((membership) => [
+          membership.conversationId,
+          membership,
+        ])
+      )
+      const acceptedContactsWithActivity = await Promise.all(
+        contactsResponse.rows.map(async (contact) => {
+          const directKey = [currentUserId, contact.contactUserId].sort().join(':')
+          const directConversationId = await stableId(`direct:${directKey}`)
+          const membership = membershipByConversationId.get(directConversationId)
+          const conversation = conversations.find(
+            (item) => item?.$id === directConversationId
+          )
+          let lastActivityAt = membership?.$createdAt ||
+            contact.$updatedAt ||
+            contact.$createdAt ||
+            null
+
+          if (conversation?.type === 'direct') {
+            const latestMessageResponse = await tablesDB.listRows({
+              databaseId: DATABASE_ID,
+              tableId: MESSAGES_TABLE_ID,
+              queries: [
+                Query.equal('conversationId', [directConversationId]),
+                Query.orderDesc('$createdAt'),
+                Query.limit(1),
+              ],
+            })
+            lastActivityAt =
+              latestMessageResponse.rows[0]?.$createdAt || lastActivityAt
+          }
+
+          return {
+            ...contact,
+            lastActivityAt,
+            profile: profilesResponse.rows.find(
+              (profile) => profile.userId === contact.contactUserId
+            ),
+          }
+        })
+      )
+      setAcceptedContacts(acceptedContactsWithActivity)
 
       const loadedGroupConversations = await Promise.all(
         conversations
@@ -1052,11 +1093,26 @@ export default function Camera({ currentUser }) {
               groupMembers,
               conversation.$id
             )
+            const lastMessageAt = groupMembersWithActivity.reduce(
+              (latest, member) => {
+                if (!member.lastMessageAt) return latest
+                return !latest || member.lastMessageAt > latest
+                  ? member.lastMessageAt
+                  : latest
+              },
+              null
+            )
 
             return {
               ...conversation,
               memberCount,
               members: groupMembersWithActivity,
+              lastActivityAt:
+                lastMessageAt ||
+                membershipByConversationId.get(conversation.$id)?.$createdAt ||
+                conversation.$updatedAt ||
+                conversation.$createdAt ||
+                null,
             }
           })
       )
@@ -1205,7 +1261,9 @@ export default function Camera({ currentUser }) {
     if (
       !capture ||
       !currentUserId ||
-      (selectedRecipientIds.length === 0 && selectedGroupIds.length === 0) ||
+      (!targetConversation &&
+        selectedRecipientIds.length === 0 &&
+        selectedGroupIds.length === 0) ||
       sendingTwist
     ) {
       return
@@ -1218,16 +1276,22 @@ export default function Camera({ currentUser }) {
     let uploadedFileId = null
     let uploadedReference = null
     let sentCount = 0
-    const selectedTargets = [
-      ...selectedRecipientIds.map((recipientId) => ({
-        type: 'direct',
-        recipientId,
-      })),
-      ...selectedGroupIds.map((conversationId) => ({
-        type: 'group',
-        conversationId,
-      })),
-    ]
+    const selectedTargets = targetConversation
+      ? [{
+        type: 'conversation',
+        conversationId: targetConversation.id,
+        conversationType: targetConversation.type,
+      }]
+      : [
+        ...selectedRecipientIds.map((recipientId) => ({
+          type: 'direct',
+          recipientId,
+        })),
+        ...selectedGroupIds.map((conversationId) => ({
+          type: 'group',
+          conversationId,
+        })),
+      ]
 
     try {
       // 1. Ladda upp filen EN gång.
@@ -1288,7 +1352,8 @@ export default function Camera({ currentUser }) {
 
       // 2. Skapa ett Twist-meddelande i varje vald persons chatt.
       for (const target of selectedTargets) {
-        const conversation = target.type === 'group'
+        const conversation = target.type === 'group' ||
+          target.type === 'conversation'
           ? await tablesDB.getRow({
               databaseId: DATABASE_ID,
               tableId: CONVERSATIONS_TABLE_ID,
@@ -1298,6 +1363,12 @@ export default function Camera({ currentUser }) {
 
         if (target.type === 'group' && conversation.type !== 'group') {
           throw new Error('Den valda gruppkonversationen finns inte längre.')
+        }
+        if (
+          target.type === 'conversation' &&
+          conversation.type !== target.conversationType
+        ) {
+          throw new Error('Den öppna konversationen finns inte längre.')
         }
 
         await tablesDB.createRow({
@@ -1321,6 +1392,7 @@ export default function Camera({ currentUser }) {
       }
 
       retakeCapture()
+      onClose?.()
     } catch (error) {
       console.error('Kunde inte skicka Twist:', error)
 
@@ -1350,8 +1422,38 @@ export default function Camera({ currentUser }) {
     100
   )
 
+  const recipientOptions = [
+    ...acceptedContacts.map((contact) => ({
+      type: 'person',
+      id: contact.contactUserId,
+      sortAt: contact.lastActivityAt || contact.$updatedAt || contact.$createdAt,
+      contact,
+    })),
+    ...groupConversations.map((conversation) => ({
+      type: 'group',
+      id: conversation.$id,
+      sortAt: conversation.lastActivityAt ||
+        conversation.$updatedAt ||
+        conversation.$createdAt,
+      conversation,
+    })),
+  ].sort((a, b) =>
+    (Date.parse(b.sortAt || '') || 0) - (Date.parse(a.sortAt || '') || 0)
+  )
+
   return (
-    <section className="page camera-page">
+    <section className={`page camera-page${onClose ? ' camera-overlay-page' : ''}`}>
+      {onClose && (
+        <button
+          type="button"
+          className="camera-overlay-close"
+          onClick={onClose}
+          disabled={sendingTwist}
+          aria-label="Stäng kameran"
+        >
+          ×
+        </button>
+      )}
       <div className="camera-content">
 
         {/* FÖRHANDSVISNING */}
@@ -1478,10 +1580,16 @@ export default function Camera({ currentUser }) {
 
                   <button
                     className="capture-send-button"
-                    onClick={openRecipients}
+                    onClick={targetConversation ? sendTwist : openRecipients}
                     disabled={hasSent || sendingTwist}
                   >
-                    {hasSent ? 'Sent ✓' : 'Send'}
+                    {sendingTwist
+                      ? 'Sending...'
+                      : hasSent
+                        ? 'Sent ✓'
+                        : targetConversation
+                          ? 'Send to chat'
+                          : 'Send'}
                   </button>
                 </div>
 
@@ -1543,7 +1651,7 @@ export default function Camera({ currentUser }) {
 
                 {loadingContacts ? (
                   <p>Laddar dina kontakter...</p>
-                ) : acceptedContacts.length === 0 && groupConversations.length === 0 ? (
+                ) : recipientOptions.length === 0 ? (
                   <p>
                     Du har inga accepterade kontakter eller grupper ännu.
                     Lägg till personer eller gå med i en grupp innan du skickar ett Twist.
@@ -1552,29 +1660,35 @@ export default function Camera({ currentUser }) {
                   <>
                     <div
                       style={{
-                        display: 'flex',
-                        flexDirection: 'column',
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
                         gap: '8px',
                         maxHeight: '260px',
                         overflowY: 'auto',
                       }}
                     >
-                      {acceptedContacts.map((contact) => {
-                        const selected = selectedRecipientIds.includes(
-                          contact.contactUserId
-                        )
-
-                        const username =
-                          contact.contactUsername || 'Okänd användare'
+                      {recipientOptions.map((option) => {
+                        const isGroup = option.type === 'group'
+                        const contact = option.contact
+                        const conversation = option.conversation
+                        const selected = isGroup
+                          ? selectedGroupIds.includes(option.id)
+                          : selectedRecipientIds.includes(option.id)
+                        const username = contact?.contactUsername || 'Okänd användare'
+                        const name = isGroup
+                          ? conversation.name || 'Namnlös grupp'
+                          : `@${username}`
 
                         return (
                           <label
-                            key={contact.$id}
+                            key={`${option.type}-${option.id}`}
                             style={{
                               display: 'flex',
                               alignItems: 'center',
-                              gap: '12px',
-                              padding: '12px',
+                              gap: '8px',
+                              minWidth: 0,
+                              boxSizing: 'border-box',
+                              padding: '10px',
                               borderRadius: '14px',
                               background: selected ? '#F3EAF5' : '#FAF7FB',
                               cursor: 'pointer',
@@ -1583,62 +1697,54 @@ export default function Camera({ currentUser }) {
                             <input
                               type="checkbox"
                               checked={selected}
-                              onChange={() =>
-                                toggleRecipient(contact.contactUserId)
-                              }
+                              onChange={() => isGroup
+                                ? toggleGroupRecipient(option.id)
+                                : toggleRecipient(option.id)}
                               disabled={sendingTwist}
                               style={{
                                 width: '18px',
                                 height: '18px',
+                                flexShrink: 0,
                                 accentColor: '#8C52FF',
                               }}
                             />
-
-                            <ProfileAvatar
-                              profile={contact.profile}
-                              userId={contact.contactUserId}
-                              name={username}
-                              size={36}
-                              className="recipient-profile-avatar"
-                            />
-
-                            <strong>@{username}</strong>
+                            {isGroup ? (
+                              <GroupAvatar
+                                members={conversation.members}
+                                memberCount={conversation.memberCount}
+                                name={conversation.name}
+                                size={32}
+                                className="twist-recipient-group-icon"
+                              />
+                            ) : (
+                              <ProfileAvatar
+                                profile={contact.profile}
+                                userId={contact.contactUserId}
+                                name={username}
+                                size={32}
+                                className="recipient-profile-avatar"
+                              />
+                            )}
+                            <span style={{ minWidth: 0, overflow: 'hidden' }}>
+                              <strong
+                                style={{
+                                  display: 'block',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {name}
+                              </strong>
+                              <small style={{ opacity: 0.65 }}>
+                                {isGroup
+                                  ? `Grupp · ${conversation.memberCount} medlemmar`
+                                  : 'Person'}
+                              </small>
+                            </span>
                           </label>
                         )
                       })}
-                      {groupConversations.length > 0 && (
-                        <>
-                          <p className="twist-recipient-group-heading">Grupper</p>
-                          {groupConversations.map((conversation) => {
-                            const selected = selectedGroupIds.includes(conversation.$id)
-
-                            return (
-                              <label
-                                key={`group-${conversation.$id}`}
-                                className={`twist-recipient-option ${selected ? 'selected' : ''}`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={selected}
-                                  onChange={() => toggleGroupRecipient(conversation.$id)}
-                                  disabled={sendingTwist}
-                                />
-                                <GroupAvatar
-                                  members={conversation.members}
-                                  memberCount={conversation.memberCount}
-                                  name={conversation.name}
-                                  size={36}
-                                  className="twist-recipient-group-icon"
-                                />
-                                <span className="twist-recipient-group-copy">
-                                  <strong>{conversation.name || 'Namnlös grupp'}</strong>
-                                  <small>Gruppkonversation</small>
-                                </span>
-                              </label>
-                            )
-                          })}
-                        </>
-                      )}
                     </div>
 
                     <p

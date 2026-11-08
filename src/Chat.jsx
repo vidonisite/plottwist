@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ID, Query, Permission, Role } from 'appwrite'
+import { Camera as CameraIcon } from 'lucide-react'
 
 import {
   client,
@@ -9,6 +10,7 @@ import {
 } from './lib/appwrite.js'
 
 import TwistMessage from './TwistMessage.jsx'
+import Camera from './Camera.jsx'
 import ProfileAvatar from './components/ProfileAvatar.jsx'
 import './Chat.css'
 
@@ -24,6 +26,7 @@ export default function Chat({ chat, currentUser, onRead }) {
   const [messageMenu, setMessageMenu] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
   const [newMessagesCount, setNewMessagesCount] = useState(0)
+  const [showTwistCamera, setShowTwistCamera] = useState(false)
 
   const messagesListRef = useRef(null)
   const knownMessageIdsRef = useRef(new Set())
@@ -715,6 +718,17 @@ export default function Chat({ chat, currentUser, onRead }) {
         </div>
 
         <form className="message-form" onSubmit={sendMessage}>
+          <button
+            type="button"
+            className="message-camera-button"
+            onClick={() => setShowTwistCamera(true)}
+            disabled={!conversationId || !currentUserId}
+            aria-label="Skicka en Twist"
+            title="Skicka en Twist"
+          >
+            <CameraIcon size={20} aria-hidden="true" />
+          </button>
+
           <input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
@@ -733,6 +747,23 @@ export default function Chat({ chat, currentUser, onRead }) {
           </button>
         </form>
       </div>
+
+      {showTwistCamera && (
+        <div className="chat-camera-overlay">
+          <div
+            className="chat-camera-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Skicka en Twist"
+          >
+            <Camera
+              currentUser={currentUser}
+              targetConversation={chat}
+              onClose={() => setShowTwistCamera(false)}
+            />
+          </div>
+        </div>
+      )}
     </section>
   )
 }
