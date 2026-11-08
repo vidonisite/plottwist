@@ -514,7 +514,7 @@ export default function App() {
   }, [currentUser, chatsRefresh])
 
   useEffect(() => {
-    if (!currentUser?.$id || loadingChats) return
+    if (!currentUser?.$id || loadingChats || activeView === 'games') return
 
     const conversationId = new URLSearchParams(window.location.search)
       .get('conversationId')
@@ -527,7 +527,7 @@ export default function App() {
       setActiveChat(requestedChat)
       setActiveView('chat')
     }
-  }, [chats, currentUser?.$id, loadingChats])
+  }, [activeView, chats, currentUser?.$id, loadingChats])
 
   const handleChatRead = useCallback(
     async (membershipRowId, conversationId, latestMessageAt) => {

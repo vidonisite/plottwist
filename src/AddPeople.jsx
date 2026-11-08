@@ -419,14 +419,6 @@ export default function AddPeople() {
       <header className="people-header">
         <div>
           <h1>Lägg till personer</h1>
-          <p className="people-muted">
-            Upptäck andra användare och hitta dina vänner.
-          </p>
-        </div>
-
-        <div className="people-count">
-          {users.length}
-          <span>användare</span>
         </div>
       </header>
 
