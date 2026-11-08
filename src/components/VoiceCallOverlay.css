@@ -7,7 +7,7 @@
   padding: 18px;
   background: rgba(31, 18, 38, .56);
   backdrop-filter: blur(7px);
-  animation: voice-call-fade-in .2s ease-out;
+  animation: voice-call-fade-in .3s ease-out both;
 }
 
 .voice-call-panel {
@@ -25,18 +25,23 @@
     linear-gradient(150deg, #fff 0%, #fbf5ff 58%, #fff8f2 100%);
   box-shadow: 0 24px 80px rgba(28, 12, 35, .3);
   text-align: center;
+  animation: voice-call-panel-enter .42s cubic-bezier(.2, .75, .3, 1) both;
+}
+
+@keyframes voice-call-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .voice-call-panel audio {
   display: none;
-}
-
-.voice-call-eyebrow {
-  margin: 0 0 25px;
-  color: var(--purple-dark);
-  font-size: 10px;
-  font-weight: 850;
-  letter-spacing: .14em;
 }
 
 .voice-call-avatar {
@@ -152,6 +157,17 @@
 @keyframes voice-call-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-call-backdrop,
+  .voice-call-panel {
+    animation-duration: .01ms;
+  }
+
+  .voice-call-control {
+    transition-duration: .01ms;
+  }
 }
 
 @media (max-width: 520px) {

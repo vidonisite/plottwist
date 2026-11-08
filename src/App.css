@@ -229,10 +229,11 @@
   background: transparent;
   text-align: left;
   cursor: pointer;
-  transition: background .18s ease;
+  transition: background .18s ease, transform .2s ease;
 }
 
 .chat-list-item:hover {
+  transform: translateX(3px);
   background: var(--surface-soft);
 }
 
@@ -524,6 +525,19 @@
   gap: 13px;
   padding: 24px 28px;
   border-bottom: 1px solid var(--border);
+  animation: chat-heading-enter .38s cubic-bezier(.2, .75, .3, 1) both;
+}
+
+@keyframes chat-heading-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .conversation-call-button {
@@ -546,10 +560,63 @@
   background: var(--purple-dark);
 }
 
+.conversation-call-button:active {
+  transform: scale(.94);
+}
+
+.chat-view {
+  animation: chat-view-enter .42s cubic-bezier(.2, .75, .3, 1) both;
+}
+
+@keyframes chat-view-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.main-panel > .people-page,
+.main-panel > .create-group-page,
+.main-panel > .workspace-view:not(.camera-view):not(.chat-view):not(.games-view) {
+  animation: workspace-view-enter .38s cubic-bezier(.2, .75, .3, 1) both;
+}
+
+@keyframes workspace-view-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .conversation-call-button svg {
   width: 19px;
   height: 19px;
   stroke-width: 2.2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-list-item,
+  .conversation-call-button {
+    transition-duration: .01ms;
+  }
+
+  .conversation-heading,
+  .chat-view,
+  .main-panel > .people-page,
+  .main-panel > .create-group-page,
+  .main-panel > .workspace-view:not(.camera-view):not(.chat-view):not(.games-view) {
+    animation-duration: .01ms;
+  }
 }
 
 .chat-avatar.large {

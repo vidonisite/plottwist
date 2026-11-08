@@ -14,14 +14,6 @@
   margin-bottom: 30px;
 }
 
-.people-eyebrow {
-  margin: 0 0 8px;
-  color: #a66bff;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 2px;
-}
-
 .people-header h1 {
   margin: 0;
   font-size: clamp(25px, 4vw, 34px);

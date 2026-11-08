@@ -118,7 +118,6 @@ export default function Games({
           <ArrowLeft aria-hidden="true" />
         </button>
         <div>
-          <p className="games-eyebrow">PLOT TWIST ARCADE</p>
           <h1>{selectedGame ? 'Välj hur du vill spela' : 'Spel'}</h1>
         </div>
       </header>

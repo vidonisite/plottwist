@@ -1014,7 +1014,7 @@ export default function App() {
 
         {activeView === 'chat' && (
           <>
-            <div className="conversation-heading">
+            <div className="conversation-heading" key={activeChat?.id}>
               {activeChat?.type === 'group' ? (
                 <GroupAvatar
                   members={activeChat.members}
@@ -1065,9 +1065,10 @@ export default function App() {
               )}
             </div>
 
-            <section className="workspace-view chat-view">
+            <section className="workspace-view chat-view" key={activeChat?.id}>
               <div className="conversation-content">
                 <Chat
+                  key={activeChat?.id}
                   chat={activeChat}
                   currentUser={currentUser}
                   onRead={handleChatRead}

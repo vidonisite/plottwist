@@ -349,50 +349,6 @@ export default function Chat({ chat, currentUser, onRead }) {
       return
     }
 
-    async function acceptGameInvite(invite) {
-      if (!invite?.inviteId || !conversationId || !currentUserId || acceptingGameInviteId) {
-        return
-      }
-
-      setAcceptingGameInviteId(invite.inviteId)
-      setErrorMessage('')
-
-      try {
-        await tablesDB.createRow({
-          databaseId: DATABASE_ID,
-          tableId: MESSAGES_TABLE_ID,
-          rowId: ID.unique(),
-          data: {
-            conversationId,
-            senderId: currentUserId,
-            text: JSON.stringify({
-              inviteId: invite.inviteId,
-              status: 'accepted',
-              playerId: currentUserId,
-            }),
-            type: 'game_invite_response',
-          },
-          permissions: [
-            Permission.read(Role.users()),
-            Permission.update(Role.user(currentUserId)),
-            Permission.delete(Role.user(currentUserId)),
-          ],
-        })
-
-        onAcceptGameInvite?.({
-          ...invite,
-          conversationId,
-        })
-      } catch (error) {
-        console.error('Spelinbjudan kunde inte godkännas:', error)
-        setErrorMessage(
-          `Spelinbjudan kunde inte godkännas: ${error.message || 'Okänt fel'}`
-        )
-      } finally {
-        setAcceptingGameInviteId(null)
-      }
-    }
-
     setSending(true)
     setErrorMessage('')
 
@@ -424,6 +380,50 @@ export default function Chat({ chat, currentUser, onRead }) {
       )
     } finally {
       setSending(false)
+    }
+  }
+
+  async function acceptGameInvite(invite) {
+    if (!invite?.inviteId || !conversationId || !currentUserId || acceptingGameInviteId) {
+      return
+    }
+
+    setAcceptingGameInviteId(invite.inviteId)
+    setErrorMessage('')
+
+    try {
+      await tablesDB.createRow({
+        databaseId: DATABASE_ID,
+        tableId: MESSAGES_TABLE_ID,
+        rowId: ID.unique(),
+        data: {
+          conversationId,
+          senderId: currentUserId,
+          text: JSON.stringify({
+            inviteId: invite.inviteId,
+            status: 'accepted',
+            playerId: currentUserId,
+          }),
+          type: 'game_invite_response',
+        },
+        permissions: [
+          Permission.read(Role.users()),
+          Permission.update(Role.user(currentUserId)),
+          Permission.delete(Role.user(currentUserId)),
+        ],
+      })
+
+      onAcceptGameInvite?.({
+        ...invite,
+        conversationId,
+      })
+    } catch (error) {
+      console.error('Spelinbjudan kunde inte godkännas:', error)
+      setErrorMessage(
+        `Spelinbjudan kunde inte godkännas: ${error.message || 'Okänt fel'}`
+      )
+    } finally {
+      setAcceptingGameInviteId(null)
     }
   }
 

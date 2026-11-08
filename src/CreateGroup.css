@@ -24,14 +24,6 @@
   font-size: 30px;
 }
 
-.create-group-eyebrow {
-  margin: 0 0 6px;
-  color: var(--purple-dark);
-  font-size: 9px;
-  font-weight: 900;
-  letter-spacing: .15em;
-}
-
 .create-group-header h1 {
   margin: 0;
   font-size: clamp(25px, 4vw, 34px);

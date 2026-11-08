@@ -16,6 +16,19 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
+  animation: chat-panel-enter .38s cubic-bezier(.2, .75, .3, 1) both;
+}
+
+@keyframes chat-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(.99);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .messages-list {
@@ -337,4 +350,10 @@
 .new-messages-indicator:focus-visible {
   outline: 3px solid #F8A8E8;
   outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-panel {
+    animation-duration: .01ms;
+  }
 }

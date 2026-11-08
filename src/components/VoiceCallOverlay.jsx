@@ -74,9 +74,6 @@ export default function VoiceCallOverlay({
         aria-describedby="voice-call-status"
       >
         <audio ref={audioRef} autoPlay playsInline />
-        <p className="voice-call-eyebrow">
-          {isIncoming ? 'PLOT TWIST RÖSTSAMTAL' : 'RÖSTSAMTAL'}
-        </p>
         <ProfileAvatar
           profile={call.remoteProfile}
           userId={call.remoteUserId}

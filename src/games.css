@@ -12,7 +12,7 @@
   height: 58px;
   place-items: center;
   border: none;
-  border-radius: 20px;
+  border-radius: 50%;
   color: #000;
   background: var(--pink);
   cursor: pointer;
@@ -143,14 +143,6 @@
 .games-back-button svg {
   width: 20px;
   height: 20px;
-}
-
-.games-eyebrow {
-  margin: 0 0 5px;
-  color: var(--purple);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: .16em;
 }
 
 .games-header h1 {

@@ -3,7 +3,6 @@ import './Home.css'
 export default function Home({ onOpenCamera, onOpenChat }) {
   return (
     <section className="page home-page">
-      <div className="eyebrow"><span className="status-dot" /> DIN LILLA HEMLIGHETSVÄRLD</div>
       <h1>Lite hemligt.<br /><span>Mycket plot twist.</span></h1>
       <p className="page-intro">Skicka något oväntat till någon som betyder något.</p>
 
@@ -18,10 +17,8 @@ export default function Home({ onOpenCamera, onOpenChat }) {
 
       <div className="section-heading">
         <div>
-          <p className="eyebrow">HÄR HÄNDER DET</p>
           <h2>Dina spaces</h2>
         </div>
-        <span className="tiny-label">SNART MER ✨</span>
       </div>
 
       <button className="space-card" onClick={onOpenChat}>

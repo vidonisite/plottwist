@@ -255,10 +255,6 @@ export default function AuthPage({
         </a>
 
         <div className="auth-heading">
-          <p className="auth-eyebrow">
-            {mode === 'login' ? 'VÄLKOMMEN TILLBAKA' : 'DIN EGEN LILLA VÄRLD'}
-          </p>
-
           <h1>
             {mode === 'login'
               ? <>Logga <span>in.</span></>

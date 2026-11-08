@@ -193,7 +193,6 @@ export default function CreateGroup({
         <div className="create-group-symbol">♧</div>
 
         <div>
-          <p className="create-group-eyebrow">PLOT TWIST</p>
           <h1>Skapa en grupp</h1>
           <p className="create-group-description">
             Samla dina vänner i en gemensam konversation.

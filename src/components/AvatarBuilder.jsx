@@ -249,10 +249,10 @@ export default function AvatarBuilder({ profile, userId, name, onSaved }) {
       <div className="avatar-builder-sticky">
         <div className="avatar-builder-heading">
           <div>
-            <p className="avatar-builder-eyebrow">DIN PROFIL</p>
             <h2 id="avatar-builder-title">Profilbild / Avatar</h2>
           </div>
           <ProfileAvatar
+            key={`${style}:${seed}:${JSON.stringify(options)}`}
             profile={previewProfile}
             userId={userId}
             name={name}

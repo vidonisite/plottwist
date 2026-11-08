@@ -418,7 +418,6 @@ export default function AddPeople() {
     <section className="people-page">
       <header className="people-header">
         <div>
-          <p className="people-eyebrow">PLOT TWIST</p>
           <h1>Lägg till personer</h1>
           <p className="people-muted">
             Upptäck andra användare och hitta dina vänner.
