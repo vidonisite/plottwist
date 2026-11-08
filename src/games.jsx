@@ -118,7 +118,7 @@ export default function Games({
           <ArrowLeft aria-hidden="true" />
         </button>
         <div>
-          <h1>{selectedGame ? 'Välj hur du vill spela' : 'Spel'}</h1>
+          <h1>{selectedGame ? 'Tic-tac-toe' : 'Spel'}</h1>
         </div>
       </header>
 

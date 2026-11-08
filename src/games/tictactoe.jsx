@@ -485,13 +485,6 @@ export default function TicTacToe({
 
       {(session || mode === 'bot') && (
         <div className="tic-tac-toe-match">
-          {session && (
-            <p className="game-opponent">
-              {session.role === 'host'
-                ? `Du spelar mot ${session.opponentName}`
-                : `Du spelar mot ${session.opponentName}`}
-            </p>
-          )}
           <p className={`game-status ${!accepted && session ? 'waiting' : ''}`}>
             {statusText}
           </p>

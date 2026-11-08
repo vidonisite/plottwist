@@ -168,8 +168,9 @@
 
 .tic-tac-toe-cell:disabled {
   cursor: default;
-  background-color: #e6e6e6;
-  box-shadow: 4px 4px 0px 0px #bfb
+  background-color: #f9f9f9;
+  box-shadow: 4px 4px 0px 0px rgb(215, 215, 215);
+  border: 2px solid rgb(215, 215, 215);
 }
 
 .tic-tac-toe-cell:not(:disabled):hover {
