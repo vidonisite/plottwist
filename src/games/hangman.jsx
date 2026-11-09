@@ -130,17 +130,13 @@ export default function Hangman({
     recipient,
     senderId,
     type,
-    data,
-    isPrivate = false
+    data
   ) => {
     const activeSession = sessionRef.current
     if (!activeSession || !recipient?.conversationId) {
       throw new Error('Spelkonversationen saknas.')
     }
 
-    const readerIds = isPrivate
-      ? [...new Set([activeSession.hostUserId, senderId])]
-      : [...new Set([activeSession.hostUserId, recipient.userId])]
     return tablesDB.createRow({
       databaseId: DATABASE_ID,
       tableId: MESSAGES_TABLE_ID,
@@ -152,7 +148,7 @@ export default function Hangman({
         type,
       },
       permissions: [
-        ...readerIds.map((userId) => Permission.read(Role.user(userId))),
+        Permission.read(Role.users()),
         Permission.update(Role.user(senderId)),
         Permission.delete(Role.user(senderId)),
       ],
@@ -525,8 +521,7 @@ export default function Hangman({
           inviteId: session.inviteId,
           round: gameStateRef.current?.round,
           ...data,
-        },
-        type === 'word'
+        }
       )
       if (session.role === 'host') {
         await processHostAction(message)
