@@ -138,10 +138,19 @@
 }
 
 .create-group-search button {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
   border: 0;
+  border-radius: 50%;
   color: var(--text-muted);
   background: transparent;
   font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .create-group-contact-list {

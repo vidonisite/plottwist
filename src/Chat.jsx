@@ -207,6 +207,7 @@ export default function Chat({
         message.type !== 'game_hangman_word' &&
         message.type !== 'game_hangman_guess' &&
         message.type !== 'game_hangman_replay' &&
+        message.type !== 'game_memory_turn' &&
         new Date(message.$createdAt).getTime() > readTime
       )
     }).length
@@ -625,7 +626,8 @@ export default function Chat({
                 message.type === 'game_hangman_state' ||
                 message.type === 'game_hangman_word' ||
                 message.type === 'game_hangman_guess' ||
-                message.type === 'game_hangman_replay'
+                message.type === 'game_hangman_replay' ||
+                message.type === 'game_memory_turn'
               ) {
                 return null
               }

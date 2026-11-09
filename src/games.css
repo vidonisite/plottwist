@@ -212,6 +212,33 @@
   color: #ff9ac4;
 }
 
+.memory-card-preview {
+  display: grid;
+  width: min(78%, 220px);
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  transform: rotate(-6deg);
+}
+
+.memory-card-preview i {
+  display: grid;
+  aspect-ratio: .82;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .5);
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(145deg, #a762ed, #6831bd);
+  box-shadow: 0 7px 16px rgba(31, 14, 49, .24);
+  font-size: clamp(18px, 5vw, 29px);
+  font-style: normal;
+}
+
+.memory-card-preview i:nth-child(1),
+.memory-card-preview i:nth-child(3) {
+  color: #462259;
+  background: linear-gradient(145deg, #fff, #fff2f8);
+}
+
 .game-card-copy {
   display: grid;
   gap: 6px;

@@ -14,9 +14,19 @@ import {
 } from './lib/appwrite.js'
 import TicTacToe from './games/tictactoe.jsx'
 import Hangman from './games/hangman.jsx'
+import Memory from './games/memory.jsx'
 import './games.css'
 
 const GAME_LIST = [
+  {
+    id: 'memory',
+    name: 'Memory',
+    description: 'Hitta tio emoji-par mot en kompis.',
+    minPlayers: 2,
+    maxPlayers: 2,
+    icon: '🧠',
+    Component: Memory,
+  },
   {
     id: 'tic-tac-toe',
     name: 'Tic-tac-toe',
@@ -719,6 +729,10 @@ export default function Games({
                     <i>×</i><i /><i>○</i>
                     <i /><i>×</i><i />
                     <i>○</i><i /><i>×</i>
+                  </span>
+                ) : game.id === 'memory' ? (
+                  <span className="memory-card-preview" aria-hidden="true">
+                    <i>🍓</i><i>🦋</i><i>🍓</i><i>?</i>
                   </span>
                 ) : (
                   <span className="game-card-game-icon">{game.icon}</span>

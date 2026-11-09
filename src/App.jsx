@@ -372,6 +372,7 @@ export default function App() {
                   Query.notEqual('type', ['game_hangman_word']),
                   Query.notEqual('type', ['game_hangman_guess']),
                   Query.notEqual('type', ['game_hangman_replay']),
+                  Query.notEqual('type', ['game_memory_turn']),
                   Query.limit(1),
                 ],
               })
@@ -556,6 +557,7 @@ export default function App() {
             Query.notEqual('type', ['game_hangman_word']),
             Query.notEqual('type', ['game_hangman_guess']),
             Query.notEqual('type', ['game_hangman_replay']),
+            Query.notEqual('type', ['game_memory_turn']),
             Query.limit(500),
           ],
         })
