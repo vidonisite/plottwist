@@ -47,6 +47,53 @@
   line-height: 1.5;
 }
 
+.memory-mode-picker {
+  display: grid;
+  width: min(100%, 340px);
+  gap: 10px;
+}
+
+.memory-mode-picker button {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 3px 12px;
+  align-items: center;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--text);
+  background: var(--panel);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+
+.memory-mode-picker button:hover {
+  transform: translateY(-2px);
+  border-color: var(--purple);
+  background: var(--surface-soft);
+}
+
+.memory-mode-picker button > span {
+  display: grid;
+  grid-row: span 2;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 13px;
+  background: var(--purple-soft);
+  font-size: 21px;
+}
+
+.memory-mode-picker strong {
+  font-size: 13px;
+}
+
+.memory-mode-picker small {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
 .memory-scoreboard {
   display: flex;
   align-items: center;

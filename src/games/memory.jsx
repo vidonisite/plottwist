@@ -10,6 +10,15 @@ import {
 import './memory.css'
 
 const EMOJIS = ['🍓', '🦋', '🌈', '🍉', '🐸', '🍄', '🌸', '🧸', '🍋', '🪩']
+const BOT_PLAYER_ID = 'memory-bot'
+
+function allCardsMatched(matched) {
+  return matched.every(Boolean)
+}
+
+function chooseRandom(items) {
+  return items[Math.floor(Math.random() * items.length)]
+}
 
 function makeDeck(seed) {
   let value = 2166136261
@@ -43,9 +52,9 @@ function readMessage(message) {
   }
 }
 
-function playerName(session, userId, currentUserId) {
+function playerName(session, userId, currentUserId, players = session?.players) {
   if (userId === currentUserId) return 'Du'
-  return session?.players?.find((player) => player.userId === userId)?.username ||
+  return players?.find((player) => player.userId === userId)?.username ||
     session?.opponentName ||
     'Din kompis'
 }
@@ -104,6 +113,7 @@ export default function Memory({
   onBack,
 }) {
   const currentUserId = currentUser?.$id
+  const localPlayerId = currentUserId || 'local-player'
   const [session, setSession] = useState(() => onlineSession || (initialInvite
     ? {
       ...initialInvite,
@@ -114,6 +124,7 @@ export default function Memory({
       players: [],
     }
     : null))
+  const [mode, setMode] = useState(null)
   const [started, setStarted] = useState(Boolean(onlineSession?.role === 'host'))
   const [gameState, setGameState] = useState(null)
   const [selectedCards, setSelectedCards] = useState([])
@@ -122,6 +133,7 @@ export default function Memory({
   const [celebrationId, setCelebrationId] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
   const seenMatchId = useRef(null)
+  const botMemory = useRef(new Map())
 
   useEffect(() => {
     if (!onlineSession) return
@@ -161,15 +173,6 @@ export default function Memory({
         const deck = makeDeck(session.inviteId)
         const nextState = replayTurns(deck, validPlayers, messages, session.inviteId)
         setGameState({ ...nextState, deck, players: validPlayers })
-        if (nextState.lastTurn?.isMatch && seenMatchId.current !== nextState.lastTurn.id) {
-          seenMatchId.current = nextState.lastTurn.id
-          setCelebrationId(nextState.lastTurn.id)
-          window.setTimeout(() => {
-            setCelebrationId((current) =>
-              current === nextState.lastTurn.id ? null : current
-            )
-          }, 1200)
-        }
       }
       setErrorMessage('')
     } catch (error) {
@@ -205,6 +208,132 @@ export default function Memory({
     const timer = window.setTimeout(() => setResolvedMoveId(lastTurn.id), 1100)
     return () => window.clearTimeout(timer)
   }, [gameState?.lastTurn?.id, gameState?.lastTurn?.isMatch])
+
+  useEffect(() => {
+    const lastTurn = gameState?.lastTurn
+    if (!lastTurn?.isMatch || seenMatchId.current === lastTurn.id) return undefined
+
+    seenMatchId.current = lastTurn.id
+    setCelebrationId(lastTurn.id)
+    const timer = window.setTimeout(() => {
+      setCelebrationId((current) => current === lastTurn.id ? null : current)
+    }, 1200)
+    return () => window.clearTimeout(timer)
+  }, [gameState?.lastTurn?.id, gameState?.lastTurn?.isMatch])
+
+  function startBotGame() {
+    const deck = makeDeck(ID.unique())
+    botMemory.current.clear()
+    setSession(null)
+    setStarted(true)
+    setMode('bot')
+    setSelectedCards([])
+    setResolvedMoveId(null)
+    setCelebrationId(null)
+    setErrorMessage('')
+    setGameState({
+      deck,
+      matched: Array(deck.length).fill(false),
+      scores: { [localPlayerId]: 0, [BOT_PLAYER_ID]: 0 },
+      currentPlayerId: localPlayerId,
+      lastTurn: null,
+      players: [
+        { userId: localPlayerId, username: currentUser?.username || currentUser?.name || 'Du' },
+        { userId: BOT_PLAYER_ID, username: 'Boten' },
+      ],
+    })
+  }
+
+  useEffect(() => {
+    if (
+      mode !== 'bot' ||
+      !gameState ||
+      gameState.currentPlayerId !== BOT_PLAYER_ID ||
+      selectedCards.length ||
+      allCardsMatched(gameState.matched) ||
+      (gameState.lastTurn && !gameState.lastTurn.isMatch &&
+        resolvedMoveId !== gameState.lastTurn.id)
+    ) return undefined
+
+    const timer = window.setTimeout(() => {
+      const available = gameState.deck
+        .map((_, index) => index)
+        .filter((index) => !gameState.matched[index])
+      const knownCards = botMemory.current
+      const knownPairs = new Map()
+      available.forEach((index) => {
+        const pairId = knownCards.get(index)
+        if (pairId === undefined) return
+        knownPairs.set(pairId, [...(knownPairs.get(pairId) || []), index])
+      })
+
+      const knownMatch = [...knownPairs.values()].find((pair) => pair.length >= 2)
+      let firstCard
+      let secondCard
+      if (knownMatch) {
+        [firstCard, secondCard] = knownMatch
+      } else {
+        const unknown = available.filter((index) => !knownCards.has(index))
+        firstCard = chooseRandom(unknown.length ? unknown : available)
+        knownCards.set(firstCard, gameState.deck[firstCard].pairId)
+        const rememberedMatch = available.find((index) =>
+          index !== firstCard &&
+          knownCards.get(index) === gameState.deck[firstCard].pairId
+        )
+        const remainingUnknown = available.filter((index) =>
+          index !== firstCard && !knownCards.has(index)
+        )
+        secondCard = rememberedMatch ??
+          chooseRandom(remainingUnknown.length ? remainingUnknown : available.filter(
+            (index) => index !== firstCard
+          ))
+      }
+
+      knownCards.set(firstCard, gameState.deck[firstCard].pairId)
+      knownCards.set(secondCard, gameState.deck[secondCard].pairId)
+      setSelectedCards([firstCard, secondCard])
+    }, 850)
+    return () => window.clearTimeout(timer)
+  }, [mode, gameState, selectedCards, resolvedMoveId])
+
+  useEffect(() => {
+    if (mode !== 'bot' || selectedCards.length !== 2 || !gameState) return undefined
+
+    const [firstCard, secondCard] = selectedCards
+    const timer = window.setTimeout(() => {
+      const isMatch = gameState.deck[firstCard].pairId === gameState.deck[secondCard].pairId
+      const nextTurnId = ID.unique()
+      setGameState((current) => {
+        if (!current) return current
+        const matched = [...current.matched]
+        const scores = { ...current.scores }
+        if (isMatch) {
+          matched[firstCard] = true
+          matched[secondCard] = true
+          scores[current.currentPlayerId] += 1
+        }
+        const playerIds = current.players.map((player) => player.userId)
+        const nextPlayer = isMatch
+          ? current.currentPlayerId
+          : playerIds[(playerIds.indexOf(current.currentPlayerId) + 1) % playerIds.length]
+        return {
+          ...current,
+          matched,
+          scores,
+          currentPlayerId: nextPlayer,
+          lastTurn: {
+            id: nextTurnId,
+            firstCard,
+            secondCard,
+            playerId: current.currentPlayerId || localPlayerId,
+            isMatch,
+          },
+        }
+      })
+      setSelectedCards([])
+    }, 700)
+    return () => window.clearTimeout(timer)
+  }, [mode, selectedCards, gameState, currentUserId])
 
   async function sendTurn(firstCard, secondCard) {
     if (!session?.conversationId || !currentUserId || !gameState) return
@@ -247,7 +376,7 @@ export default function Memory({
     if (
       !gameState ||
       !started ||
-      gameState.currentPlayerId !== currentUserId ||
+      gameState.currentPlayerId !== localPlayerId ||
       gameState.matched[index] ||
       selectedCards.includes(index) ||
       sendingMove ||
@@ -256,21 +385,25 @@ export default function Memory({
     ) return
 
     const nextSelection = [...selectedCards, index]
+    if (mode === 'bot') {
+      botMemory.current.set(index, gameState.deck[index].pairId)
+    }
     setSelectedCards(nextSelection)
-    if (nextSelection.length === 2) {
+    if (nextSelection.length === 2 && mode !== 'bot') {
       sendTurn(nextSelection[0], nextSelection[1])
     }
   }
 
   const allPairsFound = gameState?.matched.every(Boolean) ?? false
-  const ownScore = gameState?.scores[currentUserId] || 0
-  const opponent = gameState?.players.find((player) => player.userId !== currentUserId)
+  const ownScore = gameState?.scores[localPlayerId] || 0
+  const opponent = gameState?.players.find((player) => player.userId !== localPlayerId)
   const opponentScore = opponent ? gameState?.scores[opponent.userId] || 0 : 0
+  const opponentName = playerName(session, opponent?.userId, localPlayerId, gameState?.players)
   const winnerText = ownScore === opponentScore
     ? 'Det blev oavgjort!'
     : ownScore > opponentScore
       ? 'Du vann! 🎉'
-      : `${playerName(session, opponent?.userId, currentUserId)} vann!`
+      : `${opponentName} vann!`
   const latestMismatchVisible = Boolean(
     gameState?.lastTurn &&
     !gameState.lastTurn.isMatch &&
@@ -279,21 +412,30 @@ export default function Memory({
 
   return (
     <div className="memory-game">
-      {!session && (
+      {!session && mode !== 'bot' && (
         <div className="memory-intro">
           <div className="memory-intro-emoji" aria-hidden="true">🧠</div>
           <h2>Vänd två kort. Hitta paret.</h2>
-          <p>Spela mot en kompis. Hittar du ett par får du en tur till!</p>
-          <button type="button" className="game-primary-button" onClick={onInviteFriends}>
-            Bjud in en kompis
-          </button>
+          <p>Hitta tio emoji-par. Om du hittar ett par får du en tur till!</p>
+          <div className="memory-mode-picker">
+            <button type="button" onClick={startBotGame}>
+              <span aria-hidden="true">🤖</span>
+              <strong>Spela mot bot</strong>
+              <small>En klurig motståndare, direkt här.</small>
+            </button>
+            <button type="button" onClick={onInviteFriends}>
+              <span aria-hidden="true">👯</span>
+              <strong>Spela med kompis</strong>
+              <small>Bjud in en kompis till en match.</small>
+            </button>
+          </div>
         </div>
       )}
 
-      {session && (
+      {(session || mode === 'bot') && (
         <>
           <div className="memory-scoreboard">
-            <div className={`memory-player ${gameState?.currentPlayerId === currentUserId ? 'is-active' : ''}`}>
+            <div className={`memory-player ${gameState?.currentPlayerId === localPlayerId ? 'is-active' : ''}`}>
               <span className="memory-player-avatar">✨</span>
               <span><strong>Du</strong><small>{ownScore} par</small></span>
             </div>
@@ -301,7 +443,7 @@ export default function Memory({
             <div className={`memory-player ${gameState?.currentPlayerId === opponent?.userId ? 'is-active' : ''}`}>
               <span className="memory-player-avatar">💜</span>
               <span>
-                <strong>{playerName(session, opponent?.userId, currentUserId)}</strong>
+                <strong>{opponentName}</strong>
                 <small>{opponentScore} par</small>
               </span>
             </div>
@@ -314,11 +456,13 @@ export default function Memory({
                 ? 'Laddar korten...'
               : allPairsFound
                 ? winnerText
-                : gameState?.currentPlayerId === currentUserId
+                : gameState?.currentPlayerId === localPlayerId
                   ? selectedCards.length === 1
                     ? 'Välj ett kort till!'
                     : 'Din tur – hitta ett par!'
-                  : `${playerName(session, gameState?.currentPlayerId, currentUserId)}s tur`}
+                  : mode === 'bot'
+                    ? 'Botens tur...'
+                    : `${playerName(session, gameState?.currentPlayerId, localPlayerId)}s tur`}
           </p>
 
           <div className="memory-board" role="group" aria-label="Memory-bräde med 20 kort">
@@ -338,7 +482,7 @@ export default function Memory({
                   disabled={
                     !started ||
                     allPairsFound ||
-                    gameState.currentPlayerId !== currentUserId ||
+                    gameState.currentPlayerId !== localPlayerId ||
                     isMatched ||
                     sendingMove ||
                     (!isSelected && selectedCards.length >= 2) ||
@@ -362,6 +506,11 @@ export default function Memory({
                 <i key={`${celebrationId}-${index}`} style={{ '--confetti-index': index }} />
               ))}
             </div>
+          )}
+          {mode === 'bot' && allPairsFound && (
+            <button type="button" className="game-primary-button" onClick={startBotGame}>
+              Spela igen
+            </button>
           )}
         </>
       )}
