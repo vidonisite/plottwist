@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ID, Permission, Query, Role } from 'appwrite'
 
 import {
@@ -60,6 +60,7 @@ function parseMessage(message) {
 
 export default function TicTacToe({
   currentUser,
+  onScore,
   initialInvite,
   onlineSession,
   onInviteFriends,
@@ -85,6 +86,8 @@ export default function TicTacToe({
   const [loadingGame, setLoadingGame] = useState(false)
   const [sendingMove, setSendingMove] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [botGameId, setBotGameId] = useState(null)
+  const scoredEventsRef = useRef(new Set())
   const winner = getWinner(board)
   const isDraw = board.every(Boolean) && !winner
   const nextSymbol = board.filter(Boolean).length % 2 === 0 ? 'X' : 'O'
@@ -93,6 +96,37 @@ export default function TicTacToe({
     : session?.role === 'host'
       ? nextSymbol === 'X'
       : nextSymbol === 'O'
+
+  function awardScore(eventId) {
+    if (!onScore || scoredEventsRef.current.has(eventId)) return
+    scoredEventsRef.current.add(eventId)
+    Promise.resolve(onScore(1, eventId)).catch((error) => {
+      scoredEventsRef.current.delete(eventId)
+      console.error('Twist Score kunde inte uppdateras efter spelet:', error)
+      setErrorMessage(
+        `Twist Score kunde inte uppdateras: ${error.message || 'Okänt fel'}`
+      )
+    })
+  }
+
+  useEffect(() => {
+    const gameId = mode === 'bot' ? botGameId : session?.inviteId
+    const hasStarted = mode === 'bot' ||
+      Boolean(session && accepted && startState === 'started')
+
+    if (gameId && hasStarted) awardScore(`played:${gameId}`)
+  }, [mode, botGameId, session?.inviteId, accepted, startState, onScore])
+
+  useEffect(() => {
+    if (!winner) return
+
+    const isLocalWinner = mode === 'bot'
+      ? winner === 'X'
+      : winner === (session?.role === 'host' ? 'X' : 'O')
+    const gameId = mode === 'bot' ? botGameId : session?.inviteId
+
+    if (isLocalWinner && gameId) awardScore(`won:${gameId}`)
+  }, [winner, mode, botGameId, session?.inviteId, session?.role, onScore])
 
   useEffect(() => {
     if (!onlineSession) return
@@ -297,7 +331,14 @@ export default function TicTacToe({
     })
   }
 
+  function startBotGame() {
+    setBotGameId(ID.unique())
+    setMode('bot')
+    setBoard(Array(9).fill(null))
+  }
+
   function restartBotGame() {
+    setBotGameId(ID.unique())
     setBoard(Array(9).fill(null))
   }
 
@@ -325,7 +366,7 @@ export default function TicTacToe({
       {!session && !mode && (
         <div className="game-mode-picker">
           <p>Välj hur du vill spela</p>
-          <button type="button" onClick={() => setMode('bot')}>
+          <button type="button" onClick={startBotGame}>
             <span aria-hidden="true">🤖</span>
             <strong>Spela mot bot</strong>
             <small>En klurig motståndare, direkt här.</small>

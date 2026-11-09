@@ -173,6 +173,7 @@ async function stableId(value) {
 
 export default function Camera({
   currentUser,
+  onScore,
   targetConversation = null,
   onClose,
 }) {
@@ -386,6 +387,7 @@ export default function Camera({
       )
 
       mediaRecorderRef.current = recorder
+      const startedAt = Date.now()
 
       recorder.ondataavailable = (event) => {
         if (event.data?.size > 0) {
@@ -420,6 +422,7 @@ export default function Camera({
           type: 'video',
           blob,
           url,
+          durationMs: Date.now() - startedAt,
         })
 
         setCapturePlaybackRate(1)
@@ -432,8 +435,6 @@ export default function Camera({
       recorder.start()
       setIsRecording(true)
       setRecordingTime(0)
-
-      const startedAt = Date.now()
 
       const updateRecordingTime = () => {
         const elapsed = Math.min(
@@ -1373,7 +1374,7 @@ export default function Camera({
           throw new Error('Den öppna konversationen finns inte längre.')
         }
 
-        await tablesDB.createRow({
+        const twistMessage = await tablesDB.createRow({
           databaseId: DATABASE_ID,
           tableId: MESSAGES_TABLE_ID,
           rowId: ID.unique(),
@@ -1391,6 +1392,23 @@ export default function Camera({
         })
 
         sentCount += 1
+
+        if (onScore) {
+          const points = capture.type === 'video'
+            ? Math.max(1, Math.ceil(
+              (capture.durationMs || 0) / capturePlaybackRate / 1000
+            ))
+            : 1
+
+          try {
+            await onScore(points, `sent:${twistMessage.$id}`)
+          } catch (error) {
+            console.error(
+              'Twist Score kunde inte uppdateras efter skickad Twist:',
+              error
+            )
+          }
+        }
       }
 
       retakeCapture()

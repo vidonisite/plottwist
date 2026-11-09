@@ -222,6 +222,7 @@ export default function AuthPage({
         data: {
           userId: user.$id,
           username: normalized,
+          twistscore: 0,
         },
         permissions: [
           Permission.read(Role.any()),

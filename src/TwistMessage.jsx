@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ID, Query, Permission, Role } from 'appwrite'
+import { Query, Permission, Role } from 'appwrite'
 
 import {
   client,
@@ -13,11 +13,24 @@ import { getTwistFile, loadTwistSettings } from './lib/twistMedia.js'
 
 import './TwistMessage.css'
 
+async function stableReadRowId(messageId, userId) {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(`${messageId}:${userId}`)
+  )
+
+  return Array.from(new Uint8Array(digest))
+    .slice(0, 16)
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+}
+
 export default function TwistMessage({
   message,
   currentUserId,
   isMine,
   members = [],
+  onScore,
 }) {
   const [hasOpened, setHasOpened] = useState(false)
   const [openedByIds, setOpenedByIds] = useState([])
@@ -205,10 +218,11 @@ export default function TwistMessage({
       )
 
       if (!isMine && !hasOpened) {
+        const readRowId = await stableReadRowId(messageId, currentUserId)
         await tablesDB.createRow({
           databaseId: DATABASE_ID,
           tableId: MESSAGE_READS_TABLE_ID,
-          rowId: ID.unique(),
+          rowId: readRowId,
           data: {
             messageId,
             userId: currentUserId,
@@ -225,7 +239,19 @@ export default function TwistMessage({
       setMediaType(isVideo ? 'video' : 'image')
       setMediaUrl(objectUrl)
       objectUrl = ''
-      if (!isMine) setHasOpened(true)
+      if (!isMine) {
+        setHasOpened(true)
+        if (onScore) {
+          try {
+            await onScore(1, `opened:${messageId}`)
+          } catch (error) {
+            console.error('Twist Score kunde inte uppdateras efter öppning:', error)
+            setErrorMessage(
+              `Twisten öppnades, men poängen kunde inte sparas: ${error.message || 'Okänt fel'}`
+            )
+          }
+        }
+      }
 
     } catch (error) {
       console.error('TWIST ERROR:', {

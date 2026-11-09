@@ -42,6 +42,9 @@ function conversationIdForLog(membership) {
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null)
   const [profile, setProfile] = useState(null)
+  const profileRef = useRef(profile)
+  const scoreQueueRef = useRef(Promise.resolve())
+  const scoredEventsRef = useRef(new Set())
   const [checkingSession, setCheckingSession] = useState(true)
 
   const [activeView, setActiveView] = useState('camera')
@@ -66,6 +69,63 @@ export default function App() {
   const [gameViewEntering, setGameViewEntering] = useState(false)
   const mainPanelRef = useRef(null)
   const voiceCall = useVoiceCall(currentUser)
+
+  useEffect(() => {
+    profileRef.current = profile
+  }, [profile])
+
+  const awardTwistScore = useCallback((points, eventId) => {
+    if (!Number.isSafeInteger(points) || points <= 0 || !eventId) {
+      return Promise.reject(new Error('Ogiltig Twist Score-händelse.'))
+    }
+
+    if (scoredEventsRef.current.has(eventId)) {
+      return Promise.resolve(false)
+    }
+    scoredEventsRef.current.add(eventId)
+
+    const updateScore = async () => {
+      let currentProfile = profileRef.current
+      if (!currentProfile?.$id && currentUser?.name) {
+        const rowId = currentUser.name.trim().toLowerCase()
+        currentProfile = await tablesDB.getRow({
+          databaseId: DATABASE_ID,
+          tableId: USERS_TABLE_ID,
+          rowId,
+        })
+        profileRef.current = currentProfile
+      }
+
+      if (!currentProfile?.$id) {
+        throw new Error('Din användarprofil kunde inte hittas i Appwrite.')
+      }
+
+      const currentScore = Number(currentProfile.twistscore)
+      const updatedProfile = await tablesDB.updateRow({
+        databaseId: DATABASE_ID,
+        tableId: USERS_TABLE_ID,
+        rowId: currentProfile.$id,
+        data: {
+          twistscore:
+            (Number.isSafeInteger(currentScore) && currentScore >= 0
+              ? currentScore
+              : 0) + points,
+        },
+      })
+
+      profileRef.current = updatedProfile
+      setProfile(updatedProfile)
+      return true
+    }
+
+    const result = scoreQueueRef.current.then(updateScore)
+    scoreQueueRef.current = result.catch(() => {})
+
+    return result.catch((error) => {
+      scoredEventsRef.current.delete(eventId)
+      throw error
+    })
+  }, [currentUser?.name])
 
   useEffect(() => {
     let cancelled = false
@@ -211,9 +271,18 @@ export default function App() {
               : chat.avatarProfile,
           members: chat.members?.map((member) =>
             member.userId === updatedProfile.userId
-              ? { ...member, username: updatedProfile.username || member.username, avatarProfile: updatedProfile }
+              ? {
+                ...member,
+                username: updatedProfile.username || member.username,
+                twistscore: updatedProfile.twistscore ?? member.twistscore,
+                avatarProfile: updatedProfile,
+              }
               : member
           ),
+          twistscore:
+            chat.otherUserId === updatedProfile.userId
+              ? updatedProfile.twistscore ?? chat.twistscore
+              : chat.twistscore,
         })
 
         setChats((previous) => previous.map(applyProfile))
@@ -388,6 +457,7 @@ export default function App() {
                   return {
                     userId: member.userId,
                     username: memberProfile?.username || 'Okänd användare',
+                    twistscore: memberProfile?.twistscore ?? 0,
                     avatarProfile: memberProfile || (
                       member.userId === currentUser.$id ? profile : null
                     ),
@@ -431,6 +501,7 @@ export default function App() {
                 type: 'direct',
                 name: username,
                 username,
+                twistscore: otherProfile?.twistscore ?? 0,
                 otherUserId: otherMember.userId,
                 initials: username.slice(0, 1).toUpperCase(),
                 members: [
@@ -438,6 +509,7 @@ export default function App() {
                     userId: currentUser.$id,
                     username:
                       profile?.username || currentUser.name || 'Du',
+                    twistscore: profile?.twistscore ?? 0,
                     avatarProfile: profile || profiles.find(
                       (item) => item.userId === currentUser.$id
                     ),
@@ -445,6 +517,7 @@ export default function App() {
                   {
                     userId: otherMember.userId,
                     username,
+                    twistscore: otherProfile?.twistscore ?? 0,
                     avatarProfile: otherProfile,
                   },
                 ],
@@ -674,6 +747,10 @@ export default function App() {
       chat.name.toLowerCase().includes(query)
     )
   }, [chats, search])
+
+  const twistScore = Number.isSafeInteger(Number(profile?.twistscore))
+    ? Number(profile.twistscore)
+    : 0
 
   function openChat(chat) {
     if (voiceCall.call && voiceCall.call.conversationId !== chat.id) {
@@ -944,7 +1021,17 @@ export default function App() {
               )}
 
               <span className="chat-list-copy">
-                <strong>{chat.name}</strong>
+                <strong className="chat-name-line">
+                  <span className="chat-name-text">{chat.name}</span>
+                  {chat.type === 'direct' && (
+                    <span
+                      className="twist-score-badge"
+                      aria-label={`Twist Score ${chat.twistscore ?? 0}`}
+                    >
+                      {chat.twistscore ?? 0}
+                    </span>
+                  )}
+                </strong>
                 <small>{chat.preview}</small>
               </span>
 
@@ -980,8 +1067,8 @@ export default function App() {
               type="button"
               className={`profile-settings-button ${activeView === 'avatar-settings' ? 'selected' : ''}`}
               onClick={() => showView('avatar-settings')}
-              aria-label="Profilbild och avatarinställningar"
-              title="Profilbild och avatarinställningar"
+              aria-label={`Profilbild och avatarinställningar. Twist Score: ${twistScore}`}
+              title={`Twist Score: ${twistScore}`}
             >
               <ProfileAvatar
                 profile={profile}
@@ -990,12 +1077,19 @@ export default function App() {
                 size={38}
                 className="profile-settings-avatar"
               />
+              <span className="profile-score-badge" aria-hidden="true">
+                {twistScore}
+              </span>
             </button>
           </div>
 
           <div className="sidebar-footer">
             <span className="footer-dot" />
-            <span>@{profile?.username || currentUser.name}</span>
+            <span>
+              @{profile?.username || currentUser.name}
+              {' · Twist Score: '}
+              {twistScore}
+            </span>
           </div>
         </div>
       </aside>
@@ -1010,7 +1104,7 @@ export default function App() {
 
         {activeView === 'camera' && (
           <section className="workspace-view camera-view">
-            <Camera currentUser={currentUser} />
+            <Camera currentUser={currentUser} onScore={awardTwistScore} />
             <button
               type="button"
               className="camera-games-button"
@@ -1049,7 +1143,19 @@ export default function App() {
                 <h1>
                   {activeChat?.type === 'group'
                     ? activeChat?.name
-                    : `@${activeChat?.username || activeChat?.name || 'Din chatt'}`}
+                    : (
+                      <span className="chat-name-line">
+                        <span className="chat-name-text">
+                          @{activeChat?.username || activeChat?.name || 'Din chatt'}
+                        </span>
+                        <span
+                          className="twist-score-badge"
+                          aria-label={`Twist Score ${activeChat?.twistscore ?? 0}`}
+                        >
+                          {activeChat?.twistscore ?? 0}
+                        </span>
+                      </span>
+                    )}
                 </h1>
 
                 <p>
@@ -1084,6 +1190,7 @@ export default function App() {
                   currentUser={currentUser}
                   onRead={handleChatRead}
                   onAcceptGameInvite={joinGameInvite}
+                  onScore={awardTwistScore}
                 />
               </div>
             </section>
@@ -1095,6 +1202,7 @@ export default function App() {
         {activeView === 'games' && (
           <Games
             currentUser={currentUser}
+            onScore={awardTwistScore}
             initialInvite={gameInvite}
             animateIn={gameViewEntering}
             onEntranceAnimationEnd={() => setGameViewEntering(false)}

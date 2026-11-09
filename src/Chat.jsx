@@ -19,6 +19,7 @@ export default function Chat({
   currentUser,
   onRead,
   onAcceptGameInvite,
+  onScore,
 }) {
   const [messages, setMessages] = useState([])
   const [draft, setDraft] = useState('')
@@ -740,6 +741,7 @@ export default function Chat({
                         currentUserId={currentUserId}
                         isMine={isMine}
                         members={chat?.members || []}
+                        onScore={onScore}
                       />
                     ) : (
                       <div

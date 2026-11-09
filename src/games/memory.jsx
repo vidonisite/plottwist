@@ -107,6 +107,7 @@ function replayTurns(deck, players, messages, inviteId) {
 
 export default function Memory({
   currentUser,
+  onScore,
   initialInvite,
   onlineSession,
   onInviteFriends,
@@ -134,6 +135,8 @@ export default function Memory({
   const [errorMessage, setErrorMessage] = useState('')
   const seenMatchId = useRef(null)
   const botMemory = useRef(new Map())
+  const [botGameId, setBotGameId] = useState(null)
+  const scoredEventsRef = useRef(new Set())
 
   useEffect(() => {
     if (!onlineSession) return
@@ -222,8 +225,10 @@ export default function Memory({
   }, [gameState?.lastTurn?.id, gameState?.lastTurn?.isMatch])
 
   function startBotGame() {
-    const deck = makeDeck(ID.unique())
+    const gameId = ID.unique()
+    const deck = makeDeck(gameId)
     botMemory.current.clear()
+    setBotGameId(gameId)
     setSession(null)
     setStarted(true)
     setMode('bot')
@@ -404,6 +409,38 @@ export default function Memory({
     : ownScore > opponentScore
       ? 'Du vann! 🎉'
       : `${opponentName} vann!`
+
+  function awardScore(eventId) {
+    if (!onScore || scoredEventsRef.current.has(eventId)) return
+    scoredEventsRef.current.add(eventId)
+    Promise.resolve(onScore(1, eventId)).catch((error) => {
+      scoredEventsRef.current.delete(eventId)
+      console.error('Twist Score kunde inte uppdateras efter Memory:', error)
+      setErrorMessage(
+        `Twist Score kunde inte uppdateras: ${error.message || 'Okänt fel'}`
+      )
+    })
+  }
+
+  useEffect(() => {
+    const gameId = mode === 'bot' ? botGameId : session?.inviteId
+    if (!gameId || !started || !gameState) return
+    awardScore(`played:${gameId}`)
+  }, [mode, botGameId, session?.inviteId, started, gameState, onScore])
+
+  useEffect(() => {
+    const gameId = mode === 'bot' ? botGameId : session?.inviteId
+    if (!gameId || !allPairsFound || ownScore <= opponentScore) return
+    awardScore(`won:${gameId}`)
+  }, [
+    mode,
+    botGameId,
+    session?.inviteId,
+    allPairsFound,
+    ownScore,
+    opponentScore,
+    onScore,
+  ])
   const latestMismatchVisible = Boolean(
     gameState?.lastTurn &&
     !gameState.lastTurn.isMatch &&
