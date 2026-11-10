@@ -1023,14 +1023,6 @@ export default function App() {
               <span className="chat-list-copy">
                 <strong className="chat-name-line">
                   <span className="chat-name-text">{chat.name}</span>
-                  {chat.type === 'direct' && (
-                    <span
-                      className="twist-score-badge"
-                      aria-label={`Twist Score ${chat.twistscore ?? 0}`}
-                    >
-                      {chat.twistscore ?? 0}
-                    </span>
-                  )}
                 </strong>
                 <small>{chat.preview}</small>
               </span>
@@ -1148,12 +1140,18 @@ export default function App() {
                         <span className="chat-name-text">
                           @{activeChat?.username || activeChat?.name || 'Din chatt'}
                         </span>
-                        <span
-                          className="twist-score-badge"
-                          aria-label={`Twist Score ${activeChat?.twistscore ?? 0}`}
-                        >
-                          {activeChat?.twistscore ?? 0}
-                        </span>
+                        <details className="twist-score-info">
+                          <summary
+                            className="twist-score-badge"
+                            aria-label={`Twist Score ${activeChat?.twistscore ?? 0}`}
+                          >
+                            ☀️{activeChat?.twistscore ?? 0}
+                          </summary>
+                          <div className="twist-score-tooltip" role="note">
+                            <strong>Twist Score</strong>
+                            <p>Förklaring om Twist Score läggs till här.</p>
+                          </div>
+                        </details>
                       </span>
                     )}
                 </h1>

@@ -360,15 +360,58 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  min-width: 20px;
+  min-width: 28px;
   height: 18px;
-  padding: 0 4px;
+  padding: 0 5px;
   border-radius: 4px;
   color: #790032;
   background: #ff9ac4;
   font-size: 10px;
   font-weight: 800;
   line-height: 1;
+  list-style: none;
+  cursor: pointer;
+}
+
+.twist-score-badge::-webkit-details-marker {
+  display: none;
+}
+
+.twist-score-info {
+  position: relative;
+  flex: 0 0 auto;
+  font-size: 0;
+}
+
+.twist-score-tooltip {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  left: 0;
+  display: none;
+  width: min(260px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .16);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: 1.5;
+}
+
+.twist-score-tooltip p {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.twist-score-info:hover .twist-score-tooltip,
+.twist-score-info:focus-within .twist-score-tooltip,
+.twist-score-info[open] .twist-score-tooltip {
+  display: block;
 }
 
 .chat-list-copy small {
