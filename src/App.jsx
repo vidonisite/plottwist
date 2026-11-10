@@ -68,7 +68,35 @@ export default function App() {
   const [gameTransition, setGameTransition] = useState(null)
   const [gameViewEntering, setGameViewEntering] = useState(false)
   const mainPanelRef = useRef(null)
+  const twistScoreInfoRef = useRef(null)
+  const [twistScoreHovered, setTwistScoreHovered] = useState(false)
+  const [twistScorePinned, setTwistScorePinned] = useState(false)
   const voiceCall = useVoiceCall(currentUser)
+
+  useEffect(() => {
+    if (!twistScorePinned) return
+
+    function closeOnOutsideClick(event) {
+      if (!twistScoreInfoRef.current?.contains(event.target)) {
+        setTwistScorePinned(false)
+        setTwistScoreHovered(false)
+      }
+    }
+
+    function closeOnEscape(event) {
+      if (event.key === 'Escape') {
+        setTwistScorePinned(false)
+        setTwistScoreHovered(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [twistScorePinned])
 
   useEffect(() => {
     profileRef.current = profile
@@ -1140,18 +1168,33 @@ export default function App() {
                         <span className="chat-name-text">
                           @{activeChat?.username || activeChat?.name || 'Din chatt'}
                         </span>
-                        <details className="twist-score-info">
-                          <summary
+                        <div
+                          ref={twistScoreInfoRef}
+                          className={`twist-score-info ${
+                            twistScoreHovered || twistScorePinned ? 'is-open' : ''
+                          }`}
+                          onPointerEnter={() => setTwistScoreHovered(true)}
+                          onPointerLeave={() => setTwistScoreHovered(false)}
+                        >
+                          <button
+                            type="button"
                             className="twist-score-badge"
                             aria-label={`Twist Score ${activeChat?.twistscore ?? 0}`}
+                            aria-expanded={twistScoreHovered || twistScorePinned}
+                            aria-controls="twist-score-tooltip"
+                            onClick={() => setTwistScorePinned((open) => !open)}
                           >
                             ☀️{activeChat?.twistscore ?? 0}
-                          </summary>
-                          <div className="twist-score-tooltip" role="note">
-                            <strong>Twist Score</strong>
-                            <p>Förklaring om Twist Score läggs till här.</p>
+                          </button>
+                          <div
+                            id="twist-score-tooltip"
+                            className="twist-score-tooltip"
+                            role="note"
+                          >
+                            <strong>Twist Score ☀️</strong>
+                            <p>skicka en bild - 1p<br>skicka en video - 1p per sekund<br>kolla på någons twist - 1p<br>spela - 1p<br>vinna spelet - 1p extra</p>
                           </div>
-                        </details>
+                        </div>
                       </span>
                     )}
                 </h1>

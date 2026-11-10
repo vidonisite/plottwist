@@ -363,18 +363,15 @@
   min-width: 28px;
   height: 18px;
   padding: 0 5px;
+  border: 0;
   border-radius: 4px;
   color: #790032;
   background: #ff9ac4;
   font-size: 10px;
   font-weight: 800;
+  font-family: inherit;
   line-height: 1;
-  list-style: none;
   cursor: pointer;
-}
-
-.twist-score-badge::-webkit-details-marker {
-  display: none;
 }
 
 .twist-score-info {
@@ -386,7 +383,7 @@
 .twist-score-tooltip {
   position: absolute;
   z-index: 20;
-  top: calc(100% + 8px);
+  top: 100%;
   left: 0;
   display: none;
   width: min(260px, calc(100vw - 32px));
@@ -410,7 +407,7 @@
 
 .twist-score-info:hover .twist-score-tooltip,
 .twist-score-info:focus-within .twist-score-tooltip,
-.twist-score-info[open] .twist-score-tooltip {
+.twist-score-info.is-open .twist-score-tooltip {
   display: block;
 }
 
