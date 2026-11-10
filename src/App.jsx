@@ -470,6 +470,8 @@ export default function App() {
                   Query.notEqual('type', ['game_hangman_guess']),
                   Query.notEqual('type', ['game_hangman_replay']),
                   Query.notEqual('type', ['game_memory_turn']),
+                  Query.notEqual('type', ['game_snake_input']),
+                  Query.notEqual('type', ['game_snake_state']),
                   Query.limit(1),
                 ],
               })
@@ -659,6 +661,8 @@ export default function App() {
             Query.notEqual('type', ['game_hangman_guess']),
             Query.notEqual('type', ['game_hangman_replay']),
             Query.notEqual('type', ['game_memory_turn']),
+            Query.notEqual('type', ['game_snake_input']),
+            Query.notEqual('type', ['game_snake_state']),
             Query.limit(500),
           ],
         })
@@ -1192,7 +1196,7 @@ export default function App() {
                             role="note"
                           >
                             <strong>Twist Score ☀️</strong>
-                            <p>skicka en bild - 1p<br>skicka en video - 1p per sekund<br>kolla på någons twist - 1p<br>spela - 1p<br>vinna spelet - 1p extra</p>
+                            <p>skicka en bild - 1p<br />skicka en video - 1p per sekund<br />kolla på någons twist - 1p<br />spela - 1p<br />vinna spelet - 1p extra</p>
                           </div>
                         </div>
                       </span>

@@ -209,6 +209,8 @@ export default function Chat({
         message.type !== 'game_hangman_guess' &&
         message.type !== 'game_hangman_replay' &&
         message.type !== 'game_memory_turn' &&
+        message.type !== 'game_snake_input' &&
+        message.type !== 'game_snake_state' &&
         new Date(message.$createdAt).getTime() > readTime
       )
     }).length
@@ -628,7 +630,9 @@ export default function Chat({
                 message.type === 'game_hangman_word' ||
                 message.type === 'game_hangman_guess' ||
                 message.type === 'game_hangman_replay' ||
-                message.type === 'game_memory_turn'
+                message.type === 'game_memory_turn' ||
+                message.type === 'game_snake_input' ||
+                message.type === 'game_snake_state'
               ) {
                 return null
               }
@@ -709,7 +713,11 @@ export default function Chat({
                         return (
                           <div className="game-invite-card">
                             <span className="game-invite-icon" aria-hidden="true">
-                              {invite.gameId === 'hangman' ? '🕯️' : '⭕'}
+                              {invite.gameId === 'hangman'
+                                ? '🕯️'
+                                : invite.gameId === 'snake'
+                                  ? '🐍'
+                                  : '⭕'}
                             </span>
                             <strong>{invite.gameName || 'Spelinbjudan'}</strong>
                             <span>

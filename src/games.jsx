@@ -15,9 +15,19 @@ import {
 import TicTacToe from './games/tictactoe.jsx'
 import Hangman from './games/hangman.jsx'
 import Memory from './games/memory.jsx'
+import Snake from './games/snake.jsx'
 import './games.css'
 
 const GAME_LIST = [
+  {
+    id: 'snake',
+    name: 'Snake',
+    description: 'Klassiskt ormspel – ensam eller mot upp till tre kompisar.',
+    minPlayers: 2,
+    maxPlayers: 4,
+    icon: '🐍',
+    Component: Snake,
+  },
   {
     id: 'memory',
     name: 'Memory',
@@ -735,6 +745,10 @@ export default function Games({
                 ) : game.id === 'memory' ? (
                   <span className="memory-card-preview" aria-hidden="true">
                     <i>🍓</i><i>🦋</i><i>🍓</i><i>?</i>
+                  </span>
+                ) : game.id === 'snake' ? (
+                  <span className="snake-game-preview" aria-hidden="true">
+                    <i /><i /><i /><i /><b>●</b>
                   </span>
                 ) : (
                   <span className="game-card-game-icon">{game.icon}</span>

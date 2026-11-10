@@ -239,6 +239,35 @@
   background: linear-gradient(145deg, #fff, #fff2f8);
 }
 
+.snake-game-preview {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #a9ff4f;
+  filter: drop-shadow(0 0 8px rgba(153, 255, 66, .7));
+}
+
+.snake-game-preview i {
+  width: 19px;
+  height: 19px;
+  border: 2px solid #264a1f;
+  border-radius: 5px;
+  background: #8de34a;
+  transform: rotate(-8deg);
+}
+
+.snake-game-preview i:nth-child(2),
+.snake-game-preview i:nth-child(4) {
+  transform: translateY(-18px) rotate(8deg);
+}
+
+.snake-game-preview b {
+  margin-left: 12px;
+  color: #ff6b5b;
+  font-size: 30px;
+  line-height: 1;
+}
+
 .game-card-copy {
   display: grid;
   gap: 6px;
