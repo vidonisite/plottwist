@@ -111,6 +111,8 @@ export default function Memory({
   initialInvite,
   onlineSession,
   onInviteFriends,
+  onReplay,
+  replayingGame,
   onBack,
 }) {
   const currentUserId = currentUser?.$id
@@ -142,6 +144,9 @@ export default function Memory({
     if (!onlineSession) return
     setSession(onlineSession)
     setStarted(onlineSession.role === 'host')
+    setGameState(null)
+    setSelectedCards([])
+    setResolvedMoveId(null)
   }, [onlineSession])
 
   const updateGame = useCallback(async () => {
@@ -547,6 +552,16 @@ export default function Memory({
           {mode === 'bot' && allPairsFound && (
             <button type="button" className="game-primary-button" onClick={startBotGame}>
               Spela igen
+            </button>
+          )}
+          {(session?.role === 'host' || session?.role === 'guest') && allPairsFound && (
+            <button
+              type="button"
+              className="game-primary-button"
+              onClick={onReplay}
+              disabled={replayingGame}
+            >
+              {replayingGame ? 'Startar...' : 'Spela igen'}
             </button>
           )}
         </>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Gamepad2 } from 'lucide-react'
 import { ID, Permission, Query, Role } from 'appwrite'
 
@@ -182,12 +182,101 @@ export default function Games({
   const [onlineSession, setOnlineSession] = useState(null)
   const [sendingInvites, setSendingInvites] = useState(false)
   const [startingGame, setStartingGame] = useState(false)
+  const [replayingGame, setReplayingGame] = useState(false)
   const [lobbyError, setLobbyError] = useState('')
   const [wordChooserId, setWordChooserId] = useState('')
+  const processedReplayRequests = useRef(new Set())
+  const replayInProgress = useRef(false)
 
   const selectedGame = GAME_LIST.find((game) => game.id === selectedGameId)
   const inviteGame = GAME_LIST.find((game) => game.id === inviteGameId)
   const currentUserId = currentUser?.$id
+
+  useEffect(() => {
+    const activeInviteId = onlineSession?.inviteId || initialInvite?.inviteId
+    const conversationId = initialInvite?.conversationId
+    if (
+      !initialInvite ||
+      !activeInviteId ||
+      !conversationId ||
+      !currentUserId ||
+      onlineSession?.role === 'host'
+    ) return
+
+    let cancelled = false
+
+    function applyReplayMessage(message) {
+      const replay = readMessage(message)
+      if (
+        cancelled ||
+        message.senderId !== initialInvite.fromUserId ||
+        replay?.gameId !== selectedGameId ||
+        replay.replayOf !== activeInviteId ||
+        replay.startedBy !== initialInvite.fromUserId ||
+        !replay.playerIds?.includes(currentUserId)
+      ) return
+
+      const players = replay.players || []
+      const host = players.find((player) => player.userId === replay.startedBy)
+      setOnlineSession({
+        ...replay,
+        conversationId,
+        hostUserId: replay.startedBy,
+        opponentUserId: replay.startedBy,
+        opponentName: host?.username || initialInvite.fromName || 'Din kompis',
+        role: 'guest',
+        players,
+      })
+    }
+
+    const unsubscribe = client.subscribe(
+      `databases.${DATABASE_ID}.tables.${MESSAGES_TABLE_ID}.rows`,
+      ({ payload }) => {
+        if (
+          payload?.conversationId === conversationId &&
+          payload.type === 'game_session_start'
+        ) {
+          applyReplayMessage(payload)
+        }
+      }
+    )
+
+    async function loadReplay() {
+      try {
+        const response = await tablesDB.listRows({
+          databaseId: DATABASE_ID,
+          tableId: MESSAGES_TABLE_ID,
+          queries: [
+            Query.equal('conversationId', [conversationId]),
+            Query.equal('type', ['game_session_start']),
+            Query.orderDesc('$createdAt'),
+            Query.limit(100),
+          ],
+        })
+        const replayMessage = response.rows.find((message) =>
+          readMessage(message)?.replayOf === activeInviteId
+        )
+        if (replayMessage) applyReplayMessage(replayMessage)
+      } catch (error) {
+        console.error('Spelet kunde inte synkroniseras efter omstart:', error)
+        setLobbyError(
+          `Spelet kunde inte synkroniseras: ${error.message || 'Okänt fel'}`
+        )
+      }
+    }
+
+    loadReplay()
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
+  }, [
+    initialInvite,
+    onlineSession?.inviteId,
+    onlineSession?.role,
+    currentUserId,
+    selectedGameId,
+  ])
 
   useEffect(() => {
     if (!currentUserId) return
@@ -538,6 +627,150 @@ export default function Games({
     }
   }
 
+  const replayOnlineGame = useCallback(async () => {
+    if (
+      !onlineSession ||
+      onlineSession.role !== 'host' ||
+      !selectedGame ||
+      replayInProgress.current
+    ) return
+
+    replayInProgress.current = true
+    setReplayingGame(true)
+    setLobbyError('')
+    const inviteId = ID.unique()
+    const playerIds = onlineSession.players.map((player) => player.userId)
+    const replay = {
+      inviteId,
+      replayOf: onlineSession.inviteId,
+      gameId: selectedGame.id,
+      playerIds,
+      players: onlineSession.players,
+      wordChooserId: onlineSession.wordChooserId || null,
+      startedBy: currentUserId,
+    }
+
+    try {
+      await Promise.all(onlineSession.players
+        .filter((player) => player.userId !== currentUserId && player.conversationId)
+        .map((player) => tablesDB.createRow({
+          databaseId: DATABASE_ID,
+          tableId: MESSAGES_TABLE_ID,
+          rowId: ID.unique(),
+          data: {
+            conversationId: player.conversationId,
+            senderId: currentUserId,
+            text: JSON.stringify(replay),
+            type: 'game_session_start',
+          },
+          permissions: [
+            Permission.read(Role.users()),
+            Permission.update(Role.user(currentUserId)),
+            Permission.delete(Role.user(currentUserId)),
+          ],
+        })))
+      setOnlineSession({ ...onlineSession, ...replay })
+    } catch (error) {
+      console.error('Spelet kunde inte startas om:', error)
+      setLobbyError(`Spelet kunde inte startas om: ${error.message || 'Okänt fel'}`)
+    } finally {
+      replayInProgress.current = false
+      setReplayingGame(false)
+    }
+  }, [onlineSession, selectedGame, currentUserId])
+
+  const requestOnlineReplay = useCallback(async () => {
+    const activeSession = onlineSession || (initialInvite
+      ? {
+        ...initialInvite,
+        role: 'guest',
+      }
+      : null)
+    if (
+      !activeSession ||
+      !selectedGame ||
+      !currentUserId ||
+      replayInProgress.current
+    ) return
+    if (activeSession.role === 'host') {
+      await replayOnlineGame()
+      return
+    }
+
+    replayInProgress.current = true
+    setReplayingGame(true)
+    setLobbyError('')
+    try {
+      await tablesDB.createRow({
+        databaseId: DATABASE_ID,
+        tableId: MESSAGES_TABLE_ID,
+        rowId: ID.unique(),
+        data: {
+          conversationId: activeSession.conversationId,
+          senderId: currentUserId,
+          text: JSON.stringify({
+            inviteId: activeSession.inviteId,
+            gameId: selectedGame.id,
+          }),
+          type: 'game_session_replay_request',
+        },
+        permissions: [
+          Permission.read(Role.users()),
+          Permission.update(Role.user(currentUserId)),
+          Permission.delete(Role.user(currentUserId)),
+        ],
+      })
+    } catch (error) {
+      console.error('Begäran om omspel kunde inte skickas:', error)
+      setLobbyError(`Omspel kunde inte begäras: ${error.message || 'Okänt fel'}`)
+    } finally {
+      replayInProgress.current = false
+      setReplayingGame(false)
+    }
+  }, [
+    onlineSession,
+    initialInvite,
+    selectedGame,
+    replayOnlineGame,
+    currentUserId,
+  ])
+
+  useEffect(() => {
+    if (
+      onlineSession?.role !== 'host' ||
+      !onlineSession.players?.length ||
+      !selectedGame
+    ) return
+
+    const playersByConversation = new Map(
+      onlineSession.players
+        .filter((player) => player.userId !== currentUserId && player.conversationId)
+        .map((player) => [player.conversationId, player.userId])
+    )
+    const unsubscribe = client.subscribe(
+      `databases.${DATABASE_ID}.tables.${MESSAGES_TABLE_ID}.rows`,
+      ({ payload }) => {
+        const playerId = playersByConversation.get(payload?.conversationId)
+        if (
+          !payload?.$id ||
+          processedReplayRequests.current.has(payload.$id) ||
+          payload.type !== 'game_session_replay_request' ||
+          payload.senderId !== playerId
+        ) return
+
+        const request = readMessage(payload)
+        if (
+          request?.inviteId !== onlineSession.inviteId ||
+          request.gameId !== selectedGame.id
+        ) return
+
+        processedReplayRequests.current.add(payload.$id)
+        void replayOnlineGame()
+      }
+    )
+    return () => unsubscribe()
+  }, [onlineSession, selectedGame, currentUserId, replayOnlineGame])
+
   function leaveSelectedGame() {
     setSelectedGameId(null)
     setInviteGameId(null)
@@ -719,6 +952,8 @@ export default function Games({
             initialInvite={initialInvite}
             onlineSession={onlineSession}
             onInviteFriends={() => openInvitePicker(selectedGame.id)}
+            onReplay={requestOnlineReplay}
+            replayingGame={replayingGame}
             onBack={leaveSelectedGame}
           />
         )
@@ -762,6 +997,9 @@ export default function Games({
             </button>
           ))}
         </div>
+      )}
+      {selectedGame && (onlineSession || initialInvite) && lobbyError && !inviteGame && (
+        <p className="game-error" role="alert">{lobbyError}</p>
       )}
     </section>
   )

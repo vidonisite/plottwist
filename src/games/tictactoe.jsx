@@ -64,6 +64,8 @@ export default function TicTacToe({
   initialInvite,
   onlineSession,
   onInviteFriends,
+  onReplay,
+  replayingGame,
   onBack,
 }) {
   const currentUserId = currentUser?.$id
@@ -131,6 +133,8 @@ export default function TicTacToe({
   useEffect(() => {
     if (!onlineSession) return
     setSession(onlineSession)
+    setMoves([])
+    setAccepted(true)
     setStartState('started')
   }, [onlineSession])
 
@@ -203,7 +207,9 @@ export default function TicTacToe({
         legalMoves.push(move)
       })
 
-      setAccepted(acceptedResponse || session.role === 'guest')
+      setAccepted(
+        acceptedResponse || session.role === 'guest' || session.role === 'host'
+      )
       if (session.role === 'host') {
         setStartState('started')
       } else if (startContent) {
@@ -416,6 +422,17 @@ export default function TicTacToe({
               onClick={restartBotGame}
             >
               Spela igen
+            </button>
+          )}
+          {(session?.role === 'host' || session?.role === 'guest') &&
+            (winner || isDraw) && (
+            <button
+              type="button"
+              className="game-primary-button"
+              onClick={onReplay}
+              disabled={replayingGame}
+            >
+              {replayingGame ? 'Startar...' : 'Spela igen'}
             </button>
           )}
         </div>

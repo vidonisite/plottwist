@@ -223,6 +223,8 @@ export default function Snake({
   initialInvite,
   onlineSession,
   onInviteFriends,
+  onReplay,
+  replayingGame,
   onBack,
 }) {
   const currentUserId = currentUser?.$id
@@ -814,6 +816,17 @@ export default function Snake({
           {mode === 'solo' && gameState.phase === 'finished' && (
             <button type="button" className="game-primary-button" onClick={startSoloGame}>
               Spela igen
+            </button>
+          )}
+          {(session?.role === 'host' || session?.role === 'guest') &&
+            gameState.phase === 'finished' && (
+            <button
+              type="button"
+              className="game-primary-button"
+              onClick={onReplay}
+              disabled={replayingGame}
+            >
+              {replayingGame ? 'Startar...' : 'Spela igen'}
             </button>
           )}
         </div>
