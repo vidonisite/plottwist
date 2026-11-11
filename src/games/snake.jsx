@@ -146,8 +146,12 @@ function advanceGame(state, directions) {
     }
   })
   const survivors = snakes.filter((snake) => snake.alive)
-  let phase = survivors.length <= 1 ? 'finished' : 'playing'
-  let winnerId = survivors.length === 1 ? survivors[0].userId : null
+  const gameOver = survivors.length === 0 ||
+    (state.snakes.length > 1 && survivors.length === 1)
+  let phase = gameOver ? 'finished' : 'playing'
+  let winnerId = state.snakes.length > 1 && survivors.length === 1
+    ? survivors[0].userId
+    : null
   const food = foodEaterId && !crashedIds.has(foodEaterId)
     ? randomFood(snakes)
     : state.food
