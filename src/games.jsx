@@ -52,7 +52,7 @@ const GAME_LIST = [
     description: 'Gissa ord tillsammans innan ljusen slocknar.',
     minPlayers: 2,
     maxPlayers: 10,
-    icon: '🕯️',
+    icon: '𐦂',
     Component: Hangman,
   },
 ]

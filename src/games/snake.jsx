@@ -247,6 +247,7 @@ export default function Snake({
   const broadcastingRef = useRef(false)
   const startAppliedRef = useRef(null)
   const scoredEventsRef = useRef(new Set())
+  const lastAuthoritativeTickRef = useRef(-1)
 
   const setCurrentGameState = useCallback((nextState) => {
     gameStateRef.current = nextState
@@ -264,6 +265,7 @@ export default function Snake({
     directionsRef.current = {}
     processedInputsRef.current.clear()
     lastBroadcastRef.current = 0
+    lastAuthoritativeTickRef.current = -1
   }, [session?.inviteId, setCurrentGameState])
 
   useEffect(() => {
@@ -476,13 +478,42 @@ export default function Snake({
     if (
       content?.inviteId !== session.inviteId ||
       !isValidGameState(content.state, session.inviteId) ||
-      content.state.tick <= (gameStateRef.current?.tick ?? -1)
+      content.state.tick <= lastAuthoritativeTickRef.current
     ) return
+    lastAuthoritativeTickRef.current = content.state.tick
+    const pendingOwnDirection = directionsRef.current[currentUserId]
     directionsRef.current = Object.fromEntries(
       content.state.snakes.map((snake) => [snake.userId, snake.direction])
     )
-    setCurrentGameState(content.state)
-  }, [session, setCurrentGameState])
+    const ownSnake = content.state.snakes.find(
+      (snake) => snake.userId === currentUserId && snake.alive
+    )
+    if (
+      ownSnake &&
+      pendingOwnDirection &&
+      OPPOSITE_DIRECTION[ownSnake.direction] !== pendingOwnDirection
+    ) {
+      directionsRef.current[currentUserId] = pendingOwnDirection
+    }
+
+    let nextState = content.state
+    const messageTime = Date.parse(message.$createdAt)
+    const messageAge = Number.isFinite(messageTime)
+      ? Math.max(0, Date.now() - messageTime)
+      : 0
+    const catchUpTicks = Math.floor(messageAge / TICK_MS)
+    for (
+      let tick = 0;
+      tick < catchUpTicks && nextState.phase === 'playing';
+      tick += 1
+    ) {
+      nextState = advanceGame(nextState, directionsRef.current)
+    }
+    if (content.state.phase === 'playing' && nextState.phase === 'finished') {
+      nextState = { ...nextState, phase: 'playing', winnerId: null }
+    }
+    setCurrentGameState(nextState)
+  }, [session, currentUserId, setCurrentGameState])
 
   useEffect(() => {
     if (
@@ -538,17 +569,18 @@ export default function Snake({
 
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return
-    const isHost = session?.role === 'host'
-    if (session && !isHost) return
 
     const timer = window.setInterval(() => {
       const current = gameStateRef.current
       if (!current || current.phase !== 'playing') return
-      const nextState = advanceGame(current, directionsRef.current)
+      let nextState = advanceGame(current, directionsRef.current)
+      if (session?.role === 'guest' && nextState.phase === 'finished') {
+        nextState = { ...nextState, phase: 'playing', winnerId: null }
+      }
       setCurrentGameState(nextState)
 
       if (
-        session &&
+        session?.role === 'host' &&
         (
           Date.now() - lastBroadcastRef.current >= SYNC_MS ||
           nextState.phase === 'finished'
