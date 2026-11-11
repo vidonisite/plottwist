@@ -12,7 +12,7 @@
 
 .mine .twist-message {
   border-radius: 17px 17px 5px 17px;
-  background: #dff5a8;
+  background: var(--purple);
 }
 
 .twist-open-button {
@@ -82,7 +82,8 @@
 }
 
 .twist-opened {
-  color: #64833b;
+  color: #ffffff;
+  background-color: #d5c1ff
 }
 
 .twist-status-readers {
