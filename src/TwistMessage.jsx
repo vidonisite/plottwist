@@ -10,6 +10,7 @@ import {
   TWISTS_BUCKET_ID,
 } from './lib/appwrite.js'
 import { getTwistFile, loadTwistSettings } from './lib/twistMedia.js'
+import ProfileAvatar from './components/ProfileAvatar.jsx'
 
 import './TwistMessage.css'
 
@@ -30,6 +31,10 @@ export default function TwistMessage({
   currentUserId,
   isMine,
   members = [],
+  followingTwistIds = [],
+  openRequested = false,
+  onOpenRequestHandled,
+  onOpenNextTwist,
   onScore,
 }) {
   const [hasOpened, setHasOpened] = useState(false)
@@ -40,8 +45,11 @@ export default function TwistMessage({
   const [mediaType, setMediaType] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [twistSettings, setTwistSettings] = useState(null)
+  const [nextTwistId, setNextTwistId] = useState(null)
+  const [nextTwistError, setNextTwistError] = useState('')
 
   const messageId = message.$id
+  const followingTwistSignature = JSON.stringify(followingTwistIds)
 
   // Kontrollera om användaren redan har öppnat Twisten.
   const checkIfOpened = useCallback(async () => {
@@ -159,11 +167,14 @@ export default function TwistMessage({
     }
   }, [mediaUrl])
 
-  // Stäng Twist med Escape.
+  // Stäng med Escape eller gå vidare till nästa oöppnade Twist.
   useEffect(() => {
     function handleKeyDown(event) {
       if (event.key === 'Escape') {
-        setMediaUrl('')
+        closeTwist()
+      } else if (event.key === 'ArrowRight' && nextTwistId) {
+        event.preventDefault()
+        openNextTwist()
       }
     }
 
@@ -174,7 +185,55 @@ export default function TwistMessage({
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [mediaUrl])
+  }, [mediaUrl, nextTwistId])
+
+  useEffect(() => {
+    if (!mediaUrl || isMine || !currentUserId || followingTwistIds.length === 0) {
+      setNextTwistId(null)
+      setNextTwistError('')
+      return
+    }
+
+    let cancelled = false
+
+    async function findNextUnopenedTwist() {
+      setNextTwistId(null)
+      setNextTwistError('')
+
+      try {
+        for (let offset = 0; offset < followingTwistIds.length; offset += 100) {
+          const candidates = followingTwistIds.slice(offset, offset + 100)
+          const response = await tablesDB.listRows({
+            databaseId: DATABASE_ID,
+            tableId: MESSAGE_READS_TABLE_ID,
+            queries: [
+              Query.equal('messageId', candidates),
+              Query.equal('userId', [currentUserId]),
+              Query.limit(candidates.length),
+            ],
+          })
+
+          const openedIds = new Set(response.rows.map((row) => row.messageId))
+          const nextId = candidates.find((candidateId) => !openedIds.has(candidateId))
+          if (nextId) {
+            if (!cancelled) setNextTwistId(nextId)
+            return
+          }
+        }
+      } catch (error) {
+        console.error('Kunde inte kontrollera nästa oöppnade Twist:', error)
+        if (!cancelled) {
+          setNextTwistError('Nästa Twist kunde inte kontrolleras.')
+        }
+      }
+    }
+
+    findNextUnopenedTwist()
+
+    return () => {
+      cancelled = true
+    }
+  }, [mediaUrl, isMine, currentUserId, followingTwistSignature])
 
   // Öppna Twisten.
   async function openTwist() {
@@ -295,10 +354,24 @@ export default function TwistMessage({
     }
   }
 
+  function openNextTwist() {
+    if (!nextTwistId || !onOpenNextTwist) return
+
+    closeTwist()
+    onOpenNextTwist(nextTwistId)
+  }
+
   function closeTwist() {
     setMediaUrl('')
     setTwistSettings(null)
   }
+
+  useEffect(() => {
+    if (!openRequested) return
+
+    onOpenRequestHandled?.(messageId)
+    void openTwist()
+  }, [openRequested, messageId, onOpenRequestHandled])
 
   const openerNames = openedByIds.map((userId) => {
     const username = members.find((member) => member.userId === userId)
@@ -306,6 +379,11 @@ export default function TwistMessage({
 
     return username === 'Okänd användare' ? username : `@${username}`
   })
+  const twistSender = members.find((member) => member.userId === message.senderId)
+  const twistSenderName = twistSender?.username || 'Okänd användare'
+  const twistSenderLabel = twistSenderName === 'Okänd användare'
+    ? twistSenderName
+    : `@${twistSenderName}`
 
   return (
     <>
@@ -382,6 +460,16 @@ export default function TwistMessage({
             className="twist-media-container"
             onClick={(event) => event.stopPropagation()}
           >
+            <div className="twist-sender">
+              <ProfileAvatar
+                profile={twistSender?.avatarProfile}
+                userId={message.senderId}
+                name={twistSenderName}
+                size={40}
+                className="twist-sender-avatar"
+              />
+              <span>{twistSenderLabel}</span>
+            </div>
             <div className="twist-media-stage">
               {mediaType === 'video' ? (
                 <video
@@ -411,7 +499,26 @@ export default function TwistMessage({
                 </div>
               )}
             </div>
+            {nextTwistError && (
+              <p className="twist-navigation-error" role="alert">
+                {nextTwistError}
+              </p>
+            )}
           </div>
+          {nextTwistId && (
+            <button
+              type="button"
+              className="twist-next-button"
+              onClick={(event) => {
+                event.stopPropagation()
+                openNextTwist()
+              }}
+              aria-label="Öppna nästa Twist"
+              title="Nästa Twist"
+            >
+              →
+            </button>
+          )}
         </div>
       )}
     </>

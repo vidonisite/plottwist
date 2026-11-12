@@ -411,6 +411,52 @@
   display: block;
 }
 
+.twist-score-toasts {
+  position: fixed;
+  z-index: 10000;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.twist-score-toast {
+  padding: 9px 13px;
+  border: 1px solid rgba(121, 0, 50, .15);
+  border-radius: 999px;
+  color: #790032;
+  background: #ff9ac4;
+  box-shadow: 0 4px 16px rgba(32, 24, 39, .18);
+  font-size: 13px;
+  font-weight: 800;
+  animation: twist-score-toast-lifetime 2s ease both;
+}
+
+@keyframes twist-score-toast-lifetime {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  10% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  78% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
 .chat-list-copy small {
   overflow: hidden;
   color: var(--text-muted);
@@ -693,6 +739,10 @@
   .chat-list-item,
   .conversation-call-button {
     transition-duration: .01ms;
+  }
+
+  .twist-score-toast {
+    animation: none;
   }
 
   .conversation-heading,

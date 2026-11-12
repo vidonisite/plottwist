@@ -134,6 +134,21 @@
   min-height: 0;
 }
 
+.twist-sender {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  color: white;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.twist-sender-avatar {
+  border: 2px solid rgba(255, 255, 255, .85);
+  border-radius: 50%;
+}
+
 .twist-media-stage {
   position: relative;
   display: grid;
@@ -141,7 +156,7 @@
   place-items: center;
   width: fit-content;
   max-width: 100%;
-  max-height: min(100%, calc(100vh - 48px));
+  max-height: min(100%, calc(100vh - 112px));
   min-width: 0;
   overflow: hidden;
 }
@@ -167,7 +182,7 @@
 .twist-media {
   display: block;
   max-width: min(100%, calc(100vw - 48px));
-  max-height: min(100%, calc(100vh - 48px));
+  max-height: min(100%, calc(100vh - 112px));
   width: auto;
   height: auto;
   object-fit: contain;
@@ -292,6 +307,35 @@
   background: rgba(255,255,255,.22);
 }
 
+.twist-next-button {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  right: 20px;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  transform: translateY(-50%);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 50%;
+  color: white;
+  background: rgba(255,255,255,.12);
+  font-size: 30px;
+  cursor: pointer;
+}
+
+.twist-next-button:hover {
+  background: rgba(255,255,255,.22);
+}
+
+.twist-navigation-error {
+  margin: 0;
+  color: #ff9dad;
+  font-size: 13px;
+  text-align: center;
+}
+
 @keyframes twist-appear {
   from {
     opacity: 0;
@@ -310,6 +354,12 @@
   .twist-close {
     top: 14px;
     right: 14px;
+  }
+
+  .twist-next-button {
+    right: 8px;
+    width: 42px;
+    height: 42px;
   }
 
   .twist-media-stage {

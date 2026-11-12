@@ -45,6 +45,9 @@ export default function App() {
   const profileRef = useRef(profile)
   const scoreQueueRef = useRef(Promise.resolve())
   const scoredEventsRef = useRef(new Set())
+  const scoreToastTimersRef = useRef(new Map())
+  const scoreToastSequenceRef = useRef(0)
+  const [scoreToasts, setScoreToasts] = useState([])
   const [checkingSession, setCheckingSession] = useState(true)
 
   const [activeView, setActiveView] = useState('camera')
@@ -102,6 +105,11 @@ export default function App() {
     profileRef.current = profile
   }, [profile])
 
+  useEffect(() => () => {
+    scoreToastTimersRef.current.forEach((timer) => window.clearTimeout(timer))
+    scoreToastTimersRef.current.clear()
+  }, [])
+
   const awardTwistScore = useCallback((points, eventId) => {
     if (!Number.isSafeInteger(points) || points <= 0 || !eventId) {
       return Promise.reject(new Error('Ogiltig Twist Score-händelse.'))
@@ -149,7 +157,18 @@ export default function App() {
     const result = scoreQueueRef.current.then(updateScore)
     scoreQueueRef.current = result.catch(() => {})
 
-    return result.catch((error) => {
+    return result.then((updated) => {
+      if (updated) {
+        const toastId = ++scoreToastSequenceRef.current
+        setScoreToasts((toasts) => [...toasts, { id: toastId, points }])
+        const timer = window.setTimeout(() => {
+          setScoreToasts((toasts) => toasts.filter((toast) => toast.id !== toastId))
+          scoreToastTimersRef.current.delete(toastId)
+        }, 2000)
+        scoreToastTimersRef.current.set(toastId, timer)
+      }
+      return updated
+    }).catch((error) => {
       scoredEventsRef.current.delete(eventId)
       throw error
     })
@@ -1383,6 +1402,13 @@ export default function App() {
         onToggleMute={voiceCall.toggleMute}
         onDismiss={voiceCall.dismissCall}
       />
+      <div className="twist-score-toasts" aria-live="polite" aria-atomic="false">
+        {scoreToasts.map(({ id, points }) => (
+          <div className="twist-score-toast" key={id} role="status">
+            +{points} Twist Score
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

@@ -34,6 +34,7 @@ export default function Chat({
   const [newMessagesCount, setNewMessagesCount] = useState(0)
   const [showTwistCamera, setShowTwistCamera] = useState(false)
   const [acceptingGameInviteId, setAcceptingGameInviteId] = useState(null)
+  const [requestedTwistId, setRequestedTwistId] = useState(null)
 
   const messagesListRef = useRef(null)
   const knownMessageIdsRef = useRef(new Set())
@@ -41,6 +42,16 @@ export default function Chat({
   const shouldAutoScrollRef = useRef(false)
   const isAtBottomRef = useRef(true)
   const readUpdateQueueRef = useRef(Promise.resolve())
+
+  const requestOpenTwist = useCallback((messageId) => {
+    setRequestedTwistId(messageId)
+  }, [])
+
+  const clearTwistOpenRequest = useCallback((messageId) => {
+    setRequestedTwistId((requestedId) =>
+      requestedId === messageId ? null : requestedId
+    )
+  }, [])
 
   // Den här positionen ska vara oförändrad under just den här öppningen.
   // Appens lastReadAt uppdateras medan man läser, men ska inte flytta
@@ -749,6 +760,16 @@ export default function Chat({
                         currentUserId={currentUserId}
                         isMine={isMine}
                         members={chat?.members || []}
+                        followingTwistIds={messages
+                          .slice(index + 1)
+                          .filter((item) =>
+                            item.type === 'twist' &&
+                            item.senderId !== currentUserId
+                          )
+                          .map((item) => item.$id)}
+                        openRequested={requestedTwistId === message.$id}
+                        onOpenRequestHandled={clearTwistOpenRequest}
+                        onOpenNextTwist={requestOpenTwist}
                         onScore={onScore}
                       />
                     ) : (
