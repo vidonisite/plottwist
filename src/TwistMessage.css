@@ -118,8 +118,10 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
+  overflow: hidden;
   background: #100b16;
   animation: twist-appear .2s ease-out;
+  box-sizing: border-box;
 }
 
 .twist-media-container {
@@ -132,6 +134,7 @@
   height: 100%;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
 }
 
 .twist-sender {
@@ -152,12 +155,13 @@
 .twist-media-stage {
   position: relative;
   display: grid;
-  flex: 0 1 auto;
+  flex: 1 1 0;
   place-items: center;
-  width: fit-content;
+  width: 100%;
+  height: 100%;
   max-width: 100%;
-  max-height: min(100%, calc(100vh - 112px));
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -181,8 +185,8 @@
 
 .twist-media {
   display: block;
-  max-width: min(100%, calc(100vw - 48px));
-  max-height: min(100%, calc(100vh - 112px));
+  max-width: 100%;
+  max-height: 100%;
   width: auto;
   height: auto;
   object-fit: contain;
@@ -360,15 +364,6 @@
     right: 8px;
     width: 42px;
     height: 42px;
-  }
-
-  .twist-media-stage {
-    max-height: 56vh;
-  }
-
-  .twist-media {
-    max-width: calc(100vw - 24px);
-    max-height: 56vh;
   }
 
   .twist-text-overlay {
