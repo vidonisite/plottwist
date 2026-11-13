@@ -83,7 +83,7 @@
     left: var(--game-end-left);
     width: var(--game-end-width);
     height: var(--game-end-height);
-    border-radius: 0;
+    border-radius: 20px;
     background: #fff9e9;
     box-shadow: none;
   }
