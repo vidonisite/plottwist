@@ -1,3 +1,4 @@
+
 .camera-view {
   position: relative;
 }
@@ -7,53 +8,58 @@
   z-index: 8;
   right: 24px;
   bottom: 24px;
-  display: grid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 58px;
   height: 58px;
-  place-items: center;
-  border: none;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
   color: #000;
   background: var(--pink);
   cursor: pointer;
-  transition: border-radius .18s ease;
+  transition: border-radius .2s, transform .2s;
 }
 
 .camera-games-button:hover {
-  border-radius: 20px;
+  border-radius: 19px;
+  transform: scale(1.04);
 }
 
-
-.camera-games-button svg {
+.camera-games-button svg,
+.games-panel-transition svg {
   width: 27px;
   height: 27px;
 }
 
 .camera-games-button:disabled {
   cursor: default;
+  transform: none;
 }
+
+/* Övergången från kameraknappen till spelsidan */
 
 .games-panel-transition {
   position: absolute;
   z-index: 20;
   top: var(--game-start-top);
   left: var(--game-start-left);
-  display: grid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: var(--game-start-width);
   height: var(--game-start-height);
-  place-items: center;
   overflow: hidden;
   border-radius: 20px;
   color: #000;
   background: var(--pink);
-  box-shadow: 0 10px 28px rgba(89, 46, 155, .4);
-  animation: games-panel-expand 820ms cubic-bezier(.72, 0, .24, 1) forwards;
+  box-shadow: 0 8px 24px rgba(89, 46, 155, .25);
+  animation: games-panel-expand .8s cubic-bezier(.72, 0, .24, 1) forwards;
 }
 
 .games-panel-transition svg {
-  width: 27px;
-  height: 27px;
-  animation: games-icon-fade 260ms ease forwards;
+  animation: games-icon-fade .25s ease forwards;
 }
 
 @keyframes games-panel-expand {
@@ -63,18 +69,15 @@
     width: var(--game-start-width);
     height: var(--game-start-height);
     border-radius: 20px;
-    background-color: var(--pink);
-    box-shadow: 0 10px 28px rgba(89, 46, 155, .4);
+    background: var(--pink);
   }
 
-  32% {
-    background-color: var(--pink);
-    box-shadow: 0 10px 28px rgba(89, 46, 155, .4);
+  35% {
+    background: var(--pink);
   }
 
-  76% {
-    background-color: #fff;
-    box-shadow: 0 0 0 rgba(89, 46, 155, 0);
+  75% {
+    background: #fff;
   }
 
   100% {
@@ -83,58 +86,62 @@
     width: var(--game-end-width);
     height: var(--game-end-height);
     border-radius: 20px;
-    background-color: #fff;
-    box-shadow: 0 0 0 rgba(89, 46, 155, 0);
+    background: #fff;
+    box-shadow: none;
   }
 }
 
 @keyframes games-icon-fade {
   to {
     opacity: 0;
-    transform: scale(.65);
+    transform: scale(.7);
   }
 }
+
+/* Spelsidan */
 
 .games-view {
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  gap: 28px;
   min-height: 0;
-  padding: clamp(20px, 5vw, 56px);
-  overflow: auto;
+  padding: clamp(20px, 5vw, 52px);
+  overflow-y: auto;
   color: var(--text);
 }
 
 .games-view.is-entering {
-  animation: games-view-reveal 620ms ease both;
+  animation: games-view-reveal .5s ease both;
 }
 
 @keyframes games-view-reveal {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
 .games-header {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
 .games-back-button {
-  display: grid;
+  display: flex;
   flex: 0 0 44px;
+  align-items: center;
+  justify-content: center;
   width: 44px;
   height: 44px;
-  place-items: center;
+  padding: 0;
   border: 1px solid var(--line);
-  border-radius: 15px;
+  border-radius: 14px;
   color: var(--text);
   background: var(--surface-soft);
   cursor: pointer;
@@ -150,6 +157,8 @@
   font-size: clamp(24px, 4vw, 34px);
 }
 
+/* Spelkort */
+
 .game-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 340px));
@@ -157,13 +166,13 @@
 }
 
 .game-card {
-  position: relative;
   display: flex;
   flex-direction: column;
+  position: relative;
   min-width: 0;
   padding: 12px;
   border: 1px solid var(--line);
-  border-radius: 22px;
+  border-radius: 20px;
   color: var(--text);
   background: var(--panel);
   text-align: left;
@@ -177,11 +186,12 @@
 }
 
 .game-card-preview {
-  display: grid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-height: 180px;
-  place-items: center;
   overflow: hidden;
-  border-radius: 15px;
+  border-radius: 14px;
   background:
     radial-gradient(circle at 20% 20%, rgba(196, 146, 255, .6), transparent 34%),
     linear-gradient(135deg, #261938, #563477);
@@ -189,17 +199,17 @@
 
 .tic-tac-toe-preview {
   display: grid;
+  grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  gap: 5px;
   width: 126px;
   height: 126px;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
-  gap: 5px;
   transform: rotate(-7deg);
 }
 
 .tic-tac-toe-preview i {
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 9px;
   color: #edcfff;
   background: rgba(255, 255, 255, .14);
@@ -214,21 +224,22 @@
 
 .memory-card-preview {
   display: grid;
-  width: min(78%, 220px);
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
+  width: min(78%, 220px);
   transform: rotate(-6deg);
 }
 
 .memory-card-preview i {
-  display: grid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   aspect-ratio: .82;
-  place-items: center;
   border: 1px solid rgba(255, 255, 255, .5);
-  border-radius: 12px;
+  border-radius: 11px;
   color: #fff;
   background: linear-gradient(145deg, #a762ed, #6831bd);
-  box-shadow: 0 7px 16px rgba(31, 14, 49, .24);
+  box-shadow: 0 5px 12px rgba(31, 14, 49, .2);
   font-size: clamp(18px, 5vw, 29px);
   font-style: normal;
 }
@@ -244,7 +255,7 @@
   align-items: center;
   gap: 5px;
   color: #a9ff4f;
-  filter: drop-shadow(0 0 8px rgba(153, 255, 66, .7));
+  filter: drop-shadow(0 0 7px rgba(153, 255, 66, .6));
 }
 
 .snake-game-preview i {
@@ -271,7 +282,7 @@
 .game-card-copy {
   display: grid;
   gap: 6px;
-  padding: 15px 6px 6px;
+  padding: 14px 6px 6px;
 }
 
 .game-card-copy strong {
@@ -294,14 +305,16 @@
 .game-card-game-icon {
   color: #fff;
   font-size: clamp(54px, 12vw, 86px);
-  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .35));
+  filter: drop-shadow(0 7px 15px rgba(0, 0, 0, .3));
 }
+
+/* Spelinbjudningar */
 
 .game-invite-picker,
 .game-invite-lobby {
   display: grid;
-  width: min(100%, 460px);
   gap: 10px;
+  width: min(100%, 460px);
 }
 
 .game-invite-picker h2,
@@ -325,7 +338,7 @@
   min-width: 0;
   padding: 10px;
   border: 1px solid var(--line);
-  border-radius: 13px;
+  border-radius: 12px;
   color: var(--text);
   background: var(--panel);
   text-align: left;
@@ -347,12 +360,13 @@
 }
 
 .game-friend-avatar {
-  display: grid;
+  display: flex;
   flex: 0 0 38px;
+  align-items: center;
+  justify-content: center;
   width: 38px;
   height: 38px;
-  place-items: center;
-  border-radius: 13px;
+  border-radius: 12px;
   color: #fff;
   background: var(--purple);
   font-weight: 800;
@@ -410,7 +424,7 @@
   max-width: 280px;
   padding: 14px;
   border: 1px solid rgba(140, 82, 255, .25);
-  border-radius: 14px;
+  border-radius: 13px;
   color: #320e3b;
   background: #f7efff;
   font-size: 12px;
@@ -421,11 +435,12 @@
 }
 
 .game-invite-icon {
-  display: grid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 34px;
   height: 34px;
-  place-items: center;
-  border-radius: 11px;
+  border-radius: 10px;
   background: #eadbff;
   font-size: 19px;
 }
@@ -447,6 +462,19 @@
   cursor: wait;
 }
 
+/* Fokus och tangentbordsnavigering */
+
+.camera-games-button:focus-visible,
+.games-back-button:focus-visible,
+.game-card:focus-visible,
+.game-friend-option:focus-visible,
+.game-lobby-player button:focus-visible,
+.game-invite-card button:focus-visible,
+.game-word-chooser select:focus-visible {
+  outline: 3px solid var(--purple);
+  outline-offset: 3px;
+}
+
 @media (max-width: 600px) {
   .camera-games-button {
     right: 14px;
@@ -455,16 +483,21 @@
     height: 52px;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .games-panel-transition,
-    .games-panel-transition svg,
-    .games-view.is-entering {
-      animation-duration: 1ms;
-    }
-  }
-
   .games-view {
     gap: 22px;
     padding: 20px 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .games-panel-transition,
+  .games-panel-transition svg,
+  .games-view.is-entering {
+    animation-duration: 1ms;
+  }
+
+  .camera-games-button,
+  .game-card {
+    transition: none;
   }
 }
