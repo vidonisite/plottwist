@@ -55,10 +55,7 @@ export default function AddPeople() {
           const response = await tablesDB.listRows({
             databaseId: DATABASE_ID,
             tableId: USERS_TABLE_ID,
-            queries: [
-              Query.orderAsc('username'),
-              Query.limit(100),
-            ],
+            queries: [Query.limit(100)],
           })
 
           userRows = response.rows
@@ -84,11 +81,18 @@ export default function AddPeople() {
 
         if (cancelled) return
 
-        setUsers(
-          userRows.filter(
-            (profile) => profile.userId !== user.$id
-          )
+        const availableUsers = userRows.filter(
+          (profile) => profile.userId !== user.$id
         )
+
+        for (let index = availableUsers.length - 1; index > 0; index -= 1) {
+          const randomIndex = Math.floor(Math.random() * (index + 1))
+          const currentUserAtIndex = availableUsers[index]
+          availableUsers[index] = availableUsers[randomIndex]
+          availableUsers[randomIndex] = currentUserAtIndex
+        }
+
+        setUsers(availableUsers)
 
         setContacts(contactRows)
       } catch (error) {

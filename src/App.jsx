@@ -39,6 +39,15 @@ function conversationIdForLog(membership) {
   return membership?.conversationId || 'okänd konversation'
 }
 
+function latestMemberActivityAt(members) {
+  return members.reduce((latest, member) => {
+    const activityAt = member.lastMessageAt
+    return activityAt && (!latest || Date.parse(activityAt) > Date.parse(latest))
+      ? activityAt
+      : latest
+  }, null)
+}
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -354,25 +363,35 @@ export default function App() {
         if (!events.some((event) => event.endsWith('.create'))) return
         if (!payload?.conversationId || !payload?.senderId || !payload?.$createdAt) return
 
-        const updateGroupActivity = (chat) => {
-          if (chat.type !== 'group' || chat.id !== payload.conversationId) return chat
-
+        const updateChatActivity = (chat) => {
+          if (chat.id !== payload.conversationId) return chat
           const messageTime = new Date(payload.$createdAt).getTime()
+          const currentActivityTime = chat.lastActivityAt
+            ? new Date(chat.lastActivityAt).getTime()
+            : 0
 
           return {
             ...chat,
-            members: chat.members.map((member) => (
-              member.userId === payload.senderId &&
-                (!Number.isFinite(new Date(member.lastMessageAt).getTime()) ||
-                  messageTime > new Date(member.lastMessageAt).getTime())
-                ? { ...member, lastMessageAt: payload.$createdAt }
-                : member
-            )),
+            lastActivityAt:
+              Number.isFinite(messageTime) && messageTime > currentActivityTime
+                ? payload.$createdAt
+                : chat.lastActivityAt,
+            ...(chat.type === 'group'
+              ? {
+                members: chat.members.map((member) => (
+                  member.userId === payload.senderId &&
+                    (!Number.isFinite(new Date(member.lastMessageAt).getTime()) ||
+                      messageTime > new Date(member.lastMessageAt).getTime())
+                    ? { ...member, lastMessageAt: payload.$createdAt }
+                    : member
+                )),
+              }
+              : {}),
           }
         }
 
-        setChats((previous) => previous.map(updateGroupActivity))
-        setActiveChat((previous) => previous ? updateGroupActivity(previous) : previous)
+        setChats((previous) => previous.map(updateChatActivity))
+        setActiveChat((previous) => previous ? updateChatActivity(previous) : previous)
       }
     )
 
@@ -516,6 +535,7 @@ export default function App() {
                   groupMembers,
                   conversation.$id
                 )
+                const lastActivityAt = latestMemberActivityAt(groupMembersWithActivity)
 
                 return {
                   id: conversation.$id,
@@ -526,6 +546,7 @@ export default function App() {
                   members: groupMembersWithActivity,
                   memberCount,
                   preview: `${memberCount} medlemmar`,
+                  lastActivityAt,
                   membershipRowId: membership.$id,
                   lastReadAt,
                   unreadCount,
@@ -544,6 +565,16 @@ export default function App() {
 
               const username =
                 otherProfile?.username || 'Okänd användare'
+
+              const latestMessageResponse = await tablesDB.listRows({
+                databaseId: DATABASE_ID,
+                tableId: MESSAGES_TABLE_ID,
+                queries: [
+                  Query.equal('conversationId', [conversation.$id]),
+                  Query.orderDesc('$createdAt'),
+                  Query.limit(1),
+                ],
+              })
 
               return {
                 id: conversation.$id,
@@ -573,6 +604,7 @@ export default function App() {
                 avatarProfile: otherProfile,
                 memberCount: 2,
                 preview: 'Privat konversation',
+                lastActivityAt: latestMessageResponse.rows[0]?.$createdAt || null,
                 membershipRowId: membership.$id,
                 lastReadAt,
                 unreadCount,
@@ -606,8 +638,6 @@ export default function App() {
               .map((chat) => [chat.id, chat])
           ).values()
         )
-
-        uniqueChats.sort((a, b) => a.name.localeCompare(b.name))
 
         setChats(uniqueChats)
 
@@ -791,12 +821,16 @@ export default function App() {
 
   const filteredChats = useMemo(() => {
     const query = search.trim().toLowerCase()
+    const matchingChats = query
+      ? chats.filter((chat) => chat.name.toLowerCase().includes(query))
+      : chats
 
-    if (!query) return chats
-
-    return chats.filter((chat) =>
-      chat.name.toLowerCase().includes(query)
-    )
+    return [...matchingChats].sort((a, b) => {
+      const activityDifference =
+        (Date.parse(b.lastActivityAt || '') || 0) -
+        (Date.parse(a.lastActivityAt || '') || 0)
+      return activityDifference || a.name.localeCompare(b.name)
+    })
   }, [chats, search])
 
   const twistScore = Number.isSafeInteger(Number(profile?.twistscore))
