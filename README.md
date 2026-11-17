@@ -101,3 +101,18 @@ videoformaten; filbehörigheterna sätts per fil av appen.
 5. Distribuera funktionen och bygg/publicera appen på HTTPS. Användaren kan
    sedan slå på notiser under **Inställningar**. En ny meddelanderad skickar en
    notis till alla prenumererade medlemmar utom avsändaren.
+
+### Grupphantering
+
+Gruppmedlemmar hanteras via en Appwrite-funktion så att klienten inte behöver
+skriv- eller borttagningsbehörighet till medlemsrader. Skapa och distribuera
+funktionen från `functions/group-membership` och tillåt inloggade användare att
+köra den. Konfigurera funktionsvariablerna `APPWRITE_API_KEY`,
+`APPWRITE_DATABASE_ID`, `APPWRITE_CONVERSATIONS_TABLE_ID`,
+`APPWRITE_CONVERSATION_MEMBERS_TABLE_ID` och `APPWRITE_CONTACTS_TABLE_ID`.
+API-nyckeln behöver läsa konversations-, medlems- och kontakttabellerna samt
+skapa och ta bort rader i medlemskapstabellen.
+
+Sätt `VITE_APPWRITE_GROUP_MEMBERSHIP_FUNCTION_ID` till funktions-ID:t i appens
+byggmiljö och bygg om appen. Funktionen kontrollerar att den anropande
+användaren är gruppmedlem; nya medlemmar måste vara accepterade kontakter.

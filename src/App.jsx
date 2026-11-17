@@ -23,6 +23,7 @@ import {
 import AuthPage from './auth/AuthPage.jsx'
 import Camera from './Camera.jsx'
 import Chat from './Chat.jsx'
+import GroupDetails from './GroupDetails.jsx'
 import Games from './games.jsx'
 import AddPeople from './AddPeople.jsx'
 import CreateGroup from './CreateGroup.jsx'
@@ -74,6 +75,7 @@ export default function App() {
 
   const [activeView, setActiveView] = useState('camera')
   const [activeChat, setActiveChat] = useState(null)
+  const [groupDetailsOpen, setGroupDetailsOpen] = useState(false)
 
   const [search, setSearch] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -97,6 +99,7 @@ export default function App() {
   const [twistScoreHovered, setTwistScoreHovered] = useState(false)
   const [twistScorePinned, setTwistScorePinned] = useState(false)
   const voiceCall = useVoiceCall(currentUser)
+  const closeGroupDetails = useCallback(() => setGroupDetailsOpen(false), [])
 
   useEffect(() => {
     if (!twistScorePinned) return
@@ -427,17 +430,29 @@ export default function App() {
 
     const unsubscribe = client.subscribe(
       `databases.${DATABASE_ID}.tables.${CONVERSATION_MEMBERS_TABLE_ID}.rows`,
-      ({ events = [] }) => {
+      ({ events = [], payload }) => {
         if (events.some((event) => (
           event.endsWith('.create') || event.endsWith('.delete')
         ))) {
           setChatsRefresh((value) => value + 1)
         }
+
+        if (
+          events.some((event) => event.endsWith('.delete')) &&
+          payload?.userId === currentUser.$id &&
+          payload?.conversationId === activeChat?.id &&
+          activeChat?.type === 'group'
+        ) {
+          setGroupDetailsOpen(false)
+          setActiveChat(null)
+          setActiveView('camera')
+          window.history.replaceState(null, '', '/')
+        }
       }
     )
 
     return () => unsubscribe()
-  }, [currentUser?.$id])
+  }, [currentUser?.$id, activeChat?.id, activeChat?.type])
 
   // Hämta alla konversationer där användaren är medlem.
   useEffect(() => {
@@ -865,6 +880,7 @@ export default function App() {
     if (voiceCall.call && voiceCall.call.conversationId !== chat.id) {
       void voiceCall.endCall()
     }
+    setGroupDetailsOpen(false)
     // Behåll den sparade läspositionen och eventuella olästa meddelanden.
     // Chat-komponenten flyttar fram läspositionen när meddelanden faktiskt syns.
     setActiveChat(chat)
@@ -878,6 +894,7 @@ export default function App() {
 
   function showCamera() {
     if (voiceCall.call) void voiceCall.endCall()
+    setGroupDetailsOpen(false)
     setActiveChat(null)
     setActiveView('camera')
     window.history.replaceState(null, '', '/')
@@ -885,6 +902,7 @@ export default function App() {
 
   function showView(view) {
     if (voiceCall.call) void voiceCall.endCall()
+    setGroupDetailsOpen(false)
     setActiveChat(null)
     setActiveView(view)
     window.history.replaceState(null, '', '/')
@@ -972,6 +990,7 @@ export default function App() {
   }
 
   function handleGroupCreated(conversation) {
+    setGroupDetailsOpen(false)
     setChatsRefresh((value) => value + 1)
 
     setActiveChat({
@@ -1090,7 +1109,6 @@ export default function App() {
 
         <div className="sidebar-section-title">
           <span>CHATTAR</span>
-          <span className="chat-count">{filteredChats.length}</span>
         </div>
 
         <div className="chat-list">
@@ -1243,7 +1261,16 @@ export default function App() {
               <div>
                 <h1>
                   {activeChat?.type === 'group'
-                    ? activeChat?.name
+                    ? (
+                      <button
+                        type="button"
+                        className="conversation-group-name-button"
+                        onClick={() => setGroupDetailsOpen(true)}
+                        aria-label={`Visa information om gruppen ${activeChat.name}`}
+                      >
+                        {activeChat.name}
+                      </button>
+                    )
                     : (
                       <span className="chat-name-line">
                         <span className="chat-name-text">
@@ -1304,6 +1331,22 @@ export default function App() {
                 </button>
               )}
             </div>
+
+            {groupDetailsOpen && activeChat?.type === 'group' && (
+              <GroupDetails
+                group={activeChat}
+                currentUser={currentUser}
+                onClose={closeGroupDetails}
+                onMembersChanged={() => setChatsRefresh((value) => value + 1)}
+                onLeave={() => {
+                  setGroupDetailsOpen(false)
+                  setChatsRefresh((value) => value + 1)
+                  setActiveChat(null)
+                  setActiveView('camera')
+                  window.history.replaceState(null, '', '/')
+                }}
+              />
+            )}
 
             <section className="workspace-view chat-view">
               <div className="conversation-content">

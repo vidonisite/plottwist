@@ -442,6 +442,13 @@ export default function Hangman({
           )
           if (ownStateMessage) {
             setCurrentState(parseMessage(ownStateMessage).state)
+          } else {
+            setCurrentState(initialRound(
+              session.inviteId,
+              1,
+              session.wordChooserId,
+              session.players
+            ))
           }
         }
       } catch (error) {
