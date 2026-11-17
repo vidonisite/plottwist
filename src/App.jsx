@@ -35,6 +35,19 @@ import VoiceCallOverlay from './components/VoiceCallOverlay.jsx'
 
 import './App.css'
 
+const NON_UNREAD_MESSAGE_TYPES = new Set([
+  'game_move',
+  'game_invite_response',
+  'game_session_start',
+  'game_hangman_state',
+  'game_hangman_word',
+  'game_hangman_guess',
+  'game_hangman_replay',
+  'game_memory_turn',
+  'game_snake_input',
+  'game_snake_state',
+])
+
 function conversationIdForLog(membership) {
   return membership?.conversationId || 'okänd konversation'
 }
@@ -369,6 +382,14 @@ export default function App() {
           const currentActivityTime = chat.lastActivityAt
             ? new Date(chat.lastActivityAt).getTime()
             : 0
+          const lastReadTime = chat.lastReadAt
+            ? new Date(chat.lastReadAt).getTime()
+            : 0
+          const countsAsUnread =
+            payload.senderId !== currentUser.$id &&
+            !NON_UNREAD_MESSAGE_TYPES.has(payload.type) &&
+            Number.isFinite(messageTime) &&
+            messageTime > lastReadTime
 
           return {
             ...chat,
@@ -376,6 +397,9 @@ export default function App() {
               Number.isFinite(messageTime) && messageTime > currentActivityTime
                 ? payload.$createdAt
                 : chat.lastActivityAt,
+            unreadCount: countsAsUnread
+              ? (chat.unreadCount || 0) + 1
+              : chat.unreadCount,
             ...(chat.type === 'group'
               ? {
                 members: chat.members.map((member) => (
