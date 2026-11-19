@@ -2,13 +2,13 @@ import { OpenMakeup } from 'open-makeup-sdk'
 
 const MEDIAPIPE_VERSION = '0.4.1633559619'
 
-const MEDIAPIPE_URL =
+const MEDIAPIPE_URL = 
   `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@${MEDIAPIPE_VERSION}`
 
-const CAMERA_UTILS_URL =
+const CAMERA_UTILS_URL = 
   'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js'
 
-const ASSETS_URL =
+const ASSETS_URL = 
   'https://cdn.jsdelivr.net/npm/open-makeup-sdk/assets'
 
 // Laddar MediaPipe FaceMesh som en global webbläsarklass.
@@ -128,6 +128,27 @@ class ExistingVideoCamera {
   }
 }
 
+// Vänta tills SDK:n har laddat sina sminkmaterial.
+async function waitForMaterials(engine) {
+  const start = Date.now()
+
+  while (Date.now() - start < 15000) {
+    const ready =
+      engine.foundationMat &&
+      engine.blushMat &&
+      engine.lipsMat &&
+      engine.eyeShadowMat &&
+      engine.eyeLineMat &&
+      engine.mascaraMat
+
+    if (ready) return
+
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+
+  throw new Error('OpenMakeup tog för lång tid på sig att ladda.')
+}
+
 export async function startBigNose(video, renderCanvas) {
   await Promise.all([
     loadFaceMesh(),
@@ -141,7 +162,7 @@ export async function startBigNose(video, renderCanvas) {
   })
 
   if (!gl) {
-    throw new Error('WebGL 2 kunde inte startas för No Lips-filtret.')
+    throw new Error('WebGL 2 kunde inte startas för Big Nose-filtret.')
   }
 
   const makeup = new OpenMakeup({
@@ -165,11 +186,6 @@ export async function startBigNose(video, renderCanvas) {
   })
 
   try {
-    // OpenMakeup 0.1.0 does not forward cameraClass/faceMeshClass from its
-    // constructor to MakeupEngine. MakeupEngine resolves window.Camera when
-    // init() begins, so temporarily provide our adapter; init captures the
-    // class before its first await. This prevents MediaPipe from replacing the
-    // camera stream that Camera.jsx already started on this video element.
     const mediaPipeCameraClass = window.Camera
     window.Camera = ExistingVideoCamera
 
