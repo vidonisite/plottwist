@@ -53,15 +53,13 @@ export default function Chat({
     )
   }, [])
 
-  // Den här positionen ska vara oförändrad under just den här öppningen.
-  // Appens lastReadAt uppdateras medan man läser, men ska inte flytta
-  // startpositionen mitt i chatten.
   const initialLastReadAtRef = useRef(chat?.lastReadAt || null)
   const lastReadAtRef = useRef(chat?.lastReadAt || null)
 
   const conversationId = chat?.id
   const currentUserId = currentUser?.$id
   const membershipRowId = chat?.membershipRowId
+  const isGroupChat = chat?.type === 'group'
 
   const loadMessages = useCallback(async () => {
     if (!conversationId) return
@@ -71,9 +69,6 @@ export default function Chat({
       let rows = []
 
       if (lastReadAt) {
-        // Hämta lite historik före senaste lästa meddelandet och sedan
-        // meddelandena efter det. Då kan vi återställa rätt position även
-        // om chatten innehåller fler än 100 meddelanden totalt.
         const [beforeResponse, afterResponse] = await Promise.all([
           tablesDB.listRows({
             databaseId: DATABASE_ID,
@@ -115,7 +110,6 @@ export default function Chat({
         rows = response.rows.reverse()
       }
 
-      // Ta bort eventuella dubletter och behåll kronologisk ordning.
       const uniqueRows = Array.from(
         new Map(rows.map((message) => [message.$id, message])).values()
       ).sort(
@@ -130,7 +124,6 @@ export default function Chat({
       )
 
       if (initialPositionDoneRef.current && addedMessages.length > 0) {
-        // Bara följ med automatiskt om användaren redan var längst ner.
         if (isAtBottomRef.current) {
           shouldAutoScrollRef.current = true
         }
@@ -152,7 +145,6 @@ export default function Chat({
     }
   }, [conversationId])
 
-  // Markera endast det senaste meddelandet som faktiskt syns i chattytan.
   const updateReadPositionFromViewport = useCallback(() => {
     const container = messagesListRef.current
 
@@ -192,8 +184,6 @@ export default function Chat({
         lastReadAtRef.current = visibleMessageAt
 
         if (membershipRowId && onRead) {
-          // Köa skrivningarna så att en äldre uppdatering aldrig kan
-          // råka skriva över en nyare läsposition.
           readUpdateQueueRef.current = readUpdateQueueRef.current
             .then(() =>
               onRead(membershipRowId, conversationId, visibleMessageAt)
@@ -244,12 +234,9 @@ export default function Chat({
       behavior,
     })
 
-    // Om allt innehåll redan ryms i fönstret kan scrollTop vara oförändrat
-    // och då kommer inget scroll-event. Läs av synliga meddelanden ändå.
     requestAnimationFrame(updateReadPositionFromViewport)
   }, [updateReadPositionFromViewport])
 
-  // Nollställ refs och hämta rätt del av historiken när en annan chatt öppnas.
   useEffect(() => {
     initialLastReadAtRef.current = chat?.lastReadAt || null
     lastReadAtRef.current = chat?.lastReadAt || null
@@ -285,7 +272,6 @@ export default function Chat({
     return () => unsubscribe()
   }, [conversationId, loadMessages])
 
-  // Första gången chatten öppnas återställs den till senaste lästa meddelandet.
   useEffect(() => {
     if (loading || initialPositionDoneRef.current) return
 
@@ -304,7 +290,6 @@ export default function Chat({
           const readTime = new Date(lastReadAt).getTime()
           let anchorMessage = null
 
-          // Först försöker vi hitta det exakta meddelandet man senast läste.
           for (let index = messages.length - 1; index >= 0; index -= 1) {
             if (
               new Date(messages[index].$createdAt).getTime() <= readTime
@@ -314,8 +299,6 @@ export default function Chat({
             }
           }
 
-          // Om det saknas (t.ex. första meddelandet i en ny chatt),
-          // börja vid det första meddelandet efter läspositionen.
           if (!anchorMessage) {
             anchorMessage = messages.find(
               (message) =>
@@ -349,7 +332,6 @@ export default function Chat({
     return () => cancelAnimationFrame(animationFrame)
   }, [loading, messages, conversationId, updateReadPositionFromViewport])
 
-  // Nya meddelanden: följ med längst ner bara om användaren redan var där.
   useEffect(() => {
     if (!initialPositionDoneRef.current) return
 
@@ -655,6 +637,29 @@ export default function Chat({
                 getDateKey(message.$createdAt) !==
                   getDateKey(messages[index - 1].$createdAt)
 
+              // Kontrollera om föregående giltiga meddelande var från samma avsändare
+              const previousMessage = index > 0 ? messages[index - 1] : null
+              const isSameSenderAsPrevious =
+                previousMessage &&
+                previousMessage.senderId === message.senderId &&
+                previousMessage.type !== 'game_invite_response' &&
+                previousMessage.type !== 'game_move' &&
+                previousMessage.type !== 'game_session_start' &&
+                previousMessage.type !== 'game_hangman_state' &&
+                previousMessage.type !== 'game_hangman_word' &&
+                previousMessage.type !== 'game_hangman_guess' &&
+                previousMessage.type !== 'game_hangman_replay' &&
+                previousMessage.type !== 'game_memory_turn' &&
+                previousMessage.type !== 'game_snake_input' &&
+                previousMessage.type !== 'game_snake_state'
+
+              // Visa endast namnet om det är en gruppchatt, inte är mitt meddelande, 
+              // och det är det första meddelandet i rad från denna person.
+              const showSenderName = isGroupChat && !isMine && !isSameSenderAsPrevious
+
+              const senderMember = chat?.members?.find((member) => member.userId === message.senderId)
+              const senderName = senderMember?.username || 'Okänd'
+
               return (
                 <div
                   key={message.$id}
@@ -673,161 +678,171 @@ export default function Chat({
                   >
                     {!isMine && (
                       <ProfileAvatar
-                        profile={chat?.members?.find((member) => member.userId === message.senderId)?.avatarProfile}
+                        profile={senderMember?.avatarProfile}
                         userId={message.senderId}
-                        name={chat?.members?.find((member) => member.userId === message.senderId)?.username}
+                        name={senderName}
                         size={32}
                         className="message-avatar"
                       />
                     )}
-                    {message.type === 'game_invite' ? (
-                      (() => {
-                        let invite = null
-                        try {
-                          invite = JSON.parse(message.text)
-                        } catch (error) {
-                          console.error('Ogiltig spelinbjudan:', error)
-                        }
-                        if (!invite?.inviteId) {
-                          return <div className="message-bubble">Ogiltig spelinbjudan.</div>
-                        }
 
-                        const response = messages.find((item) => {
-                          if (item.type !== 'game_invite_response') return false
-                          try {
-                            return JSON.parse(item.text).inviteId === invite.inviteId
-                          } catch {
-                            return false
-                          }
-                        })
-                        let responseStatus = null
-                        if (response) {
-                          try {
-                            responseStatus = JSON.parse(response.text).status
-                          } catch (error) {
-                            console.error('Ogiltigt svar på spelinbjudan:', error)
-                          }
-                        }
-                        const gameStarted = messages.some((item) => {
-                          if (item.type !== 'game_session_start') return false
-                          try {
-                            return JSON.parse(item.text).inviteId === invite.inviteId
-                          } catch {
-                            return false
-                          }
-                        })
-                        const canJoin =
-                          invite.toUserId === currentUserId &&
-                          responseStatus !== 'accepted' &&
-                          !gameStarted
-
-                        return (
-                          <div className="game-invite-card">
-                            <span className="game-invite-icon" aria-hidden="true">
-                              {invite.gameId === 'hangman'
-                                ? '🕯️'
-                                : invite.gameId === 'snake'
-                                  ? '🐍'
-                                  : '⭕'}
-                            </span>
-                            <strong>{invite.gameName || 'Spelinbjudan'}</strong>
-                            <span>
-                              {responseStatus === 'accepted'
-                                ? 'Inbjudan accepterad'
-                                : gameStarted
-                                  ? 'Spelet har redan startat'
-                                : invite.fromName
-                                  ? `${invite.fromName} vill spela med dig`
-                                  : 'Du har blivit inbjuden att spela'}
-                            </span>
-                            {canJoin && (
-                              <button
-                                type="button"
-                                disabled={acceptingGameInviteId === invite.inviteId}
-                                onClick={() => acceptGameInvite(invite)}
-                              >
-                                {acceptingGameInviteId === invite.inviteId
-                                  ? 'Ansluter...'
-                                  : 'Acceptera och spela'}
-                              </button>
-                            )}
-                          </div>
-                        )
-                      })()
-                    ) : message.type === 'twist' ? (
-                      <TwistMessage
-                        message={message}
-                        currentUserId={currentUserId}
-                        isMine={isMine}
-                        members={chat?.members || []}
-                        followingTwistIds={messages
-                          .slice(index + 1)
-                          .filter((item) =>
-                            item.type === 'twist' &&
-                            item.senderId !== currentUserId
-                          )
-                          .map((item) => item.$id)}
-                        openRequested={requestedTwistId === message.$id}
-                        onOpenRequestHandled={clearTwistOpenRequest}
-                        onOpenNextTwist={requestOpenTwist}
-                        onScore={onScore}
-                      />
-                    ) : (
-                      <div
-                        className={`message-bubble ${message.type === 'deleted' ? 'message-deleted' : ''}`}
-                      >
-                        {editingMessageId === message.$id ? (
-                          <form
-                            className="message-edit-form"
-                            onSubmit={(event) => saveEditedMessage(event, message)}
-                          >
-                            <textarea
-                              value={editingText}
-                              onChange={(event) => setEditingText(event.target.value)}
-                              maxLength={2000}
-                              autoFocus
-                              aria-label="Ändra meddelande"
-                            />
-                            <span className="message-edit-actions">
-                              <button type="submit" disabled={savingEdit || !editingText.trim()}>
-                                {savingEdit ? 'Sparar...' : 'Spara'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEditingMessageId(null)}
-                                disabled={savingEdit}
-                              >
-                                Avbryt
-                              </button>
-                            </span>
-                          </form>
-                        ) : (
-                          <>
-                            {message.text}
-                            {message.$updatedAt &&
-                              message.$updatedAt !== message.$createdAt &&
-                              message.type !== 'deleted' && (
-                                <span className="message-edited">ändrat</span>
-                              )}
-                          </>
-                        )}
-
-                        <span className="message-time">
-                          {new Date(message.$createdAt).toLocaleTimeString(
-                            'sv-SE',
-                            {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            }
-                          )}
+                    <div className="message-content-wrapper" style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start' }}>
+                      {showSenderName && (
+                        <span className="message-sender-name" style={{ fontSize: '11px', opacity: 0.7, marginBottom: '2px', marginLeft: '4px' }}>
+                          {senderName}
                         </span>
-                      </div>
-                    )}
+                      )}
+
+                      {message.type === 'game_invite' ? (
+                        (() => {
+                          let invite = null
+                          try {
+                            invite = JSON.parse(message.text)
+                          } catch (error) {
+                            console.error('Ogiltig spelinbjudan:', error)
+                          }
+                          if (!invite?.inviteId) {
+                            return <div className="message-bubble">Ogiltig spelinbjudan.</div>
+                          }
+
+                          const response = messages.find((item) => {
+                            if (item.type !== 'game_invite_response') return false
+                            try {
+                              return JSON.parse(item.text).inviteId === invite.inviteId
+                            } catch {
+                              return false
+                            }
+                          })
+                          let responseStatus = null
+                          if (response) {
+                            try {
+                              responseStatus = JSON.parse(response.text).status
+                            } catch (error) {
+                              console.error('Ogiltigt svar på spelinbjudan:', error)
+                            }
+                          }
+                          const gameStarted = messages.some((item) => {
+                            if (item.type !== 'game_session_start') return false
+                            try {
+                              return JSON.parse(item.text).inviteId === invite.inviteId
+                            } catch {
+                              return false
+                            }
+                          })
+                          const canJoin =
+                            invite.toUserId === currentUserId &&
+                            responseStatus !== 'accepted' &&
+                            !gameStarted
+
+                          return (
+                            <div className="game-invite-card">
+                              <span className="game-invite-icon" aria-hidden="true">
+                                {invite.gameId === 'hangman'
+                                  ? '🕯️'
+                                  : invite.gameId === 'snake'
+                                    ? '🐍'
+                                    : '⭕'}
+                              </span>
+                              <strong>{invite.gameName || 'Spelinbjudan'}</strong>
+                              <span>
+                                {responseStatus === 'accepted'
+                                  ? 'Inbjudan accepterad'
+                                  : gameStarted
+                                    ? 'Spelet har redan startat'
+                                  : invite.fromName
+                                    ? `${invite.fromName} vill spela med dig`
+                                    : 'Du har blivit inbjuden att spela'}
+                              </span>
+                              {canJoin && (
+                                <button
+                                  type="button"
+                                  disabled={acceptingGameInviteId === invite.inviteId}
+                                  onClick={() => acceptGameInvite(invite)}
+                                >
+                                  {acceptingGameInviteId === invite.inviteId
+                                    ? 'Ansluter...'
+                                    : 'Acceptera och spela'}
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })()
+                      ) : message.type === 'twist' ? (
+                        <TwistMessage
+                          message={message}
+                          currentUserId={currentUserId}
+                          isMine={isMine}
+                          members={chat?.members || []}
+                          followingTwistIds={messages
+                            .slice(index + 1)
+                            .filter((item) =>
+                              item.type === 'twist' &&
+                              item.senderId !== currentUserId
+                            )
+                            .map((item) => item.$id)}
+                          openRequested={requestedTwistId === message.$id}
+                          onOpenRequestHandled={clearTwistOpenRequest}
+                          onOpenNextTwist={requestOpenTwist}
+                          onScore={onScore}
+                        />
+                      ) : (
+                        <div
+                          className={`message-bubble ${message.type === 'deleted' ? 'message-deleted' : ''}`}
+                        >
+                          {editingMessageId === message.$id ? (
+                            <form
+                              className="message-edit-form"
+                              onSubmit={(event) => saveEditedMessage(event, message)}
+                            >
+                              <textarea
+                                value={editingText}
+                                onChange={(event) => setEditingText(event.target.value)}
+                                maxLength={2000}
+                                autoFocus
+                                aria-label="Ändra meddelande"
+                              />
+                              <span className="message-edit-actions">
+                                <button type="submit" disabled={savingEdit || !editingText.trim()}>
+                                  {savingEdit ? 'Sparar...' : 'Spara'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingMessageId(null)}
+                                  disabled={savingEdit}
+                                >
+                                  Avbryt
+                                </button>
+                              </span>
+                            </form>
+                          ) : (
+                            <>
+                              {message.text}
+                              {message.$updatedAt &&
+                                message.$updatedAt !== message.$createdAt &&
+                                message.type !== 'deleted' && (
+                                  <span className="message-edited">ändrat</span>
+                                )}
+                            </>
+                          )}
+
+                          <span className="message-time">
+                            {new Date(message.$createdAt).toLocaleTimeString(
+                              'sv-SE',
+                              {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              }
+                            )}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
                     {isMine && (
                       <ProfileAvatar
-                        profile={chat?.members?.find((member) => member.userId === message.senderId)?.avatarProfile}
+                        profile={senderMember?.avatarProfile}
                         userId={message.senderId}
-                        name={chat?.members?.find((member) => member.userId === message.senderId)?.username}
+                        name={senderName}
                         size={32}
                         className="message-avatar"
                       />
