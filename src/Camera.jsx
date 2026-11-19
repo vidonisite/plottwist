@@ -49,12 +49,12 @@ const FILTERS = [
   { id: 'none', label: 'No filter', symbol: '📷' },
   { id: 'big-nose', label: 'Big Nose', symbol: '👃', isNew: true },
   { id: 'sad', label: 'Sad', symbol: '😟', isNew: true },
+  ...MINDAR_FILTERS,
   { id: 'fisheye', label: 'Fish Eye', symbol: '🐟' },
   { id: 'glam', label: 'Glam Makeup', symbol: '💄' },
   { id: 'nolips', label: 'No Lips', symbol: '💋' },
   { id: 'dreamy', label: 'Dreamy', symbol: '✦' },
   { id: 'alien', label: 'Alien', symbol: '👽' },
-  ...MINDAR_FILTERS,
 ]
 
 const SIZE = 640
