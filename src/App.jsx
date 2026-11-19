@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Query } from 'appwrite'
 import { Gamepad2, Phone } from 'lucide-react'
 import {
@@ -844,6 +844,7 @@ export default function App() {
       setProfile(null)
       setActiveChat(null)
       setActiveView('camera')
+      setGroupDetailsOpen(false)
       setSearch('')
       setChats([])
       setNotifications(false)
@@ -1238,128 +1239,150 @@ export default function App() {
         )}
 
         {activeView === 'chat' && (
-          <Fragment key={activeChat?.id}>
-            <div className="conversation-heading">
-              {activeChat?.type === 'group' ? (
-                <GroupAvatar
-                  members={activeChat.members}
-                  memberCount={activeChat.memberCount}
-                  name={activeChat.name}
-                  size={56}
-                  className="large"
-                />
-              ) : (
-                <ProfileAvatar
-                  profile={activeChat?.avatarProfile}
-                  userId={activeChat?.otherUserId}
-                  name={activeChat?.username || activeChat?.name}
-                  size={56}
-                  className="chat-avatar large"
-                />
-              )}
+          <div className="conversation-views-viewport">
+            <div
+              key={activeChat?.id}
+              className={`conversation-screen-track ${
+                groupDetailsOpen ? 'show-group-details' : ''
+              }`}
+            >
+              {/* CHATTSIDAN – den här komponenten förblir monterad */}
+              <section
+                className="conversation-screen chat-screen"
+                aria-hidden={groupDetailsOpen}
+                inert={groupDetailsOpen}
+              >
+                <div className="conversation-heading">
+                  {activeChat?.type === 'group' ? (
+                    <GroupAvatar
+                      members={activeChat.members}
+                      memberCount={activeChat.memberCount}
+                      name={activeChat.name}
+                      size={56}
+                      className="large"
+                    />
+                  ) : (
+                    <ProfileAvatar
+                      profile={activeChat?.avatarProfile}
+                      userId={activeChat?.otherUserId}
+                      name={activeChat?.username || activeChat?.name}
+                      size={56}
+                      className="chat-avatar large"
+                    />
+                  )}
 
-              <div>
-                <h1>
-                  {activeChat?.type === 'group'
-                    ? (
-                      <button
-                        type="button"
-                        className="conversation-group-name-button"
-                        onClick={() => setGroupDetailsOpen(true)}
-                        aria-label={`Visa information om gruppen ${activeChat.name}`}
-                      >
-                        {activeChat.name}
-                      </button>
-                    )
-                    : (
-                      <span className="chat-name-line">
-                        <span className="chat-name-text">
-                          @{activeChat?.username || activeChat?.name || 'Din chatt'}
-                        </span>
-                        <div
-                          ref={twistScoreInfoRef}
-                          className={`twist-score-info ${
-                            twistScoreHovered || twistScorePinned ? 'is-open' : ''
-                          }`}
-                          onPointerEnter={() => setTwistScoreHovered(true)}
-                          onPointerLeave={() => setTwistScoreHovered(false)}
-                        >
+                  <div>
+                    <h1>
+                      {activeChat?.type === 'group'
+                        ? (
                           <button
                             type="button"
-                            className="twist-score-badge"
-                            aria-label={`Twist Score ${activeChat?.twistscore ?? 0}`}
-                            aria-expanded={twistScoreHovered || twistScorePinned}
-                            aria-controls="twist-score-tooltip"
-                            onClick={() => setTwistScorePinned((open) => !open)}
+                            className="conversation-group-name-button"
+                            onClick={() => setGroupDetailsOpen(true)}
+                            aria-label={`Visa information om gruppen ${activeChat.name}`}
                           >
-                            ☀️{activeChat?.twistscore ?? 0}
+                            {activeChat.name}
                           </button>
-                          <div
-                            id="twist-score-tooltip"
-                            className="twist-score-tooltip"
-                            role="note"
-                          >
-                            <strong>Twist Score ☀️</strong>
-                            <p>skicka en bild - 1p<br />skicka en video - 1p per sekund<br />kolla på någons twist - 1p<br />spela - 1p<br />vinna spelet - 1p extra</p>
-                          </div>
-                        </div>
-                      </span>
-                    )}
-                </h1>
+                        )
+                        : (
+                          <span className="chat-name-line">
+                            <span className="chat-name-text">
+                              @{activeChat?.username || activeChat?.name || 'Din chatt'}
+                            </span>
+                            <div
+                              ref={twistScoreInfoRef}
+                              className={`twist-score-info ${
+                                twistScoreHovered || twistScorePinned ? 'is-open' : ''
+                              }`}
+                              onPointerEnter={() => setTwistScoreHovered(true)}
+                              onPointerLeave={() => setTwistScoreHovered(false)}
+                            >
+                              <button
+                                type="button"
+                                className="twist-score-badge"
+                                aria-label={`Twist Score ${activeChat?.twistscore ?? 0}`}
+                                aria-expanded={twistScoreHovered || twistScorePinned}
+                                aria-controls="twist-score-tooltip"
+                                onClick={() => setTwistScorePinned((open) => !open)}
+                              >
+                                ☀️{activeChat?.twistscore ?? 0}
+                              </button>
+                              <div
+                                id="twist-score-tooltip"
+                                className="twist-score-tooltip"
+                                role="note"
+                              >
+                                <strong>Twist Score ☀️</strong>
+                                <p>skicka en bild - 1p<br />skicka en video - 1p per sekund<br />kolla på någons twist - 1p<br />spela - 1p<br />vinna spelet - 1p extra</p>
+                              </div>
+                            </div>
+                          </span>
+                        )}
+                    </h1>
 
-                <p>
-                  {activeChat?.type === 'group'
-                    ? `${activeChat.memberCount || 'Flera'} medlemmar`
-                    : 'Privat konversation'}
-                </p>
-              </div>
+                    <p>
+                      {activeChat?.type === 'group'
+                        ? `${activeChat.memberCount || 'Flera'} medlemmar`
+                        : 'Privat konversation'}
+                    </p>
+                  </div>
 
-              {activeChat?.type === 'direct' && !voiceCall.call && (
-                <button
-                  type="button"
-                  className="conversation-call-button"
-                  aria-label={`Ring @${activeChat.username || activeChat.name}`}
-                  title="Starta röstsamtal"
-                  onClick={() => voiceCall.startCall({
-                    conversationId: activeChat.id,
-                    recipientId: activeChat.otherUserId,
-                    recipientName: activeChat.username || activeChat.name,
-                    recipientProfile: activeChat.avatarProfile,
-                  })}
-                >
-                  <Phone aria-hidden="true" />
-                </button>
-              )}
+                  {activeChat?.type === 'direct' && !voiceCall.call && (
+                    <button
+                      type="button"
+                      className="conversation-call-button"
+                      aria-label={`Ring @${activeChat.username || activeChat.name}`}
+                      title="Starta röstsamtal"
+                      onClick={() => voiceCall.startCall({
+                        conversationId: activeChat.id,
+                        recipientId: activeChat.otherUserId,
+                        recipientName: activeChat.username || activeChat.name,
+                        recipientProfile: activeChat.avatarProfile,
+                      })}
+                    >
+                      <Phone aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+
+                <section className="workspace-view chat-view">
+                  <div className="conversation-content">
+                    <Chat
+                      chat={activeChat}
+                      currentUser={currentUser}
+                      onRead={handleChatRead}
+                      onAcceptGameInvite={joinGameInvite}
+                      onScore={awardTwistScore}
+                    />
+                  </div>
+                </section>
+              </section>
+
+              {/* GRUPPINFORMATION – visas som en sida bredvid chatten */}
+              <section
+                className="conversation-screen group-screen"
+                aria-hidden={!groupDetailsOpen}
+                inert={!groupDetailsOpen}
+              >
+                {activeChat?.type === 'group' && (
+                  <GroupDetails
+                    group={activeChat}
+                    currentUser={currentUser}
+                    isActive={groupDetailsOpen}
+                    onClose={closeGroupDetails}
+                    onMembersChanged={() => setChatsRefresh((value) => value + 1)}
+                    onLeave={() => {
+                      setGroupDetailsOpen(false)
+                      setChatsRefresh((value) => value + 1)
+                      setActiveChat(null)
+                      setActiveView('camera')
+                      window.history.replaceState(null, '', '/')
+                    }}
+                  />
+                )}
+              </section>
             </div>
-
-            {groupDetailsOpen && activeChat?.type === 'group' && (
-              <GroupDetails
-                group={activeChat}
-                currentUser={currentUser}
-                onClose={closeGroupDetails}
-                onMembersChanged={() => setChatsRefresh((value) => value + 1)}
-                onLeave={() => {
-                  setGroupDetailsOpen(false)
-                  setChatsRefresh((value) => value + 1)
-                  setActiveChat(null)
-                  setActiveView('camera')
-                  window.history.replaceState(null, '', '/')
-                }}
-              />
-            )}
-
-            <section className="workspace-view chat-view">
-              <div className="conversation-content">
-                <Chat
-                  chat={activeChat}
-                  currentUser={currentUser}
-                  onRead={handleChatRead}
-                  onAcceptGameInvite={joinGameInvite}
-                  onScore={awardTwistScore}
-                />
-              </div>
-            </section>
-          </Fragment>
+          </div>
         )}
 
         {activeView === 'add' && <AddPeople />}
