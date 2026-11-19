@@ -1,44 +1,67 @@
-import { functions } from './appwrite.js'
 
-const GROUP_MEMBERSHIP_FUNCTION_ID =
-  import.meta.env.VITE_APPWRITE_GROUP_MEMBERSHIP_FUNCTION_ID
+import { Query, ID } from 'appwrite'
+import {
+  tablesDB,
+  DATABASE_ID,
+  CONVERSATION_MEMBERS_TABLE_ID,
+} from './appwrite.js'
 
 export async function executeGroupMembershipAction(
   action,
   conversationId,
   memberUserId
 ) {
-  if (!GROUP_MEMBERSHIP_FUNCTION_ID) {
-    throw new Error('Grupphantering är inte konfigurerad.')
+  if (!DATABASE_ID || !CONVERSATION_MEMBERS_TABLE_ID) {
+    throw new Error('Grupphanteringen saknar databaskonfiguration.')
   }
 
-  const execution = await functions.createExecution({
-    functionId: GROUP_MEMBERSHIP_FUNCTION_ID,
-    body: JSON.stringify({ action, conversationId, memberUserId }),
-    async: false,
+  if (!conversationId || !memberUserId) {
+    throw new Error('Chatt eller användare saknas.')
+  }
+
+  const response = await tablesDB.listRows({
+    databaseId: DATABASE_ID,
+    tableId: CONVERSATION_MEMBERS_TABLE_ID,
+    queries: [
+      Query.equal('conversationId', [conversationId]),
+      Query.equal('userId', [memberUserId]),
+      Query.limit(1),
+    ],
   })
 
-  let response = {}
-  try {
-    const parsedResponse = JSON.parse(execution.responseBody || '{}')
-    response =
-      parsedResponse && typeof parsedResponse === 'object'
-        ? parsedResponse
-        : {}
-  } catch {
-    throw new Error('Grupphanteringen svarade med ett ogiltigt svar.')
+  const existingMembership = response.rows[0]
+
+  if (action === 'add') {
+    if (existingMembership) {
+      return { success: true, message: 'Personen är redan medlem.' }
+    }
+
+    await tablesDB.createRow({
+      databaseId: DATABASE_ID,
+      tableId: CONVERSATION_MEMBERS_TABLE_ID,
+      rowId: ID.unique(),
+      data: {
+        conversationId,
+        userId: memberUserId,
+      },
+    })
+
+    return { success: true }
   }
 
-  if (
-    execution.responseStatusCode < 200 ||
-    execution.responseStatusCode >= 300 ||
-    response.success !== true
-  ) {
-    throw new Error(
-      response.message ||
-      `Grupphanteringen misslyckades (status ${execution.responseStatusCode}).`
-    )
+  if (action === 'kick' || action === 'leave') {
+    if (!existingMembership) {
+      throw new Error('Gruppmedlemmen hittades inte.')
+    }
+
+    await tablesDB.deleteRow({
+      databaseId: DATABASE_ID,
+      tableId: CONVERSATION_MEMBERS_TABLE_ID,
+      rowId: existingMembership.$id,
+    })
+
+    return { success: true }
   }
 
-  return response
+  throw new Error(`Okänd gruppåtgärd: ${action}`)
 }
