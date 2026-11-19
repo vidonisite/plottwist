@@ -328,7 +328,9 @@
   padding: 2px 5px;
   border-radius: 6px;
   line-height: 1;
-  pointer-events: none; /* Gör så att klick går igenom badgen till knappen */
+  z-index: 10;            /* Säkerställer att den hamnar över knappen */
+  opacity: 1 !important;   /* Tvingar den att inte ärva knappens 0.68-genomskinlighet */
+  pointer-events: none;
 }
 
 .camera-error {
