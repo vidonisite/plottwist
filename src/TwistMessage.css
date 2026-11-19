@@ -130,24 +130,29 @@
 
 .twist-fullscreen {
   position: fixed;
-  z-index: 9999;
-  inset: 0;
+  z-index: 99999;
+
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
-  width: 100%;
+  width: 100vw;
   height: 100vh;
   height: 100dvh;
 
+  margin: 0;
   padding: 16px;
+
   overflow: hidden;
+  box-sizing: border-box;
 
   background: #fff;
   animation: twist-appear .2s ease-out;
-
-  box-sizing: border-box;
 }
 
 .twist-media-container {
@@ -159,27 +164,36 @@
 
   width: 100%;
   height: 100%;
+
   max-width: 100%;
   max-height: 100%;
 
   min-width: 0;
   min-height: 0;
 
+  margin: 0 auto;
   overflow: hidden;
+  box-sizing: border-box;
 }
+
 
 .twist-sender {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
+  justify-content: center;
   gap: 10px;
 
+  width: fit-content;
   max-width: 100%;
+
+  margin: 0 auto;
 
   color: #201827;
   font-size: 15px;
   font-weight: 700;
 }
+
 
 .twist-sender-avatar {
   flex-shrink: 0;
@@ -190,20 +204,25 @@
 .twist-media-stage {
   position: relative;
 
-  display: grid;
+  display: flex;
   flex: 1 1 0;
 
-  place-items: center;
+  align-items: center;
+  justify-content: center;
 
   width: 100%;
   height: 0;
-  max-width: 100%;
 
+  max-width: 100%;
   min-width: 0;
   min-height: 0;
 
+  margin: 0 auto;
   overflow: hidden;
+  box-sizing: border-box;
 }
+
+
 
 .twist-text-overlay {
   position: absolute;
@@ -497,4 +516,22 @@
     width: 30px;
     height: 30px;
   }
+}
+
+
+.twist-media {
+  display: block;
+
+  width: auto;
+  height: auto;
+
+  max-width: 100%;
+  max-height: 100%;
+
+  object-fit: contain;
+  object-position: center;
+
+  margin: auto;
+  border-radius: 8px;
+  box-sizing: border-box;
 }
