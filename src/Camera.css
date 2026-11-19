@@ -257,6 +257,7 @@
 }
 
 .filter-option {
+  position: relative;
   width: 54px;
   height: 54px;
   flex: 0 0 54px;
