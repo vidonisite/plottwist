@@ -40,9 +40,9 @@ import { addLatestMessageTimes } from './lib/groupMembers.js'
 import './Camera.css'
 
 const FILTERS = [
+  { id: 'none', label: 'No filter', symbol: '📷' },
   { id: 'big-nose', label: 'Big Nose', symbol: '👃', isNew: true },
   { id: 'sad', label: 'Sad', symbol: '😟', isNew: true },
-  { id: 'none', label: 'No filter', symbol: '📷' },
   { id: 'fisheye', label: 'Fish Eye', symbol: '🐟' },
   { id: 'glam', label: 'Glam Makeup', symbol: '💄' },
   { id: 'nolips', label: 'No Lips', symbol: '💋' },
