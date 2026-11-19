@@ -5,8 +5,8 @@ export const MINDAR_FILTERS = [
   {
     id: 'mindar',
     assetId: 'default',
-    label: 'MindAR 3D',
-    symbol: '✨',
+    label: 'Glasögon',
+    symbol: '🕶️',
     isNew: true,
   },
 ]
