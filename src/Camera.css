@@ -316,6 +316,22 @@
   letter-spacing: 0.3px;
 }
 
+
+.filter-option .new-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: --var(purple);
+  color: white;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 5px;
+  border-radius: 6px;
+  line-height: 1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  pointer-events: none; /* Gör så att klick går igenom badgen till knappen */
+}
+
 .camera-error {
   max-width: 460px;
   margin: 0;
