@@ -1,0 +1,26 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/><link rel="icon" href="./favicon.png"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#000000"/><meta name="description" content="WebAR built with MindAR Studio"/><link rel="apple-touch-icon" href="./favicon.png"/><link rel="manifest" href="./manifest.json"/><title>MindAR App</title><script>
+(function () {
+  var parentWindow = window.parent;
+  var bridge = parentWindow !== window && parentWindow.__PLOT_TWIST_MINDAR_BRIDGE__;
+  if (!bridge || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+
+  var originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+  navigator.mediaDevices.getUserMedia = function (constraints) {
+    var sharedStream = bridge.getStream && bridge.getStream();
+    if (!sharedStream || !sharedStream.active || typeof sharedStream.clone !== 'function') {
+      return Promise.reject(new Error('PLOT TWIST-kamerans stream är inte tillgänglig.'));
+    }
+    // MindAR får en egen track-kopia. MindAR.stop() kan stoppa kopian utan att stänga PLOT TWISTs stream.
+    return Promise.resolve(sharedStream.clone());
+  };
+})();
+</script>
+<style>
+html, body, #root, .App, .viewer-container { width:100% !important; height:100% !important; margin:0 !important; overflow:hidden !important; }
+.viewer-container .switch-camera-panel,
+.viewer-container .recording-panel,
+.viewer-container .preview,
+#mindar-loading,
+.control { display:none !important; }
+</style>
+<script defer="defer" src="./static/js/main.1573730f.js"></script><link href="./static/css/main.43335a5b.css" rel="stylesheet"></head><body><noscript>You need to enable JavaScript to run this app.</noscript><div id="root"></div></body></html>

@@ -27,6 +27,7 @@ import { startGlam } from './filters/glam.jsx'
 import { startNoLips } from './filters/nolips.jsx'
 import { startBigNose } from './filters/bignose.jsx'
 import { startSad } from './filters/sad.jsx'
+import { startMindAR } from './filters/mindar.jsx'
 import { drawSquareFace } from './filters/squareface.jsx'
 import {
   createTwistReference,
@@ -48,6 +49,7 @@ const FILTERS = [
   { id: 'nolips', label: 'No Lips', symbol: '💋' },
   { id: 'dreamy', label: 'Dreamy', symbol: '✦' },
   { id: 'alien', label: 'Alien', symbol: '👽' },
+  { id: 'mindar', label: 'MindAR 3D', symbol: '✨', isNew: true },
 ]
 
 const SIZE = 640
@@ -71,6 +73,8 @@ function drawDreamy(source, context) {
 
   context.clearRect(0, 0, width, height)
 
+  // En mjuk, färgstark grundton med ett separat glow-lager ger filtret
+  // ett tydligare drömmigt uttryck utan att sudda ut ansiktet helt.
   context.save()
   context.filter = 'saturate(1.5) brightness(1.08) contrast(1.03)'
   context.drawImage(source, 0, 0, width, height)
@@ -83,6 +87,7 @@ function drawDreamy(source, context) {
   context.drawImage(source, 0, 0, width, height)
   context.restore()
 
+  // Rosa/lila ljusläckage ger en tydlig pastellig ton över bilden.
   context.save()
   context.globalCompositeOperation = 'soft-light'
   const wash = context.createLinearGradient(0, 0, width, height)
@@ -93,6 +98,7 @@ function drawDreamy(source, context) {
   context.fillRect(0, 0, width, height)
   context.restore()
 
+  // Lätta, pulserande stjärnglitter – synliga i både foto och video.
   const sparkles = [
     [0.2, 0.22, 0.85],
     [0.78, 0.18, 2.1],
@@ -158,6 +164,7 @@ function getVideoMimeType() {
   return types.find((type) => MediaRecorder.isTypeSupported(type)) || ''
 }
 
+// Samma stabila ID-metod som används i AddPeople.jsx.
 async function stableId(value) {
   const bytes = new TextEncoder().encode(value)
   const hash = await crypto.subtle.digest('SHA-256', bytes)
@@ -179,6 +186,8 @@ export default function Camera({
   const captureTextEditorRef = useRef(null)
   const canvasRef = useRef(null)
   const makeupCanvasRef = useRef(null)
+  const mindarHostRef = useRef(null)
+  const mindarOutputCanvasRef = useRef(null)
 
   const streamRef = useRef(null)
   const landmarkerRef = useRef(null)
@@ -188,6 +197,9 @@ export default function Camera({
   const filterRef = useRef('none')
   const makeupLifecycleRef = useRef(Promise.resolve())
   const makeupStartRef = useRef(false)
+  const mindarInstanceRef = useRef(null)
+  const mindarLifecycleRef = useRef(Promise.resolve())
+  const mindarReadyRef = useRef(false)
 
   const holdTimerRef = useRef(null)
   const recordingTimerRef = useRef(null)
@@ -214,6 +226,7 @@ export default function Camera({
   const [recordingTime, setRecordingTime] = useState(0)
   const [selectedFilterIndex, setSelectedFilterIndex] = useState(0)
 
+  // Skickaflödet
   const [showRecipients, setShowRecipients] = useState(false)
   const [acceptedContacts, setAcceptedContacts] = useState([])
   const [groupConversations, setGroupConversations] = useState([])
@@ -272,6 +285,11 @@ export default function Camera({
   }, [])
 
   const takePhoto = useCallback(() => {
+    if (filterRef.current === 'mindar' && !mindarReadyRef.current) {
+      setErrorMessage('MindAR 3D håller fortfarande på att starta. Försök strax igen.')
+      return
+    }
+
     const sourceCanvas = getVisibleCanvas()
 
     if (!sourceCanvas) {
@@ -284,6 +302,8 @@ export default function Camera({
       return
     }
 
+    // Kopiera den synliga kamerabilden till en separat 2D-canvas.
+    // Det gör exporten oberoende av kamerans vanliga canvas och WebGL-canvasen.
     const exportCanvas = document.createElement('canvas')
     exportCanvas.width = sourceCanvas.width
     exportCanvas.height = sourceCanvas.height
@@ -323,6 +343,8 @@ export default function Camera({
           return
         }
 
+        console.log('FOTO SKAPAT:', blob.size, blob.type)
+
         const url = URL.createObjectURL(blob)
 
         setCapture({
@@ -353,6 +375,11 @@ export default function Camera({
   }, [stopRecordingTimers])
 
   const startRecording = useCallback(() => {
+    if (filterRef.current === 'mindar' && !mindarReadyRef.current) {
+      setErrorMessage('MindAR 3D håller fortfarande på att starta. Försök strax igen.')
+      return
+    }
+
     const canvas = getVisibleCanvas()
 
     if (!canvas) {
@@ -511,6 +538,8 @@ export default function Camera({
     }
   }, [finishRecording, stopRecordingTimers])
 
+  // Städa bara när komponenten avmonteras.
+  // captureRef gör att ett nytt foto inte råkar stoppa kameran.
   useEffect(() => {
     return () => {
       stopRecordingTimers()
@@ -533,6 +562,12 @@ export default function Camera({
       if (instance) {
         void stopAndDisposeMakeup(instance)
       }
+
+      const mindarInstance = mindarInstanceRef.current
+      mindarInstanceRef.current = null
+      mindarOutputCanvasRef.current = null
+      mindarReadyRef.current = false
+      if (mindarInstance) void mindarInstance.stop()
 
       clearCanvas(canvasRef.current)
       clearCanvas(makeupCanvasRef.current)
@@ -562,6 +597,7 @@ export default function Camera({
     })
   }, [cameraState])
 
+  // Kamerans bild och filter.
   useEffect(() => {
     if (cameraState !== 'live') return
 
@@ -677,7 +713,17 @@ export default function Camera({
 
       const activeFilter = filterRef.current
 
-      if (activeFilter === 'fisheye') {
+      if (activeFilter === 'mindar') {
+        const mindarCanvas = mindarOutputCanvasRef.current
+        context.clearRect(0, 0, SIZE, SIZE)
+
+        if (mindarCanvas?.width && mindarCanvas?.height) {
+          // MindAR-exportens outputCanvas innehåller redan kamerabilden + 3D-renderingen.
+          context.drawImage(mindarCanvas, 0, 0, SIZE, SIZE)
+        } else {
+          context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
+        }
+      } else if (activeFilter === 'fisheye') {
         drawFishEye(sourceCanvas, context)
       } else if (activeFilter === 'big-eyes') {
         drawFaceFilter(drawBigEyes)
@@ -707,7 +753,76 @@ export default function Camera({
     }
   }, [cameraState, filter])
 
-  // OpenMakeup/WebGL-filter: Hanterar Glam, No Lips, Big Nose och Sad.
+  // MindAR Studio körs i sin egen isolerade export-sida, men får en klon av
+  // PLOT TWISTs befintliga stream. Resultatcanvasen kopieras in i canvasRef.
+  useEffect(() => {
+    if (cameraState !== 'live' || filter !== 'mindar') return
+
+    let cancelled = false
+    const abortController = new AbortController()
+    mindarReadyRef.current = false
+    mindarOutputCanvasRef.current = null
+    setErrorMessage('')
+
+    const startTask = mindarLifecycleRef.current.then(async () => {
+      if (cancelled) return
+
+      const stream = streamRef.current
+      if (!stream?.active) {
+        throw new Error('PLOT TWISTs kamerastream är inte aktiv.')
+      }
+
+      const facingMode = stream.getVideoTracks()[0]?.getSettings?.().facingMode
+      const instance = await startMindAR({
+        host: mindarHostRef.current,
+        stream,
+        mirror: facingMode !== 'environment',
+        signal: abortController.signal,
+      })
+
+      if (cancelled) {
+        await instance.stop()
+        return
+      }
+
+      mindarInstanceRef.current = instance
+      mindarOutputCanvasRef.current = instance.outputCanvas
+      mindarReadyRef.current = true
+    })
+
+    startTask.catch((error) => {
+      if (cancelled || error?.name === 'AbortError') return
+
+      console.error('MindAR 3D kunde inte startas:', error)
+      mindarReadyRef.current = false
+      mindarOutputCanvasRef.current = null
+      setErrorMessage(`MindAR 3D kunde inte laddas: ${error.message || 'Okänt fel'}`)
+    })
+
+    return () => {
+      cancelled = true
+      abortController.abort()
+      mindarReadyRef.current = false
+      mindarOutputCanvasRef.current = null
+
+      const cleanupTask = startTask
+        .catch(() => {})
+        .then(async () => {
+          const instance = mindarInstanceRef.current
+          mindarInstanceRef.current = null
+
+          if (instance) {
+            await instance.stop()
+          }
+        })
+
+      mindarLifecycleRef.current = cleanupTask.catch((error) => {
+        console.error('MindAR kunde inte stängas ordentligt:', error)
+      })
+    }
+  }, [cameraState, filter])
+
+  // OpenMakeup-filter: Glam och No Lips delar en WebGL-canvas och körs aldrig samtidigt.
   useEffect(() => {
     if (cameraState !== 'live') {
       const instance = makeupInstanceRef.current
@@ -749,22 +864,21 @@ export default function Camera({
     let cancelled = false
     makeupStartRef.current = true
 
-    async function initializeMakeupFilter() {
+    async function initializeGlam() {
       try {
         await makeupLifecycleRef.current
         if (cancelled) return
 
         setErrorMessage('')
 
-        const startFilter = 
-          filter === 'nolips' 
-            ? startNoLips 
-            : filter === 'big-nose' 
-              ? startBigNose 
+        const startFilter =
+          filter === 'nolips'
+            ? startNoLips
+            : filter === 'big-nose'
+              ? startBigNose
               : filter === 'sad'
                 ? startSad
                 : startGlam
-        
         const instance = await startFilter(video, canvas)
 
         if (cancelled) {
@@ -781,7 +895,7 @@ export default function Camera({
             error instanceof Error ? error.message : String(error)
 
           setErrorMessage(
-            `Filter kunde inte laddas: ${details}`
+            `${filter === 'nolips' ? 'No Lips' : filter === 'big-nose' ? 'Big Nose' : filter === 'sad' ? 'Sad' : 'Glam Makeup'} kunde inte laddas: ${details}`
           )
         }
       } finally {
@@ -791,7 +905,7 @@ export default function Camera({
       }
     }
 
-    const startTask = initializeMakeupFilter()
+    const startTask = initializeGlam()
 
     return () => {
       cancelled = true
@@ -897,6 +1011,12 @@ export default function Camera({
       await stopAndDisposeMakeup(instance)
     }
 
+    const mindarInstance = mindarInstanceRef.current
+    mindarInstanceRef.current = null
+    mindarOutputCanvasRef.current = null
+    mindarReadyRef.current = false
+    if (mindarInstance) await mindarInstance.stop()
+
     clearCanvas(canvasRef.current)
     clearCanvas(makeupCanvasRef.current)
 
@@ -934,7 +1054,18 @@ export default function Camera({
     setCameraState('live')
   }
 
+  // Hämta bara accepterade kontakter när mottagarvyn öppnas.
   async function openRecipients() {
+    console.log('SEND-KNAPPEN KLICKAD')
+
+    if (!currentUserId || !capture || hasSent) {
+      console.log('Avbruten:', {
+        currentUserId,
+        captureExists: !!capture,
+        hasSent,
+      })
+      return
+    }
     if (!currentUserId || !capture || hasSent) return
 
     setShowRecipients(true)
@@ -1135,6 +1266,7 @@ export default function Camera({
     )
   }
 
+  // Skapar eller återanvänder exakt samma direktchatt som AddPeople.jsx.
   async function ensureDirectConversation(userAId, userBId) {
     if (!userAId || !userBId || userAId === userBId) {
       throw new Error('Ogiltiga användare för chatten.')
@@ -1153,7 +1285,9 @@ export default function Camera({
       })
 
       if (conversation.directKey !== directKey) {
-        throw new Error('Chattens ID matchar inte användarna.')
+        throw new Error(
+          'Chattens ID matchar inte användarna.'
+        )
       }
     } catch (error) {
       if (error.message?.includes('matchar inte användarna')) {
@@ -1220,6 +1354,8 @@ export default function Camera({
               conversationId: conversation.$id,
             },
             permissions: [
+              // Alla inloggade kan läsa medlemslistan, men varje användare
+              // får bara uppdatera sin egen medlemsrad (t.ex. lastReadAt).
               Permission.read(Role.users()),
               Permission.update(Role.user(userId)),
             ],
@@ -1278,7 +1414,12 @@ export default function Camera({
       ]
 
     try {
+      // 1. Ladda upp filen EN gång.
       uploadedFileId = ID.unique()
+
+      console.log('CAPTURE:', capture)
+      console.log('BLOB SIZE:', capture?.blob?.size)
+      console.log('BLOB TYPE:', capture?.blob?.type)
 
       if (!capture.blob || capture.blob.size === 0) {
         throw new Error('Filen är tom. Ta en ny bild eller spela in en ny video.')
@@ -1329,6 +1470,7 @@ export default function Camera({
         }
       )
 
+      // 2. Skapa ett Twist-meddelande i varje vald persons chatt.
       for (const target of selectedTargets) {
         const conversation = target.type === 'group' ||
           target.type === 'conversation'
@@ -1837,6 +1979,21 @@ export default function Camera({
                     }}
                   />
 
+                  <div
+                    ref={mindarHostRef}
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      left: '-10000px',
+                      top: 0,
+                      width: `${SIZE}px`,
+                      height: `${SIZE}px`,
+                      overflow: 'hidden',
+                      visibility: 'hidden',
+                      pointerEvents: 'none',
+                    }}
+                  />
+
                   <span className="live-label">
                     <span />
                     LIVE
@@ -1917,7 +2074,6 @@ export default function Camera({
                       }
                     >
                       {item.symbol && <span>{item.symbol}</span>}
-                      {item.isNew && <span className="new-badge">NY</span>}
                     </button>
                   ))}
                 </div>
