@@ -828,10 +828,9 @@ export default function Chat({
                                 message.$updatedAt !== message.$createdAt &&
                                 message.type !== 'deleted' && (
                                   <span className="message-edited">ändrat</span>
-                                </>
-                            )}
-                          </>
-                        )}
+                                )}
+                            </>
+                          )}
 
                         <span className="message-time">
                           {new Date(message.$createdAt).toLocaleTimeString(
