@@ -14,6 +14,7 @@ import ProfileAvatar from './components/ProfileAvatar.jsx'
 export default function GroupDetails({
   group,
   currentUser,
+  isActive,
   onClose,
   onMembersChanged,
   onLeave,
@@ -57,9 +58,15 @@ export default function GroupDetails({
 
       const memberships = membersResponse.rows
       const profiles = profilesResponse.rows
-      const currentMemberIds = new Set(memberships.map((member) => member.userId))
+      const currentMemberIds = new Set(
+        memberships.map((member) => member.userId)
+      )
+
       const groupMembers = memberships.map((member) => {
-        const profile = profiles.find((item) => item.userId === member.userId)
+        const profile = profiles.find(
+          (item) => item.userId === member.userId
+        )
+
         return {
           ...member,
           username: profile?.username || 'Okänd användare',
@@ -71,6 +78,7 @@ export default function GroupDetails({
         userId: contact.contactUserId,
         fallbackName: contact.contactUsername,
       }))
+
       const uniqueContacts = Array.from(
         new Map(
           acceptedContacts
@@ -87,7 +95,10 @@ export default function GroupDetails({
       setContacts(
         uniqueContacts
           .map((contact) => {
-            const profile = profiles.find((item) => item.userId === contact.userId)
+            const profile = profiles.find(
+              (item) => item.userId === contact.userId
+            )
+
             return {
               userId: contact.userId,
               username: profile?.username || contact.fallbackName || 'Okänd användare',
@@ -107,6 +118,8 @@ export default function GroupDetails({
   }, [currentUser.$id, group.id])
 
   useEffect(() => {
+    if (!isActive) return
+
     loadGroup()
 
     const unsubscribe = client.subscribe(
@@ -119,15 +132,18 @@ export default function GroupDetails({
     )
 
     function closeOnEscape(event) {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') {
+        onClose()
+      }
     }
 
     window.addEventListener('keydown', closeOnEscape)
+
     return () => {
       unsubscribe()
       window.removeEventListener('keydown', closeOnEscape)
     }
-  }, [group.id, loadGroup, onClose])
+  }, [isActive, group.id, loadGroup, onClose])
 
   async function addMember(contact) {
     setBusyUserId(contact.userId)
@@ -152,6 +168,7 @@ export default function GroupDetails({
         ? `Vill du lämna gruppen ${group.name}?`
         : `Vill du ta bort ${member.username} från gruppen?`
     )
+
     if (!confirmed) return
 
     setBusyUserId(member.userId)
@@ -159,6 +176,7 @@ export default function GroupDetails({
 
     try {
       await executeGroupMembershipAction(action, group.id, member.userId)
+
       if (isLeaving) {
         onLeave()
       } else {
@@ -178,127 +196,124 @@ export default function GroupDetails({
   )
 
   return (
-    <div
-      className="group-details-overlay"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
-    >
-      <section
-        className="group-details-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="group-details-title"
-      >
-        <header className="group-details-header">
-          <div>
-            <p>GRUPPINFORMATION</p>
-            <h2 id="group-details-title">{group.name}</h2>
-            <span>{members.length} medlemmar</span>
-          </div>
+    <div className="group-details-page">
+      <header className="group-details-header">
+        <div className="group-details-heading">
           <button
             type="button"
-            className="group-details-close"
+            className="group-details-back"
             onClick={onClose}
-            aria-label="Stäng gruppinformation"
+            aria-label="Tillbaka till chatten"
           >
-            ×
+            <span aria-hidden="true">←</span>
+            <span>Tillbaka till chatten</span>
           </button>
-        </header>
 
-        <div className="group-details-content">
-          {errorMessage && (
-            <p className="group-details-error" role="alert">
-              {errorMessage}
-            </p>
-          )}
+          <p>GRUPPINFORMATION</p>
+          <h2>{group.name}</h2>
+          <span>{members.length} medlemmar</span>
+        </div>
+      </header>
 
-          <section className="group-details-section">
-            <h3>Medlemmar</h3>
-            {loading ? (
-              <p className="group-details-muted">Hämtar medlemmar...</p>
-            ) : members.length === 0 ? (
-              <p className="group-details-muted">Inga medlemmar hittades.</p>
-            ) : (
-              <div className="group-details-list">
-                {members.map((member) => {
-                  const isSelf = member.userId === currentUser.$id
-                  return (
-                    <div className="group-details-person" key={member.$id}>
-                      <ProfileAvatar
-                        profile={member.avatarProfile}
-                        userId={member.userId}
-                        name={member.username}
-                        size={40}
-                      />
-                      <span className="group-details-person-name">
-                        {member.username}
-                        {isSelf && <small>Du</small>}
-                      </span>
-                      {!isSelf && (
-                        <button
-                          type="button"
-                          className="group-details-remove"
-                          disabled={busyUserId !== null}
-                          onClick={() => removeMember(member, 'kick')}
-                        >
-                          Ta bort
-                        </button>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </section>
+      <div className="group-details-content">
+        {errorMessage && (
+          <p className="group-details-error" role="alert">
+            {errorMessage}
+          </p>
+        )}
 
-          <section className="group-details-section">
-            <h3>Lägg till personer</h3>
-            {loading ? (
-              <p className="group-details-muted">Hämtar kontakter...</p>
-            ) : contacts.length === 0 ? (
-              <p className="group-details-muted">
-                Dina kontakter finns redan i gruppen eller så har du inga accepterade kontakter.
-              </p>
-            ) : (
-              <div className="group-details-list group-details-contact-list">
-                {contacts.map((contact) => (
-                  <div className="group-details-person" key={contact.userId}>
+        <section className="group-details-section">
+          <h3>Medlemmar</h3>
+
+          {loading ? (
+            <p className="group-details-muted">Hämtar medlemmar...</p>
+          ) : members.length === 0 ? (
+            <p className="group-details-muted">Inga medlemmar hittades.</p>
+          ) : (
+            <div className="group-details-list">
+              {members.map((member) => {
+                const isSelf = member.userId === currentUser.$id
+
+                return (
+                  <div className="group-details-person" key={member.$id}>
                     <ProfileAvatar
-                      profile={contact.avatarProfile}
-                      userId={contact.userId}
-                      name={contact.username}
+                      profile={member.avatarProfile}
+                      userId={member.userId}
+                      name={member.username}
                       size={40}
                     />
-                    <span className="group-details-person-name">
-                      {contact.username}
-                    </span>
-                    <button
-                      type="button"
-                      className="group-details-add"
-                      disabled={busyUserId !== null}
-                      onClick={() => addMember(contact)}
-                    >
-                      {busyUserId === contact.userId ? 'Lägger till...' : 'Lägg till'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
 
-        <footer className="group-details-footer">
-          <button
-            type="button"
-            className="group-details-leave"
-            disabled={!ownMembership || busyUserId !== null}
-            onClick={() => removeMember(ownMembership, 'leave')}
-          >
-            Lämna gruppen
-          </button>
-        </footer>
-      </section>
+                    <span className="group-details-person-name">
+                      {member.username}
+                      {isSelf && <small>Du</small>}
+                    </span>
+
+                    {!isSelf && (
+                      <button
+                        type="button"
+                        className="group-details-remove"
+                        disabled={busyUserId !== null}
+                        onClick={() => removeMember(member, 'kick')}
+                      >
+                        Ta bort
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </section>
+
+        <section className="group-details-section">
+          <h3>Lägg till personer</h3>
+
+          {loading ? (
+            <p className="group-details-muted">Hämtar kontakter...</p>
+          ) : contacts.length === 0 ? (
+            <p className="group-details-muted">
+              Dina kontakter finns redan i gruppen eller så har du inga accepterade kontakter.
+            </p>
+          ) : (
+            <div className="group-details-list group-details-contact-list">
+              {contacts.map((contact) => (
+                <div className="group-details-person" key={contact.userId}>
+                  <ProfileAvatar
+                    profile={contact.avatarProfile}
+                    userId={contact.userId}
+                    name={contact.username}
+                    size={40}
+                  />
+
+                  <span className="group-details-person-name">
+                    {contact.username}
+                  </span>
+
+                  <button
+                    type="button"
+                    className="group-details-add"
+                    disabled={busyUserId !== null}
+                    onClick={() => addMember(contact)}
+                  >
+                    {busyUserId === contact.userId ? 'Lägger till...' : 'Lägg till'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+
+      <footer className="group-details-footer">
+        <button
+          type="button"
+          className="group-details-leave"
+          disabled={!ownMembership || busyUserId !== null}
+          onClick={() => removeMember(ownMembership, 'leave')}
+        >
+          Lämna gruppen
+        </button>
+      </footer>
     </div>
   )
 }
