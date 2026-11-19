@@ -25,6 +25,7 @@ import { drawFishEye } from './filters/fisheye.jsx'
 import { drawAlien } from './filters/alien.jsx'
 import { startGlam } from './filters/glam.jsx'
 import { startNoLips } from './filters/nolips.jsx'
+import { startBigNose } from './filters/bignose.jsx'
 import { drawSquareFace } from './filters/squareface.jsx'
 import {
   createTwistReference,
@@ -43,9 +44,8 @@ const FILTERS = [
   { id: 'glam', label: 'Glam Makeup', symbol: '💄' },
   { id: 'nolips', label: 'No Lips', symbol: '💋' },
   { id: 'dreamy', label: 'Dreamy', symbol: '✦' },
-  { id: 'square-face', label: 'Square Face', symbol: '▣' },
   { id: 'alien', label: 'Alien', symbol: '👽' },
-  { id: 'big-eyes', label: 'Big eyes', symbol: '◉' },
+  { id: 'big-nose', label: 'Big Nose', symbol: '👃' },
 ]
 
 const SIZE = 640
