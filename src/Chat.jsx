@@ -637,7 +637,6 @@ export default function Chat({
                 getDateKey(message.$createdAt) !==
                   getDateKey(messages[index - 1].$createdAt)
 
-              // Kontrollera om föregående giltiga meddelande var från samma avsändare
               const previousMessage = index > 0 ? messages[index - 1] : null
               const isSameSenderAsPrevious =
                 previousMessage &&
@@ -653,8 +652,6 @@ export default function Chat({
                 previousMessage.type !== 'game_snake_input' &&
                 previousMessage.type !== 'game_snake_state'
 
-              // Visa endast namnet om det är en gruppchatt, inte är mitt meddelande, 
-              // och det är det första meddelandet i rad från denna person.
               const showSenderName = isGroupChat && !isMine && !isSameSenderAsPrevious
 
               const senderMember = chat?.members?.find((member) => member.userId === message.senderId)
@@ -686,16 +683,18 @@ export default function Chat({
                       />
                     )}
 
-                    <div
-                      className="message-content-wrapper"
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
+                    <div 
+                      className="message-content-wrapper" 
+                      style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
                         alignItems: isMine ? 'flex-end' : 'flex-start',
-                        flex: 1,
+                        flex: message.type === 'twist' ? '0 0 auto' : '1',
                         minWidth: 0,
+                        maxWidth: message.type === 'twist' ? '100%' : undefined
                       }}
                     >
+                      {showSenderName && (
                         <span className="message-sender-name" style={{ fontSize: '11px', opacity: 0.7, marginBottom: '2px', marginLeft: '4px' }}>
                           {senderName}
                         </span>
@@ -829,136 +828,137 @@ export default function Chat({
                                 message.$updatedAt !== message.$createdAt &&
                                 message.type !== 'deleted' && (
                                   <span className="message-edited">ändrat</span>
-                                )}
-                            </>
-                          )}
-
-                          <span className="message-time">
-                            {new Date(message.$createdAt).toLocaleTimeString(
-                              'sv-SE',
-                              {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              }
+                                </>
                             )}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                          </>
+                        )}
 
-                    {isMine && (
-                      <ProfileAvatar
-                        profile={senderMember?.avatarProfile}
-                        userId={message.senderId}
-                        name={senderName}
-                        size={32}
-                        className="message-avatar"
-                      />
+                        <span className="message-time">
+                          {new Date(message.$createdAt).toLocaleTimeString(
+                            'sv-SE',
+                            {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            }
+                          )}
+                        </span>
+                      </div>
                     )}
                   </div>
-                </div>
-              )
-            })}
 
-            {messageMenu && (
-              <div
-                className="message-context-menu"
-                role="menu"
-                style={{ left: messageMenu.x, top: messageMenu.y }}
-              >
-                {messageMenu.message.type === 'text' && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => startEditingMessage(messageMenu.message)}
-                  >
-                    Ändra
-                  </button>
-                )}
+                  {isMine && (
+                    <ProfileAvatar
+                      profile={senderMember?.avatarProfile}
+                      userId={message.senderId}
+                      name={senderName}
+                      size={32}
+                      className="message-avatar"
+                    />
+                  )}
+                </div>
+              </div>
+            )
+          })}
+
+          {messageMenu && (
+            <div
+              className="message-context-menu"
+              role="menu"
+              style={{ left: messageMenu.x, top: messageMenu.y }}
+            >
+              {messageMenu.message.type === 'text' && (
                 <button
                   type="button"
                   role="menuitem"
-                  className="message-context-delete"
-                  disabled={deletingMessageId === messageMenu.message.$id}
-                  onClick={() => {
-                    const message = messageMenu.message
-                    setMessageMenu(null)
-                    deleteMessage(message)
-                  }}
+                  onClick={() => startEditingMessage(messageMenu.message)}
                 >
-                  {deletingMessageId === messageMenu.message.$id ? 'Tar bort...' : 'Ta bort'}
+                  Ändra
                 </button>
-              </div>
-            )}
+              )}
+              <button
+                type="button"
+                role="menuitem"
+                className="message-context-delete"
+                disabled={deletingMessageId === messageMenu.message.$id}
+                onClick={() => {
+                  const message = messageMenu.message
+                  setMessageMenu(null)
+                  deleteMessage(message)
+                }}
+              >
+                {deletingMessageId === messageMenu.message.$id ? 'Tar bort...' : 'Ta bort'}
+              </button>
+            </div>
+          )}
 
-            {errorMessage && (
-              <p className="camera-error" role="alert">
-                {errorMessage}
-              </p>
-            )}
-          </div>
-
-          {newMessagesCount > 0 && (
-            <button
-              type="button"
-              className="new-messages-indicator"
-              onClick={() => scrollToLatest('smooth')}
-            >
-              ↓ {newMessagesCount}{' '}
-              {newMessagesCount === 1
-                ? 'oläst meddelande längre ner'
-                : 'olästa meddelanden längre ner'}
-            </button>
+          {errorMessage && (
+            <p className="camera-error" role="alert">
+              {errorMessage}
+            </p>
           )}
         </div>
 
-        <form className="message-form" onSubmit={sendMessage}>
+        {newMessagesCount > 0 && (
           <button
             type="button"
-            className="message-camera-button"
-            onClick={() => setShowTwistCamera(true)}
-            disabled={!conversationId || !currentUserId}
-            aria-label="Skicka en Twist"
-            title="Skicka en Twist"
+            className="new-messages-indicator"
+            onClick={() => scrollToLatest('smooth')}
           >
-            <CameraIcon size={20} aria-hidden="true" />
+            ↓ {newMessagesCount}{' '}
+            {newMessagesCount === 1
+              ? 'oläst meddelande längre ner'
+              : 'olästa meddelanden längre ner'}
           </button>
-
-          <input
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="Skriv något gulligt..."
-            aria-label="Skriv ett meddelande"
-            maxLength={2000}
-            disabled={sending || !conversationId}
-          />
-
-          <button
-            type="submit"
-            aria-label="Skicka meddelande"
-            disabled={!draft.trim() || sending}
-          >
-            {sending ? '…' : '↗'}
-          </button>
-        </form>
+        )}
       </div>
 
-      {showTwistCamera && (
-        <div className="chat-camera-overlay">
-          <div
-            className="chat-camera-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Skicka en Twist"
-          >
-            <Camera
-              currentUser={currentUser}
-              targetConversation={chat}
-              onClose={() => setShowTwistCamera(false)}
-            />
-          </div>
+      <form className="message-form" onSubmit={sendMessage}>
+        <button
+          type="button"
+          className="message-camera-button"
+          onClick={() => setShowTwistCamera(true)}
+          disabled={!conversationId || !currentUserId}
+          aria-label="Skicka en Twist"
+          title="Skicka en Twist"
+        >
+          <CameraIcon size={20} aria-hidden="true" />
+        </button>
+
+        <input
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="Skriv något gulligt..."
+          aria-label="Skriv ett meddelande"
+          maxLength={2000}
+          disabled={sending || !conversationId}
+        />
+
+        <button
+          type="submit"
+          aria-label="Skicka meddelande"
+          disabled={!draft.trim() || sending}
+        >
+          {sending ? '…' : '↗'}
+        </button>
+      </form>
+    </div>
+
+    {showTwistCamera && (
+      <div className="chat-camera-overlay">
+        <div
+          className="chat-camera-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Skicka en Twist"
+        >
+          <Camera
+            currentUser={currentUser}
+            targetConversation={chat}
+            onClose={() => setShowTwistCamera(false)}
+          />
         </div>
-      )}
-    </section>
-  )
+      </div>
+    )}
+  </section>
+)
 }
