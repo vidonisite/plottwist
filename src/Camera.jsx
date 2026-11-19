@@ -40,8 +40,8 @@ import { addLatestMessageTimes } from './lib/groupMembers.js'
 import './Camera.css'
 
 const FILTERS = [
-  { id: 'big-nose', label: 'Big Nose', symbol: '👃' },
-  { id: 'sad', label: 'Sad', symbol: '😟' },
+  { id: 'big-nose', label: 'Big Nose', symbol: '👃', isNew: true },
+  { id: 'sad', label: 'Sad', symbol: '😟', isNew: true },
   { id: 'none', label: 'No filter', symbol: '📷' },
   { id: 'fisheye', label: 'Fish Eye', symbol: '🐟' },
   { id: 'glam', label: 'Glam Makeup', symbol: '💄' },
@@ -1917,6 +1917,7 @@ export default function Camera({
                       }
                     >
                       {item.symbol && <span>{item.symbol}</span>}
+                      {item.isNew && <span className="new-badge">NY</span>}
                     </button>
                   ))}
                 </div>
