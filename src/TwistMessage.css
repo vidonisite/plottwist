@@ -1,3 +1,4 @@
+
 .twist-message {
   display: flex;
   flex-direction: column;
@@ -108,41 +109,18 @@
   opacity: .7;
 }
 
-/* Fullskärmsvisningen */
-
-.main-panel:has(.twist-fullscreen) {
-  overflow: hidden;
-}
-
-.main-panel:has(.twist-fullscreen) .conversation-heading {
-  display: none;
-}
-
-.main-panel:has(.twist-fullscreen) .conversation-content {
-  padding: 0;
-}
-
-.main-panel:has(.twist-fullscreen) .chat-view,
-.main-panel:has(.twist-fullscreen) .chat-panel {
-  animation: none;
-  transform: none;
-}
+/* Fullskärmsvisningen – renderas direkt i document.body */
 
 .twist-fullscreen {
   position: fixed;
-  z-index: 99999;
+  z-index: 999999;
+  inset: 0;
 
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  display: grid;
+  place-items: center;
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   height: 100dvh;
 
   margin: 0;
@@ -156,30 +134,27 @@
 }
 
 .twist-media-container {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  justify-items: center;
   align-items: center;
-  justify-content: center;
   gap: 12px;
 
   width: 100%;
   height: 100%;
 
-  max-width: 100%;
-  max-height: 100%;
-
   min-width: 0;
   min-height: 0;
 
-  margin: 0 auto;
+  margin: 0;
+  padding: 0;
+
   overflow: hidden;
   box-sizing: border-box;
 }
 
-
 .twist-sender {
   display: flex;
-  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   gap: 10px;
@@ -187,13 +162,13 @@
   width: fit-content;
   max-width: 100%;
 
+  min-width: 0;
   margin: 0 auto;
 
   color: #201827;
   font-size: 15px;
   font-weight: 700;
 }
-
 
 .twist-sender-avatar {
   flex-shrink: 0;
@@ -204,25 +179,39 @@
 .twist-media-stage {
   position: relative;
 
-  display: flex;
-  flex: 1 1 0;
-
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
 
   width: 100%;
-  height: 0;
+  height: 100%;
 
-  max-width: 100%;
   min-width: 0;
   min-height: 0;
 
-  margin: 0 auto;
+  margin: 0;
+  padding: 0;
+
   overflow: hidden;
   box-sizing: border-box;
 }
 
+.twist-media {
+  display: block;
 
+  width: auto;
+  height: auto;
+
+  max-width: 100%;
+  max-height: 100%;
+
+  object-fit: contain;
+  object-position: center;
+
+  margin: 0 auto;
+
+  border-radius: 8px;
+  box-sizing: border-box;
+}
 
 .twist-text-overlay {
   position: absolute;
@@ -249,139 +238,9 @@
   pointer-events: none;
 }
 
-.twist-media {
-  display: block;
-
-  width: auto;
-  height: auto;
-
-  max-width: 100%;
-  max-height: 100%;
-
-  object-fit: contain;
-
-  border-radius: 8px;
-}
-
-.twist-editor {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(150px, .75fr) auto;
-  align-items: end;
-  gap: 10px 14px;
-
-  width: min(100%, 620px);
-  max-height: 34vh;
-
-  overflow: auto;
-
-  padding: 12px;
-
-  border: 1px solid rgba(255, 255, 255, .16);
-  border-radius: 10px;
-
-  background: rgba(31, 27, 34, .96);
-  color: white;
-
-  box-sizing: border-box;
-}
-
-.twist-editor-text-label,
-.twist-editor-position {
-  display: grid;
-  gap: 6px;
-
-  min-width: 0;
-
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.twist-editor-text-label textarea {
-  width: 100%;
-  min-height: 54px;
-
-  resize: vertical;
-
-  padding: 8px;
-
-  border: 1px solid rgba(255, 255, 255, .24);
-  border-radius: 6px;
-
-  color: white;
-  background: #37333a;
-
-  font: inherit;
-  box-sizing: border-box;
-}
-
-.twist-editor-position input {
-  width: 100%;
-  accent-color: #d7ed9b;
-}
-
-.twist-speed-control {
-  display: flex;
-  gap: 4px;
-  grid-column: 1 / 3;
-}
-
-.twist-speed-control button,
-.twist-editor-actions button {
-  min-height: 36px;
-  padding: 7px 11px;
-
-  border: 1px solid rgba(255, 255, 255, .22);
-  border-radius: 6px;
-
-  color: white;
-  background: #37333a;
-
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
-
-  cursor: pointer;
-}
-
-.twist-speed-control button[aria-pressed='true'] {
-  border-color: #d7ed9b;
-  color: #201827;
-  background: #d7ed9b;
-}
-
-.twist-editor-error {
-  grid-column: 1 / -1;
-
-  margin: 0;
-
-  color: #ff9dad;
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.twist-editor-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-
-  grid-column: 3;
-  grid-row: 1 / span 2;
-}
-
-.twist-editor-actions button:last-child {
-  border-color: #d7ed9b;
-  color: #201827;
-  background: #d7ed9b;
-}
-
-.twist-editor-actions button:disabled {
-  opacity: .6;
-  cursor: wait;
-}
-
 .twist-close {
   position: absolute;
-  z-index: 2;
+  z-index: 3;
 
   top: 12px;
   right: 12px;
@@ -409,7 +268,7 @@
 
 .twist-next-button {
   position: absolute;
-  z-index: 2;
+  z-index: 3;
 
   top: 50%;
   right: 20px;
@@ -437,8 +296,6 @@
 }
 
 .twist-navigation-error {
-  flex: 0 0 auto;
-
   margin: 0;
 
   color: #b33b58;
@@ -455,6 +312,8 @@
     opacity: 1;
   }
 }
+
+/* Mobil */
 
 @media (max-width: 600px) {
   .twist-fullscreen {
@@ -479,25 +338,9 @@
   .twist-text-overlay {
     font-size: 14px;
   }
-
-  .twist-editor {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 8px;
-
-    max-height: 38vh;
-    padding: 10px;
-  }
-
-  .twist-speed-control {
-    grid-column: 1;
-  }
-
-  .twist-editor-actions {
-    grid-column: 2;
-    grid-row: auto;
-    flex-wrap: wrap;
-  }
 }
+
+/* Låga skärmar / liggande mobil */
 
 @media (max-height: 500px) {
   .twist-fullscreen {
@@ -516,22 +359,9 @@
     width: 30px;
     height: 30px;
   }
-}
 
-
-.twist-media {
-  display: block;
-
-  width: auto;
-  height: auto;
-
-  max-width: 100%;
-  max-height: 100%;
-
-  object-fit: contain;
-  object-position: center;
-
-  margin: auto;
-  border-radius: 8px;
-  box-sizing: border-box;
+  .twist-close {
+    top: 6px;
+    right: 6px;
+  }
 }
