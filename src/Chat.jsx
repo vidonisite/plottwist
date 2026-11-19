@@ -686,8 +686,16 @@ export default function Chat({
                       />
                     )}
 
-                    <div className="message-content-wrapper" style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start' }}>
-                      {showSenderName && (
+                    <div
+                      className="message-content-wrapper"
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: isMine ? 'flex-end' : 'flex-start',
+                        flex: 1,
+                        minWidth: 0,
+                      }}
+                    >
                         <span className="message-sender-name" style={{ fontSize: '11px', opacity: 0.7, marginBottom: '2px', marginLeft: '4px' }}>
                           {senderName}
                         </span>
