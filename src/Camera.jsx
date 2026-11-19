@@ -2081,6 +2081,10 @@ export default function Camera({
                       }
                     >
                       {item.symbol && <span>{item.symbol}</span>}
+
+                      {item.isNew && (
+                        <span className="new-badge">NY</span>
+                      )}
                     </button>
                   ))}
                 </div>
