@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob:; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'" />
+  <title>PLOT TWIST – MindAR Engine</title>
+  <script>
+    (function () {
+      'use strict';
+
+      // Each filter has its own packed Studio scene, but all filters use this
+      // one shared runtime. Only simple, allow-listed IDs are accepted.
+      var params = new URLSearchParams(window.location.search);
+      var filterId = params.get('filter') || 'default';
+      if (!/^[a-z0-9-]{1,40}$/.test(filterId)) filterId = 'default';
+      window.__PLOT_TWIST_MINDAR_ASSET_PATH__ = '../filters/' + filterId + '/_x1';
+
+      // MindAR's bundled app calls getUserMedia(). Never call the browser's
+      // native method from this iframe. Return only a cloned video track that
+      // the parent PLOT TWIST camera explicitly supplies.
+      var parentWindow = window.parent;
+      var bridge = parentWindow !== window
+        ? parentWindow.__PLOT_TWIST_MINDAR_BRIDGE__
+        : null;
+      var devices = navigator.mediaDevices;
+
+      if (devices && bridge && typeof bridge.cloneVideoStream === 'function') {
+        try {
+          Object.defineProperty(devices, 'getUserMedia', {
+            configurable: false,
+            enumerable: true,
+            writable: false,
+            value: function (constraints) {
+              if (!bridge || typeof bridge.cloneVideoStream !== 'function') {
+                return Promise.reject(new Error('MindAR får endast använda PLOT TWISTs uttryckligen delade kamerastream.'));
+              }
+              if (!constraints || !constraints.video || constraints.audio) {
+                return Promise.reject(new Error('MindAR får endast begära video, aldrig ljud.'));
+              }
+              try {
+                var cloned = bridge.cloneVideoStream();
+                if (!cloned || !cloned.active || cloned.getAudioTracks().length) {
+                  cloned && cloned.getTracks().forEach(function (track) { track.stop(); });
+                  return Promise.reject(new Error('Ingen tillåten videostream kunde delas med MindAR.'));
+                }
+                return Promise.resolve(cloned);
+              } catch (error) {
+                return Promise.reject(error);
+              }
+            }
+          });
+        } catch (error) {
+          // Fail closed: if the browser prevents the override, do not start
+          // the exported app because it might attempt native camera access.
+          window.__PLOT_TWIST_MINDAR_PRIVACY_ERROR__ = String(error);
+        }
+      } else {
+        window.__PLOT_TWIST_MINDAR_PRIVACY_ERROR__ = !devices
+          ? 'mediaDevices saknas'
+          : 'PLOT TWISTs kamerabrygga saknas';
+      }
+
+      // Starta aldrig den exporterade appen om kameraskyddet inte kunde
+      // installeras. Då finns ingen möjlighet för exporten att falla tillbaka
+      // till webbläsarens vanliga kameraförfrågan.
+      if (!window.__PLOT_TWIST_MINDAR_PRIVACY_ERROR__) {
+        var appScript = document.createElement('script');
+        appScript.src = './static/js/main.1573730f.js';
+        appScript.defer = true;
+        document.head.appendChild(appScript);
+      }
+    })();
+  </script>
+  <style>
+    html, body, #root, .App, .viewer-container {
+      width: 100% !important; height: 100% !important; margin: 0 !important;
+      overflow: hidden !important;
+    }
+    .viewer-container .switch-camera-panel,
+    .viewer-container .recording-panel,
+    .viewer-container .preview,
+    #mindar-loading, .control { display: none !important; }
+  </style>
+  <link href="./static/css/main.43335a5b.css" rel="stylesheet" />
+</head>
+<body>
+  <noscript>JavaScript must be enabled to use the 3D filter.</noscript>
+  <div id="root"></div>
+</body>
+</html>

@@ -27,7 +27,12 @@ import { startGlam } from './filters/glam.jsx'
 import { startNoLips } from './filters/nolips.jsx'
 import { startBigNose } from './filters/bignose.jsx'
 import { startSad } from './filters/sad.jsx'
-import { startMindAR } from './filters/mindar.jsx'
+import {
+  startMindAR,
+  MINDAR_FILTERS,
+  getMindARFilter,
+  isMindARFilter,
+} from './filters/mindar.jsx'
 import { drawSquareFace } from './filters/squareface.jsx'
 import {
   createTwistReference,
@@ -49,7 +54,7 @@ const FILTERS = [
   { id: 'nolips', label: 'No Lips', symbol: '💋' },
   { id: 'dreamy', label: 'Dreamy', symbol: '✦' },
   { id: 'alien', label: 'Alien', symbol: '👽' },
-  { id: 'mindar', label: 'MindAR 3D', symbol: '✨', isNew: true },
+  ...MINDAR_FILTERS,
 ]
 
 const SIZE = 640
@@ -285,7 +290,7 @@ export default function Camera({
   }, [])
 
   const takePhoto = useCallback(() => {
-    if (filterRef.current === 'mindar' && !mindarReadyRef.current) {
+    if (isMindARFilter(filterRef.current) && !mindarReadyRef.current) {
       setErrorMessage('MindAR 3D håller fortfarande på att starta. Försök strax igen.')
       return
     }
@@ -375,7 +380,7 @@ export default function Camera({
   }, [stopRecordingTimers])
 
   const startRecording = useCallback(() => {
-    if (filterRef.current === 'mindar' && !mindarReadyRef.current) {
+    if (isMindARFilter(filterRef.current) && !mindarReadyRef.current) {
       setErrorMessage('MindAR 3D håller fortfarande på att starta. Försök strax igen.')
       return
     }
@@ -713,7 +718,7 @@ export default function Camera({
 
       const activeFilter = filterRef.current
 
-      if (activeFilter === 'mindar') {
+      if (isMindARFilter(activeFilter)) {
         const mindarCanvas = mindarOutputCanvasRef.current
         context.clearRect(0, 0, SIZE, SIZE)
 
@@ -756,7 +761,8 @@ export default function Camera({
   // MindAR Studio körs i sin egen isolerade export-sida, men får en klon av
   // PLOT TWISTs befintliga stream. Resultatcanvasen kopieras in i canvasRef.
   useEffect(() => {
-    if (cameraState !== 'live' || filter !== 'mindar') return
+    const mindarFilter = getMindARFilter(filter)
+    if (cameraState !== 'live' || !mindarFilter) return
 
     let cancelled = false
     const abortController = new AbortController()
@@ -777,6 +783,7 @@ export default function Camera({
         host: mindarHostRef.current,
         stream,
         mirror: facingMode !== 'environment',
+        filterId: mindarFilter.assetId,
         signal: abortController.signal,
       })
 
