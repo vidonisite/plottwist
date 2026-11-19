@@ -71,8 +71,6 @@ function drawDreamy(source, context) {
 
   context.clearRect(0, 0, width, height)
 
-  // En mjuk, färgstark grundton med ett separat glow-lager ger filtret
-  // ett tydligare drömmigt uttryck utan att sudda ut ansiktet helt.
   context.save()
   context.filter = 'saturate(1.5) brightness(1.08) contrast(1.03)'
   context.drawImage(source, 0, 0, width, height)
@@ -85,7 +83,6 @@ function drawDreamy(source, context) {
   context.drawImage(source, 0, 0, width, height)
   context.restore()
 
-  // Rosa/lila ljusläckage ger en tydlig pastellig ton över bilden.
   context.save()
   context.globalCompositeOperation = 'soft-light'
   const wash = context.createLinearGradient(0, 0, width, height)
@@ -96,7 +93,6 @@ function drawDreamy(source, context) {
   context.fillRect(0, 0, width, height)
   context.restore()
 
-  // Lätta, pulserande stjärnglitter – synliga i både foto och video.
   const sparkles = [
     [0.2, 0.22, 0.85],
     [0.78, 0.18, 2.1],
@@ -162,7 +158,6 @@ function getVideoMimeType() {
   return types.find((type) => MediaRecorder.isTypeSupported(type)) || ''
 }
 
-// Samma stabila ID-metod som används i AddPeople.jsx.
 async function stableId(value) {
   const bytes = new TextEncoder().encode(value)
   const hash = await crypto.subtle.digest('SHA-256', bytes)
@@ -219,7 +214,6 @@ export default function Camera({
   const [recordingTime, setRecordingTime] = useState(0)
   const [selectedFilterIndex, setSelectedFilterIndex] = useState(0)
 
-  // Skickaflödet
   const [showRecipients, setShowRecipients] = useState(false)
   const [acceptedContacts, setAcceptedContacts] = useState([])
   const [groupConversations, setGroupConversations] = useState([])
@@ -272,7 +266,7 @@ export default function Camera({
   }, [])
 
   const getVisibleCanvas = useCallback(() => {
-    return ['glam', 'nolips', 'big-nose'].includes(filterRef.current)
+    return ['glam', 'nolips', 'big-nose', 'sad'].includes(filterRef.current)
       ? makeupCanvasRef.current
       : canvasRef.current
   }, [])
@@ -696,7 +690,7 @@ export default function Camera({
       } else if (activeFilter === 'none') {
         context.clearRect(0, 0, SIZE, SIZE)
         context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
-      } else if (!['glam', 'nolips', 'big-nose'].includes(activeFilter)) {
+      } else if (!['glam', 'nolips', 'big-nose', 'sad'].includes(activeFilter)) {
         context.clearRect(0, 0, SIZE, SIZE)
         context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
       }
@@ -713,7 +707,7 @@ export default function Camera({
     }
   }, [cameraState, filter])
 
-  // OpenMakeup-filter: Hanterar Glam, No Lips och Big Nose via WebGL-canvasen.
+  // OpenMakeup/WebGL-filter: Hanterar Glam, No Lips, Big Nose och Sad.
   useEffect(() => {
     if (cameraState !== 'live') {
       const instance = makeupInstanceRef.current
@@ -729,7 +723,7 @@ export default function Camera({
       return
     }
 
-    if (filter !== 'glam' && filter !== 'nolips' && filter !== 'big-nose') {
+    if (filter !== 'glam' && filter !== 'nolips' && filter !== 'big-nose' && filter !== 'sad') {
       const instance = makeupInstanceRef.current
       makeupInstanceRef.current = null
       makeupStartRef.current = false
@@ -767,7 +761,9 @@ export default function Camera({
             ? startNoLips 
             : filter === 'big-nose' 
               ? startBigNose 
-              : startGlam
+              : filter === 'sad'
+                ? startSad
+                : startGlam
         
         const instance = await startFilter(video, canvas)
 
@@ -938,6 +934,1018 @@ export default function Camera({
     setCameraState('live')
   }
 
-  // (Resten av din kod för mottagare och UI behålls intakt nedan...)
-  // ...
+  async function openRecipients() {
+    if (!currentUserId || !capture || hasSent) return
+
+    setShowRecipients(true)
+    setLoadingContacts(true)
+    setErrorMessage('')
+    setSendMessage('')
+    setSelectedRecipientIds([])
+    setSelectedGroupIds([])
+
+    try {
+      const [contactsResponse, membershipsResponse] = await Promise.all([
+        tablesDB.listRows({
+          databaseId: DATABASE_ID,
+          tableId: CONTACTS_TABLE_ID,
+          queries: [
+            Query.equal('ownerId', [currentUserId]),
+            Query.equal('status', ['accepted']),
+            Query.limit(500),
+          ],
+        }),
+        tablesDB.listRows({
+          databaseId: DATABASE_ID,
+          tableId: CONVERSATION_MEMBERS_TABLE_ID,
+          queries: [
+            Query.equal('userId', [currentUserId]),
+            Query.limit(100),
+          ],
+        }),
+      ])
+
+      const [profilesResponse, conversations] = await Promise.all([
+        contactsResponse.rows.length
+          ? tablesDB.listRows({
+            databaseId: DATABASE_ID,
+            tableId: USERS_TABLE_ID,
+            queries: [Query.limit(100)],
+          })
+          : Promise.resolve({ rows: [] }),
+        Promise.all(membershipsResponse.rows.map(async (membership) => {
+          try {
+            return await tablesDB.getRow({
+              databaseId: DATABASE_ID,
+              tableId: CONVERSATIONS_TABLE_ID,
+              rowId: membership.conversationId,
+            })
+          } catch (error) {
+            if (error?.code !== 404) {
+              console.error('Kunde inte läsa en gruppkonversation:', error)
+            }
+            return null
+          }
+        })),
+      ])
+
+      const membershipByConversationId = new Map(
+        membershipsResponse.rows.map((membership) => [
+          membership.conversationId,
+          membership,
+        ])
+      )
+      const acceptedContactsWithActivity = await Promise.all(
+        contactsResponse.rows.map(async (contact) => {
+          const directKey = [currentUserId, contact.contactUserId].sort().join(':')
+          const directConversationId = await stableId(`direct:${directKey}`)
+          const membership = membershipByConversationId.get(directConversationId)
+          const conversation = conversations.find(
+            (item) => item?.$id === directConversationId
+          )
+          let lastActivityAt = membership?.$createdAt ||
+            contact.$updatedAt ||
+            contact.$createdAt ||
+            null
+
+          if (conversation?.type === 'direct') {
+            const latestMessageResponse = await tablesDB.listRows({
+              databaseId: DATABASE_ID,
+              tableId: MESSAGES_TABLE_ID,
+              queries: [
+                Query.equal('conversationId', [directConversationId]),
+                Query.orderDesc('$createdAt'),
+                Query.limit(1),
+              ],
+            })
+            lastActivityAt =
+              latestMessageResponse.rows[0]?.$createdAt || lastActivityAt
+          }
+
+          return {
+            ...contact,
+            lastActivityAt,
+            profile: profilesResponse.rows.find(
+              (profile) => profile.userId === contact.contactUserId
+            ),
+          }
+        })
+      )
+      setAcceptedContacts(acceptedContactsWithActivity)
+
+      const loadedGroupConversations = await Promise.all(
+        conversations
+          .filter((conversation) => conversation?.type === 'group')
+          .map(async (conversation) => {
+            const membersResponse = await tablesDB.listRows({
+              databaseId: DATABASE_ID,
+              tableId: CONVERSATION_MEMBERS_TABLE_ID,
+              queries: [
+                Query.equal('conversationId', [conversation.$id]),
+                Query.limit(100),
+              ],
+            })
+            const members = membersResponse.rows
+            const memberCount = membersResponse.total ?? members.length
+            const memberUserIds = members.map((member) => member.userId)
+            let memberProfiles = profilesResponse.rows.filter((profile) =>
+              memberUserIds.includes(profile.userId)
+            )
+            const missingProfileUserIds = memberUserIds.filter(
+              (userId) => !memberProfiles.some((profile) => profile.userId === userId)
+            )
+
+            if (missingProfileUserIds.length > 0) {
+              const additionalProfilesResponse = await tablesDB.listRows({
+                databaseId: DATABASE_ID,
+                tableId: USERS_TABLE_ID,
+                queries: [
+                  Query.equal('userId', missingProfileUserIds),
+                  Query.limit(100),
+                ],
+              })
+              memberProfiles = [...memberProfiles, ...additionalProfilesResponse.rows]
+            }
+
+            const groupMembers = members.map((member) => {
+              const memberProfile = memberProfiles.find(
+                (item) => item.userId === member.userId
+              )
+
+              return {
+                userId: member.userId,
+                username: memberProfile?.username || 'Okänd användare',
+                avatarProfile: memberProfile || null,
+              }
+            })
+            const groupMembersWithActivity = await addLatestMessageTimes(
+              groupMembers,
+              conversation.$id
+            )
+            const lastMessageAt = groupMembersWithActivity.reduce(
+              (latest, member) => {
+                if (!member.lastMessageAt) return latest
+                return !latest || member.lastMessageAt > latest
+                  ? member.lastMessageAt
+                  : latest
+              },
+              null
+            )
+
+            return {
+              ...conversation,
+              memberCount,
+              members: groupMembersWithActivity,
+              lastActivityAt:
+                lastMessageAt ||
+                membershipByConversationId.get(conversation.$id)?.$createdAt ||
+                conversation.$updatedAt ||
+                conversation.$createdAt ||
+                null,
+            }
+          })
+      )
+
+      setGroupConversations(loadedGroupConversations)
+    } catch (error) {
+      console.error('Kunde inte hämta kontakter:', error)
+
+      setErrorMessage(
+        `Kunde inte hämta dina kontakter: ${error.message || 'Okänt fel'}`
+      )
+    } finally {
+      setLoadingContacts(false)
+    }
+  }
+
+  function toggleRecipient(userId) {
+    setSelectedRecipientIds((previous) => {
+      if (previous.includes(userId)) {
+        return previous.filter((id) => id !== userId)
+      }
+
+      return [...previous, userId]
+    })
+  }
+
+  function toggleGroupRecipient(conversationId) {
+    setSelectedGroupIds((previous) => previous.includes(conversationId)
+      ? previous.filter((id) => id !== conversationId)
+      : [...previous, conversationId]
+    )
+  }
+
+  async function ensureDirectConversation(userAId, userBId) {
+    if (!userAId || !userBId || userAId === userBId) {
+      throw new Error('Ogiltiga användare för chatten.')
+    }
+
+    const directKey = [userAId, userBId].sort().join(':')
+    const conversationId = await stableId(`direct:${directKey}`)
+
+    let conversation
+
+    try {
+      conversation = await tablesDB.getRow({
+        databaseId: DATABASE_ID,
+        tableId: CONVERSATIONS_TABLE_ID,
+        rowId: conversationId,
+      })
+
+      if (conversation.directKey !== directKey) {
+        throw new Error('Chattens ID matchar inte användarna.')
+      }
+    } catch (error) {
+      if (error.message?.includes('matchar inte användarna')) {
+        throw error
+      }
+
+      if (error.code !== 404) {
+        throw error
+      }
+
+      try {
+        conversation = await tablesDB.createRow({
+          databaseId: DATABASE_ID,
+          tableId: CONVERSATIONS_TABLE_ID,
+          rowId: conversationId,
+          data: {
+            type: 'direct',
+            name: 'Privat chatt',
+            createdBy: userAId,
+            directKey,
+          },
+          permissions: [
+            Permission.read(Role.users()),
+            Permission.update(Role.users()),
+            Permission.delete(Role.users()),
+          ],
+        })
+      } catch (createError) {
+        try {
+          conversation = await tablesDB.getRow({
+            databaseId: DATABASE_ID,
+            tableId: CONVERSATIONS_TABLE_ID,
+            rowId: conversationId,
+          })
+        } catch {
+          throw createError
+        }
+      }
+    }
+
+    for (const userId of [userAId, userBId]) {
+      const memberId = await stableId(
+        `member:${conversation.$id}:${userId}`
+      )
+
+      try {
+        await tablesDB.getRow({
+          databaseId: DATABASE_ID,
+          tableId: CONVERSATION_MEMBERS_TABLE_ID,
+          rowId: memberId,
+        })
+      } catch (error) {
+        if (error.code !== 404) {
+          throw error
+        }
+
+        try {
+          await tablesDB.createRow({
+            databaseId: DATABASE_ID,
+            tableId: CONVERSATION_MEMBERS_TABLE_ID,
+            rowId: memberId,
+            data: {
+              userId,
+              conversationId: conversation.$id,
+            },
+            permissions: [
+              Permission.read(Role.users()),
+              Permission.update(Role.user(userId)),
+            ],
+          })
+        } catch (createError) {
+          try {
+            await tablesDB.getRow({
+              databaseId: DATABASE_ID,
+              tableId: CONVERSATION_MEMBERS_TABLE_ID,
+              rowId: memberId,
+            })
+          } catch {
+            throw createError
+          }
+        }
+      }
+    }
+
+    return conversation
+  }
+
+  async function sendTwist() {
+    if (
+      !capture ||
+      !currentUserId ||
+      (!targetConversation &&
+        selectedRecipientIds.length === 0 &&
+        selectedGroupIds.length === 0) ||
+      sendingTwist
+    ) {
+      return
+    }
+
+    setSendingTwist(true)
+    setErrorMessage('')
+    setSendMessage('')
+
+    let uploadedFileId = null
+    let uploadedReference = null
+    let sentCount = 0
+    const selectedTargets = targetConversation
+      ? [{
+        type: 'conversation',
+        conversationId: targetConversation.id,
+        conversationType: targetConversation.type,
+      }]
+      : [
+        ...selectedRecipientIds.map((recipientId) => ({
+          type: 'direct',
+          recipientId,
+        })),
+        ...selectedGroupIds.map((conversationId) => ({
+          type: 'group',
+          conversationId,
+        })),
+      ]
+
+    try {
+      uploadedFileId = ID.unique()
+
+      if (!capture.blob || capture.blob.size === 0) {
+        throw new Error('Filen är tom. Ta en ny bild eller spela in en ny video.')
+      }
+
+      const speedAdjustedVideo =
+        capture.type === 'video' && capturePlaybackRate !== 1
+          ? await encodeVideoAtSpeed(capture.blob, capturePlaybackRate)
+          : null
+
+      const uploadFile = new File(
+        [capture.blob],
+        capture.type === 'video' ? 'twist.webm' : 'twist.jpg',
+        {
+          type: capture.blob.type || (
+            capture.type === 'video' ? 'video/webm' : 'image/jpeg'
+          ),
+        }
+      )
+
+      if (uploadFile.size === 0) {
+        throw new Error('Filen blev tom när den förbereddes för uppladdning.')
+      }
+
+      await storage.createFile({
+        bucketId: TWISTS_BUCKET_ID,
+        fileId: uploadedFileId,
+        file: uploadFile,
+        permissions: [
+          Permission.read(Role.users()),
+          Permission.update(Role.user(currentUserId)),
+          Permission.delete(Role.user(currentUserId)),
+        ],
+      })
+
+      const mediaFileId = speedAdjustedVideo
+        ? await uploadTwistVideoVersion(speedAdjustedVideo, currentUserId)
+        : uploadedFileId
+
+      uploadedReference = await createTwistReference(
+        uploadedFileId,
+        currentUserId,
+        {
+          mediaFileId,
+          playbackRate: capture.type === 'video' ? capturePlaybackRate : 1,
+          text: captureText,
+          position: captureTextPosition,
+        }
+      )
+
+      for (const target of selectedTargets) {
+        const conversation = target.type === 'group' ||
+          target.type === 'conversation'
+          ? await tablesDB.getRow({
+              databaseId: DATABASE_ID,
+              tableId: CONVERSATIONS_TABLE_ID,
+              rowId: target.conversationId,
+            })
+          : await ensureDirectConversation(currentUserId, target.recipientId)
+
+        if (target.type === 'group' && conversation.type !== 'group') {
+          throw new Error('Den valda gruppkonversationen finns inte längre.')
+        }
+        if (
+          target.type === 'conversation' &&
+          conversation.type !== target.conversationType
+        ) {
+          throw new Error('Den öppna konversationen finns inte längre.')
+        }
+
+        const twistMessage = await tablesDB.createRow({
+          databaseId: DATABASE_ID,
+          tableId: MESSAGES_TABLE_ID,
+          rowId: ID.unique(),
+          data: {
+            conversationId: conversation.$id,
+            senderId: currentUserId,
+            text: uploadedReference,
+            type: 'twist',
+          },
+          permissions: [
+            Permission.read(Role.users()),
+            Permission.update(Role.user(currentUserId)),
+            Permission.delete(Role.user(currentUserId)),
+          ],
+        })
+
+        sentCount += 1
+
+        if (onScore) {
+          const points = capture.type === 'video'
+            ? Math.max(1, Math.ceil(
+              (capture.durationMs || 0) / capturePlaybackRate / 1000
+            ))
+            : 1
+
+          try {
+            await onScore(points, `sent:${twistMessage.$id}`)
+          } catch (error) {
+            console.error(
+              'Twist Score kunde inte uppdateras efter skickad Twist:',
+              error
+            )
+          }
+        }
+      }
+
+      retakeCapture()
+      onClose?.()
+    } catch (error) {
+      console.error('Kunde inte skicka Twist:', error)
+
+      if (sentCount > 0) {
+        setErrorMessage(
+          `Twist skickades till ${sentCount} av ${selectedTargets.length} mottagare. Ett fel uppstod: ${error.message || 'Okänt fel'}`
+        )
+      } else {
+        setErrorMessage(
+          `Twist kunde inte skickas: ${error.message || 'Okänt fel'}`
+        )
+      }
+    } finally {
+      setSendingTwist(false)
+    }
+  }
+
+  function selectFilter(item) {
+    if (isRecording || cameraState !== 'live') return
+
+    setFilter(item.id)
+    setErrorMessage('')
+  }
+
+  function handleFilterPointerDown(event, item) {
+    pointerClickHandledRef.current = true
+
+    if (filter === item.id) {
+      handleShutterPointerDown(event)
+    } else {
+      selectFilter(item)
+    }
+  }
+
+  function handleFilterClick(item) {
+    if (pointerClickHandledRef.current) {
+      pointerClickHandledRef.current = false
+      return
+    }
+
+    if (filter === item.id) {
+      if (cameraState === 'live' && !isRecording) takePhoto()
+      return
+    }
+
+    selectFilter(item)
+  }
+
+  const recordingProgress = Math.min(
+    (recordingTime / MAX_RECORDING_TIME) * 100,
+    100
+  )
+
+  const recipientOptions = [
+    ...acceptedContacts.map((contact) => ({
+      type: 'person',
+      id: contact.contactUserId,
+      sortAt: contact.lastActivityAt || contact.$updatedAt || contact.$createdAt,
+      contact,
+    })),
+    ...groupConversations.map((conversation) => ({
+      type: 'group',
+      id: conversation.$id,
+      sortAt: conversation.lastActivityAt ||
+        conversation.$updatedAt ||
+        conversation.$createdAt,
+      conversation,
+    })),
+  ].sort((a, b) =>
+    (Date.parse(b.sortAt || '') || 0) - (Date.parse(a.sortAt || '') || 0)
+  )
+
+  return (
+    <section className={`page camera-page${onClose ? ' camera-overlay-page' : ''}`}>
+      {onClose && (
+        <button
+          type="button"
+          className="camera-overlay-close"
+          onClick={onClose}
+          disabled={sendingTwist}
+          aria-label="Stäng kameran"
+        >
+          ×
+        </button>
+      )}
+      <div className="camera-content">
+
+        {/* FÖRHANDSVISNING */}
+        {cameraState === 'preview' && capture && (
+          <div className="capture-preview">
+
+            <div className="capture-preview-stage">
+              {capture.type === 'photo' ? (
+                <img src={capture.url} alt="Din tagna bild" />
+              ) : (
+                <video
+                  ref={captureVideoRef}
+                  src={capture.url}
+                  className="capture-preview-video"
+                  autoPlay
+                  playsInline
+                  loop
+                  muted
+                  onLoadedMetadata={(event) => {
+                    event.currentTarget.playbackRate = capturePlaybackRate
+                  }}
+                />
+              )}
+
+              {(captureText || showCaptureTextEditor) && (
+                <div
+                  className={`capture-text-overlay ${
+                    showCaptureTextEditor ? 'is-editing' : ''
+                  }`}
+                  style={{ top: `${captureTextPosition * 100}%` }}
+                  ref={captureTextEditorRef}
+                  contentEditable={showCaptureTextEditor}
+                  suppressContentEditableWarning
+                  role="textbox"
+                  aria-label="Text på din Twist"
+                  aria-multiline="true"
+                  data-placeholder="Skriv här..."
+                  onInput={(event) =>
+                    setCaptureText(event.currentTarget.innerText)
+                  }
+                />
+              )}
+
+              {!showRecipients && (
+                <>
+                  <button
+                    type="button"
+                    className={`capture-text-toggle ${
+                      showCaptureTextEditor ? 'is-active' : ''
+                    }`}
+                    aria-label={showCaptureTextEditor ? 'Klar med text' : 'Lägg till text'}
+                    aria-expanded={showCaptureTextEditor}
+                    onClick={() =>
+                      setShowCaptureTextEditor((isVisible) => !isVisible)
+                    }
+                  >
+                    T
+                  </button>
+
+                  {capture.type === 'video' && (
+                    <>
+                      <button
+                        type="button"
+                        className={`capture-speed-toggle ${
+                          showCaptureSpeedControl ? 'is-active' : ''
+                        }`}
+                        aria-label="Ändra videohastighet"
+                        aria-expanded={showCaptureSpeedControl}
+                        onClick={() =>
+                          setShowCaptureSpeedControl((isVisible) => !isVisible)
+                        }
+                      >
+                        ⏩
+                      </button>
+
+                      {showCaptureSpeedControl && (
+                        <div className="capture-speed-control" role="group" aria-label="Videohastighet">
+                          {[0.5, 1, 2].map((rate) => (
+                            <button
+                              key={rate}
+                              type="button"
+                              aria-pressed={capturePlaybackRate === rate}
+                              onClick={() => {
+                                setCapturePlaybackRate(rate)
+                                setShowCaptureSpeedControl(false)
+                              }}
+                            >
+                              {rate.toLocaleString('sv-SE')}x
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+
+            {!showRecipients && showCaptureTextEditor && (
+              <label className="capture-text-position">
+                Placering upp / ner
+                <input
+                  type="range"
+                  min="10"
+                  max="90"
+                  value={Math.round(captureTextPosition * 100)}
+                  onChange={(event) =>
+                    setCaptureTextPosition(Number(event.target.value) / 100)
+                  }
+                />
+              </label>
+            )}
+
+            {!showRecipients ? (
+              <>
+                <div className="capture-preview-actions">
+                  <button
+                    className="capture-secondary-button"
+                    onClick={retakeCapture}
+                    disabled={sendingTwist}
+                  >
+                    Retake
+                  </button>
+
+                  <button
+                    className="capture-send-button"
+                    onClick={targetConversation ? sendTwist : openRecipients}
+                    disabled={hasSent || sendingTwist}
+                  >
+                    {sendingTwist
+                      ? 'Sending...'
+                      : hasSent
+                        ? 'Sent ✓'
+                        : targetConversation
+                          ? 'Send to chat'
+                          : 'Send'}
+                  </button>
+                </div>
+
+                {sendMessage && (
+                  <p className="camera-send-message" role="status">
+                    {sendMessage}
+                  </p>
+                )}
+              </>
+            ) : (
+              <div
+                className="twist-recipient-panel"
+                style={{
+                  width: '100%',
+                  maxWidth: '480px',
+                  margin: '18px auto 0',
+                  padding: '22px',
+                  borderRadius: '22px',
+                  background: '#fff',
+                  color: '#320E3B',
+                  boxSizing: 'border-box',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: '16px',
+                  }}
+                >
+                  <div>
+                    <h2 style={{ margin: 0 }}>Send to...</h2>
+                    <p style={{ margin: '5px 0 0', opacity: 0.65 }}>
+                      Choose who gets your Twist.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowRecipients(false)}
+                    disabled={sendingTwist}
+                    aria-label="Tillbaka"
+                    style={{
+                      border: 0,
+                      borderRadius: '50%',
+                      width: '38px',
+                      height: '38px',
+                      cursor: 'pointer',
+                      background: '#F3EAF5',
+                      color: '#320E3B',
+                      fontSize: '22px',
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+
+                {loadingContacts ? (
+                  <p>Laddar dina kontakter...</p>
+                ) : recipientOptions.length === 0 ? (
+                  <p>
+                    Du har inga accepterade kontakter eller grupper ännu.
+                    Lägg till personer eller gå med i en grupp innan du skickar ett Twist.
+                  </p>
+                ) : (
+                  <>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                        gap: '8px',
+                        maxHeight: '260px',
+                        overflowY: 'auto',
+                      }}
+                    >
+                      {recipientOptions.map((option) => {
+                        const isGroup = option.type === 'group'
+                        const contact = option.contact
+                        const conversation = option.conversation
+                        const selected = isGroup
+                          ? selectedGroupIds.includes(option.id)
+                          : selectedRecipientIds.includes(option.id)
+                        const username = contact?.contactUsername || 'Okänd användare'
+                        const name = isGroup
+                          ? conversation.name || 'Namnlös grupp'
+                          : `@${username}`
+
+                        return (
+                          <label
+                            key={`${option.type}-${option.id}`}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              minWidth: 0,
+                              boxSizing: 'border-box',
+                              padding: '10px',
+                              borderRadius: '14px',
+                              background: selected ? '#F3EAF5' : '#FAF7FB',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => isGroup
+                                ? toggleGroupRecipient(option.id)
+                                : toggleRecipient(option.id)}
+                              disabled={sendingTwist}
+                              style={{
+                                width: '18px',
+                                height: '18px',
+                                flexShrink: 0,
+                                accentColor: '#8C52FF',
+                              }}
+                            />
+                            {isGroup ? (
+                              <GroupAvatar
+                                members={conversation.members}
+                                memberCount={conversation.memberCount}
+                                name={conversation.name}
+                                size={32}
+                                className="twist-recipient-group-icon"
+                              />
+                            ) : (
+                              <ProfileAvatar
+                                profile={contact.profile}
+                                userId={contact.contactUserId}
+                                name={username}
+                                size={32}
+                                className="recipient-profile-avatar"
+                              />
+                            )}
+                            <span style={{ minWidth: 0, overflow: 'hidden' }}>
+                              <strong
+                                style={{
+                                  display: 'block',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {name}
+                              </strong>
+                              <small style={{ opacity: 0.65 }}>
+                                {isGroup
+                                  ? `Grupp · ${conversation.memberCount} medlemmar`
+                                  : 'Person'}
+                              </small>
+                            </span>
+                          </label>
+                        )
+                      })}
+                    </div>
+
+                    <p
+                      style={{
+                        margin: '14px 0',
+                        fontSize: '13px',
+                        opacity: 0.65,
+                      }}
+                    >
+                      {selectedRecipientIds.length + selectedGroupIds.length} valda
+                    </p>
+
+                    <button
+                      type="button"
+                      className="capture-send-button"
+                      onClick={sendTwist}
+                      disabled={
+                        (selectedRecipientIds.length === 0 && selectedGroupIds.length === 0) ||
+                        sendingTwist
+                      }
+                      style={{
+                        width: '100%',
+                        opacity:
+                          (selectedRecipientIds.length === 0 && selectedGroupIds.length === 0) ||
+                          sendingTwist
+                            ? 0.55
+                            : 1,
+                      }}
+                    >
+                      {sendingTwist
+                        ? 'Sending Twist...'
+                        : `Send Twist${selectedRecipientIds.length + selectedGroupIds.length > 0
+                          ? ` to ${selectedRecipientIds.length + selectedGroupIds.length}`
+                            : ''
+                          }`}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* KAMERAN */}
+        {cameraState !== 'preview' && (
+          <>
+            <div className={`camera-frame filter-${filter}`}>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="camera-source-video"
+              />
+
+              {cameraState === 'live' ? (
+                <>
+                  <canvas
+                    ref={canvasRef}
+                    className="camera-canvas"
+                    style={{
+                      display: ['glam', 'nolips', 'big-nose', 'sad'].includes(filter) ? 'none' : 'block',
+                    }}
+                  />
+
+                  <canvas
+                    ref={makeupCanvasRef}
+                    className="camera-canvas makeup-canvas"
+                    style={{
+                      display: ['glam', 'nolips', 'big-nose', 'sad'].includes(filter) ? 'block' : 'none',
+                    }}
+                  />
+
+                  <span className="live-label">
+                    <span />
+                    LIVE
+                  </span>
+
+                  {isRecording && (
+                    <div className="recording-indicator">
+                      <span />
+                      REC
+
+                      <div className="recording-progress">
+                        <span
+                          style={{
+                            width: `${recordingProgress}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <button
+                  className="camera-start-area"
+                  onClick={startCamera}
+                  disabled={cameraState === 'loading'}
+                  aria-label="Starta kameran"
+                >
+                  <span className="camera-start-circle">
+                    {cameraState === 'loading' ? '…' : '📷'}
+                  </span>
+
+                  <span className="camera-start-text">
+                    {cameraState === 'loading'
+                      ? 'Startar kameran…'
+                      : cameraState === 'error'
+                        ? 'Försök starta kameran igen'
+                        : 'Tryck för att öppna kameran'}
+                  </span>
+                </button>
+              )}
+
+              <span className="camera-corner corner-tl" />
+              <span className="camera-corner corner-tr" />
+              <span className="camera-corner corner-bl" />
+              <span className="camera-corner corner-br" />
+            </div>
+
+            <div className="camera-controls">
+              <div className="filter-carousel-window">
+                <div
+                  className="filter-carousel"
+                  style={{
+                    transform: `translateX(calc(50% - ${selectedFilterIndex * 64}px - 27px))`,
+                  }}
+                >
+                  {FILTERS.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`filter-option ${
+                        filter === item.id ? 'selected' : ''
+                      } ${filter === item.id && isRecording ? 'recording' : ''}`}
+                      onPointerDown={(event) =>
+                        handleFilterPointerDown(event, item)
+                      }
+                      onPointerUp={handleShutterPointerUp}
+                      onPointerLeave={handleShutterPointerCancel}
+                      onPointerCancel={handleShutterPointerCancel}
+                      onClick={() => handleFilterClick(item)}
+                      aria-label={filter === item.id
+                        ? `Ta foto med ${item.label}; håll in för video`
+                        : `Välj ${item.label}`}
+                      aria-pressed={filter === item.id}
+                      title={item.label}
+                      disabled={
+                        cameraState !== 'live' ||
+                        (isRecording && !pointerDownRef.current)
+                      }
+                    >
+                      {item.symbol && <span>{item.symbol}</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {!['glam', 'nolips', 'big-nose', 'sad'].includes(filter) && cameraState === 'live' && (
+              <p className="selected-filter-label">
+                {FILTERS.find((item) => item.id === filter)?.label}
+              </p>
+            )}
+          </>
+        )}
+
+        {errorMessage && (
+          <p className="camera-error" role="alert">
+            {errorMessage}
+          </p>
+        )}
+
+        {cameraState === 'live' && (
+          <button
+            className="camera-close-button"
+            onClick={stopCamera}
+          >
+            Stäng kameran
+          </button>
+        )}
+      </div>
+    </section>
+  )
 }
