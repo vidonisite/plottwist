@@ -270,7 +270,7 @@ export default function Camera({
   }, [])
 
   const getVisibleCanvas = useCallback(() => {
-    return ['glam', 'nolips'].includes(filterRef.current)
+    return ['glam', 'nolips', 'big-nose'].includes(filterRef.current)
       ? makeupCanvasRef.current
       : canvasRef.current
   }, [])
@@ -734,7 +734,7 @@ export default function Camera({
       return
     }
 
-    if (filter !== 'glam' && filter !== 'nolips') {
+    if (filter !== 'glam' && filter !== 'nolips' && filter !== 'big-nose') {
       const instance = makeupInstanceRef.current
       makeupInstanceRef.current = null
       makeupStartRef.current = false
@@ -767,7 +767,13 @@ export default function Camera({
 
         setErrorMessage('')
 
-        const startFilter = filter === 'nolips' ? startNoLips : startGlam
+        const startFilter = 
+          filter === 'nolips' 
+            ? startNoLips 
+            : filter === 'big-nose' 
+              ? startBigNose 
+              : startGlam
+        
         const instance = await startFilter(video, canvas)
 
         if (cancelled) {
