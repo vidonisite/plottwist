@@ -34,6 +34,7 @@ import {
   isMindARFilter,
 } from './filters/mindar.jsx'
 import { drawSquareFace } from './filters/squareface.jsx'
+import { FACE_EMOJIS, drawFaceEmoji } from './filters/emoji.jsx'
 import {
   createTwistReference,
   uploadTwistVideoVersion,
@@ -47,6 +48,7 @@ import './Camera.css'
 
 const FILTERS = [
   { id: 'none', label: 'No filter', symbol: '📷' },
+  { id: 'emoji', label: 'Emoji', symbol: '😍', isNew: true },
   { id: 'big-nose', label: 'Big Nose', symbol: '👃', isNew: true },
   { id: 'sad', label: 'Sad', symbol: '😟', isNew: true },
   ...MINDAR_FILTERS,
@@ -200,6 +202,7 @@ export default function Camera({
   const makeupInstanceRef = useRef(null)
 
   const filterRef = useRef('none')
+  const selectedEmojiRef = useRef('😍')
   const makeupLifecycleRef = useRef(Promise.resolve())
   const makeupStartRef = useRef(false)
   const mindarInstanceRef = useRef(null)
@@ -220,6 +223,7 @@ export default function Camera({
   const [cameraState, setCameraState] = useState('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const [filter, setFilter] = useState('none')
+  const [selectedEmoji, setSelectedEmoji] = useState('😍')
   const [capture, setCapture] = useState(null)
   const [capturePlaybackRate, setCapturePlaybackRate] = useState(1)
   const [captureText, setCaptureText] = useState('')
@@ -736,6 +740,10 @@ export default function Camera({
         drawFaceFilter(drawSquareFace)
       } else if (activeFilter === 'alien') {
         drawAlien(sourceCanvas, context)
+      } else if (activeFilter === 'emoji') {
+        drawFaceFilter((source, targetContext, face) => {
+          drawFaceEmoji(source, targetContext, face, selectedEmojiRef.current)
+        })
       } else if (activeFilter === 'dreamy') {
         drawDreamy(sourceCanvas, context)
       } else if (activeFilter === 'none') {
@@ -1557,8 +1565,24 @@ export default function Camera({
   function selectFilter(item) {
     if (isRecording || cameraState !== 'live') return
 
+    if (item.id === 'emoji') {
+      selectedEmojiRef.current = FACE_EMOJIS[0]
+      setSelectedEmoji(FACE_EMOJIS[0])
+    }
+
     setFilter(item.id)
     setErrorMessage('')
+  }
+
+  function cycleFaceEmoji(event) {
+    event.preventDefault()
+    event.stopPropagation()
+
+    const currentIndex = FACE_EMOJIS.indexOf(selectedEmojiRef.current)
+    const nextEmoji = FACE_EMOJIS[(currentIndex + 1) % FACE_EMOJIS.length]
+
+    selectedEmojiRef.current = nextEmoji
+    setSelectedEmoji(nextEmoji)
   }
 
   function handleFilterPointerDown(event, item) {
@@ -2005,6 +2029,41 @@ export default function Camera({
                     <span />
                     LIVE
                   </span>
+
+                  {filter === 'emoji' && (
+                    <button
+                      type="button"
+                      aria-label={`Byt ansiktsemoji. Nuvarande emoji: ${selectedEmoji}`}
+                      title="Tryck för att byta emoji"
+                      disabled={isRecording}
+                      onPointerDown={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                      }}
+                      onClick={cycleFaceEmoji}
+                      style={{
+                        position: 'absolute',
+                        zIndex: 5,
+                        top: '16px',
+                        right: '16px',
+                        width: '58px',
+                        height: '58px',
+                        display: 'grid',
+                        placeItems: 'center',
+                        border: '2px solid rgba(255,255,255,0.85)',
+                        borderRadius: '50%',
+                        background: 'rgba(50,14,59,0.78)',
+                        color: '#fff',
+                        fontSize: '30px',
+                        lineHeight: 1,
+                        cursor: isRecording ? 'default' : 'pointer',
+                        boxShadow: '0 3px 14px rgba(0,0,0,0.22)',
+                        touchAction: 'manipulation',
+                      }}
+                    >
+                      {selectedEmoji}
+                    </button>
+                  )}
 
                   {isRecording && (
                     <div className="recording-indicator">
