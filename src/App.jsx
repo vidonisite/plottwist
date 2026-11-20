@@ -454,9 +454,10 @@ export default function App() {
     return () => unsubscribe()
   }, [currentUser?.$id, activeChat?.id, activeChat?.type])
 
-  // Hämta alla konversationer där användaren är medlem.
+  // Hämta konversationerna i större batchar i stället för att göra
+  // separata medlems-, profil- och konversationshämtningar för varje chatt.
   useEffect(() => {
-    if (!currentUser) {
+    if (!currentUser?.$id) {
       setChats([])
       return
     }
@@ -468,70 +469,91 @@ export default function App() {
       setChatError('')
 
       try {
-        const [profilesResponse, membershipsResponse] =
-          await Promise.all([
-            tablesDB.listRows({
-              databaseId: DATABASE_ID,
-              tableId: USERS_TABLE_ID,
-              queries: [Query.limit(100)],
-            }),
+        // Först hämtas användarens medlemsrader. De ger alla conversationId.
+        const membershipsResponse = await tablesDB.listRows({
+          databaseId: DATABASE_ID,
+          tableId: CONVERSATION_MEMBERS_TABLE_ID,
+          queries: [
+            Query.equal('userId', [currentUser.$id]),
+            Query.limit(100),
+          ],
+        })
 
-            tablesDB.listRows({
-              databaseId: DATABASE_ID,
-              tableId: CONVERSATION_MEMBERS_TABLE_ID,
-              queries: [
-                Query.equal('userId', [currentUser.$id]),
-                Query.limit(100),
-              ],
-            }),
-          ])
-
-        const profiles = profilesResponse.rows
         const memberships = membershipsResponse.rows
+        const conversationIds = [...new Set(
+          memberships.map((membership) => membership.conversationId).filter(Boolean)
+        )]
+
+        if (conversationIds.length === 0) {
+          if (!cancelled) {
+            setChats([])
+          }
+          return
+        }
+
+        // Hämta alla konversationer och alla medlemsrader i två batchar.
+        const [conversationsResponse, allMembersResponse] = await Promise.all([
+          tablesDB.listRows({
+            databaseId: DATABASE_ID,
+            tableId: CONVERSATIONS_TABLE_ID,
+            queries: [
+              Query.equal('$id', conversationIds),
+              Query.limit(100),
+            ],
+          }),
+          tablesDB.listRows({
+            databaseId: DATABASE_ID,
+            tableId: CONVERSATION_MEMBERS_TABLE_ID,
+            queries: [
+              Query.equal('conversationId', conversationIds),
+              Query.limit(5000),
+            ],
+          }),
+        ])
+
+        const conversationsById = new Map(
+          conversationsResponse.rows.map((conversation) => [conversation.$id, conversation])
+        )
+        const membersByConversation = new Map()
+        const allMemberUserIds = new Set([currentUser.$id])
+
+        for (const member of allMembersResponse.rows) {
+          if (!membersByConversation.has(member.conversationId)) {
+            membersByConversation.set(member.conversationId, [])
+          }
+          membersByConversation.get(member.conversationId).push(member)
+          if (member.userId) allMemberUserIds.add(member.userId)
+        }
+
+        // Hämta bara profilerna som faktiskt behövs för dessa konversationer.
+        const profilesResponse = await tablesDB.listRows({
+          databaseId: DATABASE_ID,
+          tableId: USERS_TABLE_ID,
+          queries: [
+            Query.equal('userId', [...allMemberUserIds]),
+            Query.limit(5000),
+          ],
+        })
+        const profilesByUserId = new Map(
+          profilesResponse.rows.map((item) => [item.userId, item])
+        )
+        if (profileRef.current?.userId) {
+          profilesByUserId.set(profileRef.current.userId, profileRef.current)
+        }
 
         const loadedChats = await Promise.all(
           memberships.map(async (membership) => {
             try {
-              const conversation = await tablesDB.getRow({
-                databaseId: DATABASE_ID,
-                tableId: CONVERSATIONS_TABLE_ID,
-                rowId: membership.conversationId,
-              })
-
-              const membersResponse = await tablesDB.listRows({
-                databaseId: DATABASE_ID,
-                tableId: CONVERSATION_MEMBERS_TABLE_ID,
-                queries: [
-                  Query.equal('conversationId', [conversation.$id]),
-                  Query.limit(100),
-                ],
-              })
-
-              const members = membersResponse.rows
-              const memberCount = membersResponse.total ?? members.length
-              const memberUserIds = members.map((member) => member.userId)
-              let memberProfiles = profiles.filter((item) =>
-                memberUserIds.includes(item.userId)
-              )
-              const missingProfileUserIds = memberUserIds.filter(
-                (userId) => !memberProfiles.some((item) => item.userId === userId)
-              )
-
-              if (missingProfileUserIds.length > 0) {
-                const additionalProfilesResponse = await tablesDB.listRows({
-                  databaseId: DATABASE_ID,
-                  tableId: USERS_TABLE_ID,
-                  queries: [
-                    Query.equal('userId', missingProfileUserIds),
-                    Query.limit(100),
-                  ],
-                })
-                memberProfiles = [...memberProfiles, ...additionalProfilesResponse.rows]
+              const conversation = conversationsById.get(membership.conversationId)
+              if (!conversation) {
+                throw new Error('Konversationen kunde inte hittas.')
               }
 
-              // Hämta olästa meddelanden som skickats efter senaste läsningen.
+              const members = membersByConversation.get(conversation.$id) || []
+              const memberCount = members.length
+              // Olästa meddelanden räknas fortfarande separat per konversation.
+              // Det bevarar den befintliga läslogiken och filtreringen av spelhändelser.
               const lastReadAt = membership.lastReadAt || membership.$createdAt
-
               const unreadResponse = await tablesDB.listRows({
                 databaseId: DATABASE_ID,
                 tableId: MESSAGES_TABLE_ID,
@@ -552,21 +574,17 @@ export default function App() {
                   Query.limit(1),
                 ],
               })
-
               const unreadCount = unreadResponse.total || 0
 
               if (conversation.type === 'group') {
                 const groupMembers = members.map((member) => {
-                  const memberProfile = memberProfiles.find(
-                    (item) => item.userId === member.userId
-                  )
-
+                  const memberProfile = profilesByUserId.get(member.userId)
                   return {
                     userId: member.userId,
                     username: memberProfile?.username || 'Okänd användare',
                     twistscore: memberProfile?.twistscore ?? 0,
                     avatarProfile: memberProfile || (
-                      member.userId === currentUser.$id ? profile : null
+                      member.userId === currentUser.$id ? profileRef.current : null
                     ),
                   }
                 })
@@ -595,15 +613,10 @@ export default function App() {
               const otherMember = members.find(
                 (member) => member.userId !== currentUser.$id
               )
-
               if (!otherMember) return null
 
-              const otherProfile = memberProfiles.find(
-                (item) => item.userId === otherMember.userId
-              )
-
-              const username =
-                otherProfile?.username || 'Okänd användare'
+              const otherProfile = profilesByUserId.get(otherMember.userId)
+              const username = otherProfile?.username || 'Okänd användare'
 
               const latestMessageResponse = await tablesDB.listRows({
                 databaseId: DATABASE_ID,
@@ -626,12 +639,9 @@ export default function App() {
                 members: [
                   {
                     userId: currentUser.$id,
-                    username:
-                      profile?.username || currentUser.name || 'Du',
-                    twistscore: profile?.twistscore ?? 0,
-                    avatarProfile: profile || profiles.find(
-                      (item) => item.userId === currentUser.$id
-                    ),
+                    username: profileRef.current?.username || currentUser.name || 'Du',
+                    twistscore: profileRef.current?.twistscore ?? 0,
+                    avatarProfile: profileRef.current || profilesByUserId.get(currentUser.$id),
                   },
                   {
                     userId: otherMember.userId,
@@ -654,15 +664,11 @@ export default function App() {
                 conversationIdForLog(membership),
                 error
               )
-
               if (!cancelled) {
                 setChatError(
-                  `Kunde inte läsa konversationen: ${
-                    error.message || 'Okänt fel'
-                  }`
+                  `Kunde inte läsa konversationen: ${error.message || 'Okänt fel'}`
                 )
               }
-
               return null
             }
           })
@@ -672,43 +678,31 @@ export default function App() {
 
         const uniqueChats = Array.from(
           new Map(
-            loadedChats
-              .filter(Boolean)
-              .map((chat) => [chat.id, chat])
+            loadedChats.filter(Boolean).map((chat) => [chat.id, chat])
           ).values()
         )
-
         setChats(uniqueChats)
-
-        // Uppdatera den aktiva chatten om den finns kvar.
         setActiveChat((previous) => {
           if (!previous) return previous
-
-          return uniqueChats.find(
-            (chat) => chat.id === previous.id
-          ) || previous
+          return uniqueChats.find((chat) => chat.id === previous.id) || previous
         })
       } catch (error) {
         console.error('Kunde inte ladda chattlistan:', error)
-
         if (!cancelled) {
           setChatError(
             `Kunde inte ladda chattar: ${error.message || 'Okänt fel'}`
           )
         }
       } finally {
-        if (!cancelled) {
-          setLoadingChats(false)
-        }
+        if (!cancelled) setLoadingChats(false)
       }
     }
 
     loadChats()
-
     return () => {
       cancelled = true
     }
-  }, [currentUser, chatsRefresh])
+  }, [currentUser?.$id, chatsRefresh])
 
   useEffect(() => {
     if (!currentUser?.$id || loadingChats || activeView === 'games') return
