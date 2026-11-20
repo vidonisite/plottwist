@@ -40,7 +40,7 @@ export function drawFaceEmoji(source, outputContext, landmarks, emoji = '😍') 
   const leftEye = landmarks[33]
   const rightEye = landmarks[263]
   const angle = leftEye && rightEye
-    ? Math.atan2(
+    ? -Math.atan2(
         (rightEye.y - leftEye.y) * height,
         (rightEye.x - leftEye.x) * width
       )
