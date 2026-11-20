@@ -377,8 +377,8 @@ export default function Chat({
         ],
       })
 
+      // Realtime-prenumerationen laddar in meddelandet. Gör ingen extra listRows här.
       setDraft('')
-      await loadMessages()
     } catch (error) {
       console.error('Kunde inte skicka meddelandet:', error)
 
@@ -467,7 +467,7 @@ export default function Chat({
         },
       })
 
-      await loadMessages()
+      // Realtime-prenumerationen hämtar den uppdaterade raden.
     } catch (error) {
       console.error('Meddelandet kunde inte tas bort:', error)
       setErrorMessage(
@@ -516,7 +516,7 @@ export default function Chat({
       })
       setEditingMessageId(null)
       setEditingText('')
-      await loadMessages()
+      // Realtime-prenumerationen hämtar den uppdaterade raden.
     } catch (error) {
       console.error('Meddelandet kunde inte ändras:', error)
       setErrorMessage(
