@@ -9,6 +9,13 @@ export const MINDAR_FILTERS = [
     symbol: '🕶️',
     isNew: true,
   },
+  {
+    id: 'xmas',
+    assetId: 'xmas',
+    label: 'Xmas Filter',
+    symbol: '🎅',
+    isNew: true,
+  },
 ]
 
 export function getMindARFilter(cameraFilterId) {
