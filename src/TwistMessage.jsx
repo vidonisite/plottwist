@@ -1,6 +1,4 @@
-
 import { useCallback, useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { Query, Permission, Role } from 'appwrite'
 
 import {
@@ -11,10 +9,41 @@ import {
   MESSAGE_READS_TABLE_ID,
   TWISTS_BUCKET_ID,
 } from './lib/appwrite.js'
-import { loadTwistSettings } from './lib/twistMedia.js'
+import { getTwistFile, loadTwistSettings } from './lib/twistMedia.js'
 import ProfileAvatar from './components/ProfileAvatar.jsx'
 
 import './TwistMessage.css'
+
+// Alla TwistMessage-komponenter delar en enda Appwrite-prenumeration.
+// Varje komponent får fortfarande bara de händelser som gäller dess egen Twist.
+const messageReadsListeners = new Set()
+let messageReadsUnsubscribe = null
+
+function subscribeToMessageReads(listener) {
+  messageReadsListeners.add(listener)
+
+  if (!messageReadsUnsubscribe) {
+    messageReadsUnsubscribe = client.subscribe(
+      `databases.${DATABASE_ID}.tables.${MESSAGE_READS_TABLE_ID}.rows`,
+      (event) => {
+        const row = event.payload
+
+        for (const registeredListener of messageReadsListeners) {
+          registeredListener(row)
+        }
+      }
+    )
+  }
+
+  return () => {
+    messageReadsListeners.delete(listener)
+
+    if (messageReadsListeners.size === 0 && messageReadsUnsubscribe) {
+      messageReadsUnsubscribe()
+      messageReadsUnsubscribe = null
+    }
+  }
+}
 
 async function stableReadRowId(messageId, userId) {
   const digest = await crypto.subtle.digest(
@@ -91,20 +120,12 @@ export default function TwistMessage({
 
     if (isMine || !currentUserId) return
 
-    const unsubscribe = client.subscribe(
-      `databases.${DATABASE_ID}.tables.${MESSAGE_READS_TABLE_ID}.rows`,
-      (event) => {
-        const row = event.payload
-
-        if (
-          row?.messageId === messageId &&
-          row?.userId === currentUserId
-        ) {
-          setHasOpened(true)
-          setErrorMessage('')
-        }
+    const unsubscribe = subscribeToMessageReads((row) => {
+      if (row?.messageId === messageId && row?.userId === currentUserId) {
+        setHasOpened(true)
+        setErrorMessage('')
       }
-    )
+    })
 
     return () => unsubscribe()
   }, [checkIfOpened, messageId, currentUserId, isMine])
@@ -139,29 +160,23 @@ export default function TwistMessage({
 
     loadOpeners()
 
-    const unsubscribe = client.subscribe(
-      `databases.${DATABASE_ID}.tables.${MESSAGE_READS_TABLE_ID}.rows`,
-      (event) => {
-        const row = event.payload
-
-        if (
-          row?.messageId === messageId &&
-          row?.userId &&
-          row.userId !== currentUserId
-        ) {
-          setOpenedByIds((previous) =>
-            previous.includes(row.userId)
-              ? previous
-              : [...previous, row.userId]
-          )
-        }
+    const unsubscribe = subscribeToMessageReads((row) => {
+      if (
+        row?.messageId === messageId &&
+        row?.userId &&
+        row.userId !== currentUserId
+      ) {
+        setOpenedByIds((previous) =>
+          previous.includes(row.userId)
+            ? previous
+            : [...previous, row.userId]
+        )
       }
-    )
+    })
 
     return () => unsubscribe()
   }, [isMine, loadOpeners, messageId, currentUserId])
 
-  // Frigör bildens/videons objekt-URL när den byts ut eller komponenten tas bort.
   useEffect(() => {
     return () => {
       if (mediaUrl) {
@@ -170,22 +185,8 @@ export default function TwistMessage({
     }
   }, [mediaUrl])
 
-  // Förhindra att sidan bakom fullskärmsvisningen scrollas.
+  // Stäng med Escape eller gå vidare till nästa oöppnade Twist.
   useEffect(() => {
-    if (!mediaUrl) return
-
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    return () => {
-      document.body.style.overflow = previousOverflow
-    }
-  }, [mediaUrl])
-
-  // Stäng med Escape eller gå vidare med högerpil.
-  useEffect(() => {
-    if (!mediaUrl) return
-
     function handleKeyDown(event) {
       if (event.key === 'Escape') {
         closeTwist()
@@ -195,21 +196,17 @@ export default function TwistMessage({
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
+    if (mediaUrl) {
+      window.addEventListener('keydown', handleKeyDown)
+    }
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [mediaUrl, nextTwistId])
 
-  // Hitta nästa oöppnade Twist.
   useEffect(() => {
-    if (
-      !mediaUrl ||
-      isMine ||
-      !currentUserId ||
-      followingTwistIds.length === 0
-    ) {
+    if (!mediaUrl || isMine || !currentUserId || followingTwistIds.length === 0) {
       setNextTwistId(null)
       setNextTwistError('')
       return
@@ -222,13 +219,8 @@ export default function TwistMessage({
       setNextTwistError('')
 
       try {
-        for (
-          let offset = 0;
-          offset < followingTwistIds.length;
-          offset += 100
-        ) {
+        for (let offset = 0; offset < followingTwistIds.length; offset += 100) {
           const candidates = followingTwistIds.slice(offset, offset + 100)
-
           const response = await tablesDB.listRows({
             databaseId: DATABASE_ID,
             tableId: MESSAGE_READS_TABLE_ID,
@@ -239,14 +231,8 @@ export default function TwistMessage({
             ],
           })
 
-          const openedIds = new Set(
-            response.rows.map((row) => row.messageId)
-          )
-
-          const nextId = candidates.find(
-            (candidateId) => !openedIds.has(candidateId)
-          )
-
+          const openedIds = new Set(response.rows.map((row) => row.messageId))
+          const nextId = candidates.find((candidateId) => !openedIds.has(candidateId))
           if (nextId) {
             if (!cancelled) setNextTwistId(nextId)
             return
@@ -254,7 +240,6 @@ export default function TwistMessage({
         }
       } catch (error) {
         console.error('Kunde inte kontrollera nästa oöppnade Twist:', error)
-
         if (!cancelled) {
           setNextTwistError('Nästa Twist kunde inte kontrolleras.')
         }
@@ -266,12 +251,7 @@ export default function TwistMessage({
     return () => {
       cancelled = true
     }
-  }, [
-    mediaUrl,
-    isMine,
-    currentUserId,
-    followingTwistSignature,
-  ])
+  }, [mediaUrl, isMine, currentUserId, followingTwistSignature])
 
   // Öppna Twisten.
   async function openTwist() {
@@ -284,7 +264,6 @@ export default function TwistMessage({
 
     try {
       const settings = await loadTwistSettings(message.text)
-
       const file = await storage.getFile({
         bucketId: TWISTS_BUCKET_ID,
         fileId: settings.mediaFileId,
@@ -303,10 +282,8 @@ export default function TwistMessage({
         'arrayBuffer'
       )
 
-      const isVideo =
-        file.mimeType?.startsWith('video/') ||
+      const isVideo = file.mimeType?.startsWith('video/') ||
         file.name?.toLowerCase().endsWith('.webm')
-
       const mimeType = isVideo
         ? file.mimeType || 'video/webm'
         : file.mimeType?.startsWith('image/')
@@ -319,7 +296,6 @@ export default function TwistMessage({
 
       if (!isMine && !hasOpened) {
         const readRowId = await stableReadRowId(messageId, currentUserId)
-
         await tablesDB.createRow({
           databaseId: DATABASE_ID,
           tableId: MESSAGE_READS_TABLE_ID,
@@ -340,25 +316,20 @@ export default function TwistMessage({
       setMediaType(isVideo ? 'video' : 'image')
       setMediaUrl(objectUrl)
       objectUrl = ''
-
       if (!isMine) {
         setHasOpened(true)
-
         if (onScore) {
           try {
             await onScore(1, `opened:${messageId}`)
           } catch (error) {
-            console.error(
-              'Twist Score kunde inte uppdateras efter öppning:',
-              error
-            )
-
+            console.error('Twist Score kunde inte uppdateras efter öppning:', error)
             setErrorMessage(
               `Twisten öppnades, men poängen kunde inte sparas: ${error.message || 'Okänt fel'}`
             )
           }
         }
       }
+
     } catch (error) {
       console.error('TWIST ERROR:', {
         message: error.message,
@@ -401,19 +372,16 @@ export default function TwistMessage({
     }
   }
 
-  function closeTwist() {
-    setMediaUrl('')
-    setTwistSettings(null)
-    setNextTwistId(null)
-    setNextTwistError('')
-  }
-
   function openNextTwist() {
     if (!nextTwistId || !onOpenNextTwist) return
 
-    const nextId = nextTwistId
     closeTwist()
-    onOpenNextTwist(nextId)
+    onOpenNextTwist(nextTwistId)
+  }
+
+  function closeTwist() {
+    setMediaUrl('')
+    setTwistSettings(null)
   }
 
   useEffect(() => {
@@ -424,130 +392,37 @@ export default function TwistMessage({
   }, [openRequested, messageId, onOpenRequestHandled])
 
   const openerNames = openedByIds.map((userId) => {
-    const username = members.find(
-      (member) => member.userId === userId
-    )?.username || 'Okänd användare'
+    const username = members.find((member) => member.userId === userId)
+      ?.username || 'Okänd användare'
 
-    return username === 'Okänd användare'
-      ? username
-      : `@${username}`
+    return username === 'Okänd användare' ? username : `@${username}`
   })
-
-  const twistSender = members.find(
-    (member) => member.userId === message.senderId
-  )
-
+  const twistSender = members.find((member) => member.userId === message.senderId)
   const twistSenderName = twistSender?.username || 'Okänd användare'
-
   const twistSenderLabel = twistSenderName === 'Okänd användare'
     ? twistSenderName
     : `@${twistSenderName}`
-
-  const fullscreenContent = mediaUrl && createPortal(
-    <div
-      className="twist-fullscreen"
-      onClick={closeTwist}
-      role="presentation"
-    >
-      <button
-        type="button"
-        className="twist-close"
-        onClick={closeTwist}
-        aria-label="Stäng Twist"
-      >
-        ×
-      </button>
-
-      <div
-        className="twist-media-container"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="twist-sender">
-          <ProfileAvatar
-            profile={twistSender?.avatarProfile}
-            userId={message.senderId}
-            name={twistSenderName}
-            size={40}
-            className="twist-sender-avatar"
-          />
-          <span>{twistSenderLabel}</span>
-        </div>
-
-        <div className="twist-media-stage">
-          {mediaType === 'video' ? (
-            <video
-              src={mediaUrl}
-              className="twist-media"
-              autoPlay
-              playsInline
-              loop
-              muted
-            />
-          ) : (
-            <img
-              src={mediaUrl}
-              className="twist-media"
-              alt="Öppnad Twist"
-            />
-          )}
-
-          {twistSettings?.text && (
-            <div
-              className="twist-text-overlay"
-              style={{
-                top: `${twistSettings.position * 100}%`,
-              }}
-            >
-              {twistSettings.text}
-            </div>
-          )}
-        </div>
-
-        {nextTwistError && (
-          <p className="twist-navigation-error" role="alert">
-            {nextTwistError}
-          </p>
-        )}
-      </div>
-
-      {nextTwistId && (
-        <button
-          type="button"
-          className="twist-next-button"
-          onClick={(event) => {
-            event.stopPropagation()
-            openNextTwist()
-          }}
-          aria-label="Öppna nästa Twist"
-          title="Nästa Twist"
-        >
-          →
-        </button>
-      )}
-    </div>,
-    document.body
-  )
 
   return (
     <>
       <div className="twist-message">
         {isMine ? (
-          <div
-            className={`twist-status ${
-              openerNames.length
-                ? 'twist-opened twist-status-readers'
-                : ''
-            }`}
-          >
-            <span className="twist-status-icon">
-              {openerNames.length ? '✓' : '✳'}
-            </span>
-            <span>
-              {openerNames.length
-                ? `ÖPPNAD AV ${openerNames.join(', ')}`
-                : 'TWIST SKICKAD'}
-            </span>
-          </div>
+          <>
+            <div
+              className={`twist-status ${
+                openerNames.length ? 'twist-opened twist-status-readers' : ''
+              }`}
+            >
+              <span className="twist-status-icon">
+                {openerNames.length ? '✓' : '✳'}
+              </span>
+              <span>
+                {openerNames.length
+                  ? `ÖPPNAD AV ${openerNames.join(', ')}`
+                  : 'TWIST SKICKAD'}
+              </span>
+            </div>
+          </>
         ) : checking ? (
           <div className="twist-status">
             Hämtar Twist...
@@ -559,7 +434,6 @@ export default function TwistMessage({
           </div>
         ) : (
           <button
-            type="button"
             className="twist-open-button"
             onClick={openTwist}
             disabled={opening}
@@ -587,7 +461,84 @@ export default function TwistMessage({
         </span>
       </div>
 
-      {fullscreenContent}
+      {mediaUrl && (
+        <div
+          className="twist-fullscreen"
+          onClick={closeTwist}
+        >
+          <button
+            className="twist-close"
+            onClick={closeTwist}
+            aria-label="Stäng Twist"
+          >
+            ×
+          </button>
+
+          <div
+            className="twist-media-container"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="twist-sender">
+              <ProfileAvatar
+                profile={twistSender?.avatarProfile}
+                userId={message.senderId}
+                name={twistSenderName}
+                size={40}
+                className="twist-sender-avatar"
+              />
+              <span>{twistSenderLabel}</span>
+            </div>
+            <div className="twist-media-stage">
+              {mediaType === 'video' ? (
+                <video
+                  src={mediaUrl}
+                  className="twist-media"
+                  autoPlay
+                  playsInline
+                  loop
+                  muted
+                />
+              ) : (
+                <img
+                  src={mediaUrl}
+                  className="twist-media"
+                  alt="Öppnad Twist"
+                />
+              )}
+
+              {twistSettings?.text && (
+                <div
+                  className="twist-text-overlay"
+                  style={{
+                    top: `${twistSettings.position * 100}%`,
+                  }}
+                >
+                  {twistSettings.text}
+                </div>
+              )}
+            </div>
+            {nextTwistError && (
+              <p className="twist-navigation-error" role="alert">
+                {nextTwistError}
+              </p>
+            )}
+          </div>
+          {nextTwistId && (
+            <button
+              type="button"
+              className="twist-next-button"
+              onClick={(event) => {
+                event.stopPropagation()
+                openNextTwist()
+              }}
+              aria-label="Öppna nästa Twist"
+              title="Nästa Twist"
+            >
+              →
+            </button>
+          )}
+        </div>
+      )}
     </>
   )
 }
