@@ -46,8 +46,8 @@ export function drawFaceEmoji(source, outputContext, landmarks, emoji = '😍') 
 
   if (faceWidth <= 0 || faceHeight <= 0) return
 
-  const centerX = ((minX + maxX) / 2) * width
-  const centerY = ((minY + maxY) / 2) * height
+  const centerX = ((minX + maxX) / 2) * width + faceWidth * 0.025
+  const centerY = ((minY + maxY) / 2) * height - faceHeight * 0.07
 
   // Ögonens positioner är nu också spegelvända.
   const leftEye = mirroredLandmarks[33]
