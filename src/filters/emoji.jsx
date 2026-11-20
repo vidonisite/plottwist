@@ -55,7 +55,7 @@ export function drawFaceEmoji(source, outputContext, landmarks, emoji = '😍') 
 
   // Beräkna rotationen direkt från den spegelvända bilden.
   const angle = leftEye && rightEye
-    ? Math.atan2(
+    ? -Math.atan2(
         (rightEye.y - leftEye.y) * height,
         (rightEye.x - leftEye.x) * width
       )
