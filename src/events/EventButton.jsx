@@ -1,11 +1,13 @@
 
 import { useEffect, useState } from 'react'
+import { Snowflake } from 'lucide-react'
 import {
   getVisibleEvent,
   setEventTheme,
+  hasShownExpansion,
+  markExpansionShown,
 } from './eventManager'
 import './eventButton.css'
-import './themes/christmas.css'
 
 function getCountdown(target) {
   const difference = Math.max(0, target.getTime() - Date.now())
@@ -24,24 +26,38 @@ function getCountdown(target) {
 
 export default function EventButton({ disabled = false }) {
   const [now, setNow] = useState(() => new Date())
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(false)
   const [themeEnabled, setThemeEnabled] = useState(true)
 
   const event = getVisibleEvent(now)
 
-  // Uppdatera klockan och eventstatusen varje sekund
   useEffect(() => {
-    const interval = setInterval(() => {
+    function updateTime() {
       setNow(new Date())
-    }, 1000)
+    }
 
-    return () => clearInterval(interval)
+    const interval = setInterval(updateTime, 1000)
+
+    document.addEventListener('visibilitychange', updateTime)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', updateTime)
+    }
   }, [])
 
-  // Expandera automatiskt när knappen visas
   useEffect(() => {
-    if (!event) return
+    if (!event || event.phase !== 'upcoming') {
+      setExpanded(false)
+      return
+    }
 
+    if (hasShownExpansion(event)) {
+      setExpanded(false)
+      return
+    }
+
+    markExpansionShown(event)
     setExpanded(true)
 
     const timeout = setTimeout(() => {
@@ -51,37 +67,27 @@ export default function EventButton({ disabled = false }) {
     return () => clearTimeout(timeout)
   }, [event?.id, event?.year, event?.phase])
 
-  // Läs in användarens sparade temainställning
   useEffect(() => {
     if (event?.phase === 'active') {
       setThemeEnabled(event.themeEnabled)
     }
-  }, [event?.id, event?.year, event?.phase])
-
-  // Lägg till eller ta bort eventets tema
-  useEffect(() => {
-    if (!event) return
-
-    document.body.classList.toggle(
-      event.bodyClass,
-      event.phase === 'active' && themeEnabled
-    )
-
-    return () => {
-      document.body.classList.remove(event.bodyClass)
-    }
-  }, [event?.id, event?.year, event?.phase, event?.bodyClass, themeEnabled])
+  }, [
+    event?.id,
+    event?.year,
+    event?.phase,
+    event?.themeEnabled,
+  ])
 
   if (!event) return null
 
-  const EventIcon = event.icon
-  const isUpcoming = event.phase === 'upcoming'
-  const countdown = isUpcoming
+  const countdown = event.phase === 'upcoming'
     ? getCountdown(event.startsAt)
     : null
 
   function handleClick() {
-    if (disabled || isUpcoming) return
+    if (disabled || event.phase !== 'active' || event.testMode) {
+      return
+    }
 
     const nextValue = !themeEnabled
 
@@ -95,27 +101,36 @@ export default function EventButton({ disabled = false }) {
       className={[
         'event-button',
         `event-button-${event.id}`,
-        expanded && isUpcoming ? 'event-button-expanded' : '',
-        themeEnabled && !isUpcoming ? 'event-button-enabled' : '',
+        expanded && event.phase === 'upcoming'
+          ? 'event-button-expanded'
+          : '',
+        themeEnabled && event.phase === 'active'
+          ? 'event-button-enabled'
+          : '',
       ].filter(Boolean).join(' ')}
       onClick={handleClick}
-      disabled={disabled || isUpcoming}
-      aria-label={
-        isUpcoming
-          ? `${event.name} börjar om ${countdown}`
-          : `${event.name}: tema ${themeEnabled ? 'på' : 'av'}`
+      disabled={
+        disabled ||
+        event.phase === 'upcoming' ||
+        event.testMode
       }
-      title={event.name}
+      aria-label={
+        event.phase === 'upcoming'
+          ? `Christmas starts in ${countdown}`
+          : `Christmas theme ${themeEnabled ? 'on' : 'off'}`
+      }
+      title="Event"
     >
       <span className="event-button-icon">
-        <EventIcon aria-hidden="true" />
+        <Snowflake aria-hidden="true" />
       </span>
 
-      {expanded && isUpcoming && (
+      {expanded && event.phase === 'upcoming' && (
         <span className="event-button-countdown">
           <span className="event-button-name">
-            {event.name} starts in
+            Christmas starts in
           </span>
+
           <span className="event-button-time">
             {countdown}
           </span>
