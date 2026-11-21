@@ -83,12 +83,24 @@
 
 .snowman {
   position: absolute;
-  z-index: 8;
-  right: 24px;
-  bottom: 152px;
+  z-index: 9;
+
+  right: 8px;
+  bottom: calc(100% - 8px);
+
   width: auto;
   height: 50px;
+
   padding: 0;
+  pointer-events: none;
+
+  transition:
+    right .35s ease,
+    bottom .15s ease;
+}
+
+.event-button-expanded .snowman {
+  right: 8px;
 }
 
 @keyframes event-countdown-appear {
