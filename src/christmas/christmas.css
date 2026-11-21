@@ -621,3 +621,122 @@ body.christmas-theme .pwa-update-now {
     scroll-behavior: auto;
   }
 }
+
+
+
+/* ========================================
+   CHRISTMAS TAKEOVER – CAMERA
+======================================== */
+
+/* Julig kameraram */
+body.christmas-theme .camera-frame {
+  border: 2px solid #d7ad76;
+  box-shadow:
+    0 0 0 5px rgba(196, 67, 82, 0.12),
+    0 12px 40px rgba(80, 20, 30, 0.22);
+}
+
+/* Rött startläge */
+body.christmas-theme .camera-start-area {
+  background:
+    radial-gradient(
+      circle at 50% 38%,
+      rgba(255, 225, 190, 0.16),
+      transparent 42%
+    ),
+    radial-gradient(
+      circle at 10% 100%,
+      rgba(35, 100, 65, 0.55),
+      transparent 50%
+    ),
+    linear-gradient(145deg, #8f263b, #651d32 65%, #421b2c);
+
+  color: #fff8ed;
+}
+
+/* Lite ljusare när man håller musen över */
+body.christmas-theme .camera-start-area:hover {
+  background:
+    radial-gradient(
+      circle at 50% 38%,
+      rgba(255, 225, 190, 0.22),
+      transparent 42%
+    ),
+    radial-gradient(
+      circle at 10% 100%,
+      rgba(35, 100, 65, 0.6),
+      transparent 50%
+    ),
+    linear-gradient(145deg, #a53249, #76243b 65%, #502034);
+}
+
+/* Startknappen */
+body.christmas-theme .camera-start-circle {
+  width: 88px;
+  height: 88px;
+  border: 2px solid rgba(244, 211, 157, 0.85);
+  background: linear-gradient(145deg, #f0d3a0, #c99a5b);
+  color: #70263a;
+  box-shadow:
+    0 0 0 7px rgba(244, 211, 157, 0.12),
+    0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+/* Starttext */
+body.christmas-theme .camera-start-text {
+  color: rgba(255, 248, 237, 0.9);
+}
+
+/* Juliga hörnmarkeringar */
+body.christmas-theme .camera-corner {
+  border-color: rgba(244, 211, 157, 0.9);
+}
+
+/* Snöflingor i kamerarutan */
+body.christmas-theme .camera-start-area::before {
+  content: "❄     ✦       ❄";
+  position: absolute;
+  top: 13%;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  color: rgba(255, 239, 208, 0.65);
+  font-size: 19px;
+  letter-spacing: 18px;
+  pointer-events: none;
+  animation: christmas-snow 4s ease-in-out infinite;
+}
+
+body.christmas-theme .camera-start-area::after {
+  content: "✦       ❄       ✦";
+  position: absolute;
+  bottom: 12%;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  color: rgba(255, 239, 208, 0.55);
+  font-size: 16px;
+  letter-spacing: 15px;
+  pointer-events: none;
+  animation: christmas-snow 5s ease-in-out infinite reverse;
+}
+
+@keyframes christmas-snow {
+  0%, 100% {
+    opacity: 0.45;
+    transform: translateY(0);
+  }
+
+  50% {
+    opacity: 0.9;
+    transform: translateY(5px);
+  }
+}
+
+/* Reducera animation om användaren föredrar det */
+@media (prefers-reduced-motion: reduce) {
+  body.christmas-theme .camera-start-area::before,
+  body.christmas-theme .camera-start-area::after {
+    animation: none;
+  }
+}
