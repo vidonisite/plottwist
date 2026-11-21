@@ -7,7 +7,7 @@ export default function EventThemeController() {
   useEffect(() => {
     function updateTheme() {
       const event = getVisibleEvent()
-      
+
       document.body.classList.toggle(
         'christmas-theme',
         Boolean(
@@ -39,6 +39,8 @@ export default function EventThemeController() {
         'visibilitychange',
         handleVisibilityChange
       )
+
+      document.body.classList.remove('christmas-theme')
     }
   }, [])
 
