@@ -1,8 +1,12 @@
 
 const SCAN_DURATION = 4500
 const HOLD_DURATION = 1200
-const SWITCH_PAUSE = 180
 
+/**
+ * Time Warp Scan.
+ * Växlar mellan vertikal scanning (uppifrån och ner)
+ * och horisontell scanning (från vänster till höger).
+ */
 export function createTimeWarp() {
   let frozenCanvas = null
   let frozenContext = null
@@ -13,7 +17,6 @@ export function createTimeWarp() {
   let phase = 'scanning'
   let phaseStartedAt = 0
   let lastFrameTime = 0
-  let startedAt = 0
 
   function initialize(width, height) {
     frozenCanvas = document.createElement('canvas')
@@ -21,14 +24,10 @@ export function createTimeWarp() {
     frozenCanvas.height = height
     frozenContext = frozenCanvas.getContext('2d')
 
-    scanPosition = 0
-    previousPosition = 0
-    phase = 'scanning'
-    phaseStartedAt = 0
-    lastFrameTime = 0
+    reset()
   }
 
-  function clearFrozen() {
+  function reset() {
     if (frozenContext && frozenCanvas) {
       frozenContext.clearRect(
         0,
@@ -37,15 +36,12 @@ export function createTimeWarp() {
         frozenCanvas.height
       )
     }
-  }
 
-  function reset() {
-    clearFrozen()
     scanPosition = 0
     previousPosition = 0
     phase = 'scanning'
     phaseStartedAt = 0
-    lastFrameTime = performance.now()
+    lastFrameTime = 0
   }
 
   function toggleDirection() {
@@ -53,65 +49,7 @@ export function createTimeWarp() {
       ? 'horizontal'
       : 'vertical'
 
-    clearFrozen()
-
-    scanPosition = 0
-    previousPosition = 0
-    phase = 'switching'
-    phaseStartedAt = performance.now()
-    lastFrameTime = phaseStartedAt
-  }
-
-  function drawInstruction(context, width, height, now) {
-    if (!startedAt) startedAt = now
-
-    const elapsed = now - startedAt
-
-    if (elapsed >= 1000) return
-
-    let opacity
-
-    if (elapsed < 250) {
-      opacity = elapsed / 250
-    } else if (elapsed < 700) {
-      opacity = 1
-    } else {
-      opacity = 1 - (elapsed - 700) / 300
-    }
-
-    const message = 'KLICKA FÖR ATT BYTA RIKTNING'
-
-    context.save()
-    context.globalAlpha = Math.max(0, Math.min(1, opacity))
-
-    const fontSize = Math.max(13, Math.min(20, width * 0.045))
-    context.font = `700 ${fontSize}px Arial`
-    context.textAlign = 'center'
-    context.textBaseline = 'middle'
-
-    const centerX = width / 2
-    const centerY = height / 2
-    const textWidth = context.measureText(message).width
-    const paddingX = 18
-    const paddingY = 12
-
-    context.fillStyle = 'rgba(0, 0, 0, 0.48)'
-    context.beginPath()
-    context.roundRect(
-      centerX - textWidth / 2 - paddingX,
-      centerY - fontSize / 2 - paddingY,
-      textWidth + paddingX * 2,
-      fontSize + paddingY * 2,
-      12
-    )
-    context.fill()
-
-    context.fillStyle = '#FFFFFF'
-    context.shadowColor = 'rgba(0, 0, 0, 0.6)'
-    context.shadowBlur = 8
-    context.fillText(message, centerX, centerY)
-
-    context.restore()
+    reset()
   }
 
   function draw(source, context) {
@@ -130,6 +68,8 @@ export function createTimeWarp() {
       initialize(width, height)
     }
 
+    const isVertical = direction === 'vertical'
+    const scanLength = isVertical ? height : width
     const now = performance.now()
 
     if (!phaseStartedAt) {
@@ -137,94 +77,79 @@ export function createTimeWarp() {
       lastFrameTime = now
     }
 
-    if (!startedAt) startedAt = now
+    const deltaTime = Math.min(now - lastFrameTime, 50)
+    lastFrameTime = now
 
-    if (phase === 'switching') {
-      if (now - phaseStartedAt >= SWITCH_PAUSE) {
-        phase = 'scanning'
-        phaseStartedAt = now
-        lastFrameTime = now
+    if (phase === 'scanning') {
+      const speed = scanLength / SCAN_DURATION
+
+      scanPosition = Math.min(
+        scanLength,
+        scanPosition + speed * deltaTime
+      )
+
+      const currentPosition = Math.floor(scanPosition)
+      const startPosition = Math.floor(previousPosition)
+      const stripSize = currentPosition - startPosition
+
+      // Frys bildremsan som linjen just har passerat.
+      if (stripSize > 0) {
+        if (isVertical) {
+          frozenContext.drawImage(
+            source,
+            0,
+            startPosition,
+            width,
+            stripSize,
+            0,
+            startPosition,
+            width,
+            stripSize
+          )
+        } else {
+          frozenContext.drawImage(
+            source,
+            startPosition,
+            0,
+            stripSize,
+            height,
+            startPosition,
+            0,
+            stripSize,
+            height
+          )
+        }
+
+        previousPosition = currentPosition
       }
-    } else {
-      const deltaTime = Math.min(now - lastFrameTime, 50)
-      lastFrameTime = now
 
-      if (phase === 'scanning') {
-        const dimension = direction === 'vertical'
-          ? height
-          : width
-
-        const speed = dimension / SCAN_DURATION
-
-        scanPosition = Math.min(
-          dimension,
-          scanPosition + speed * deltaTime
-        )
-
-        const currentPosition = Math.floor(scanPosition)
-        const startPosition = Math.floor(previousPosition)
-        const stripSize = currentPosition - startPosition
-
-        if (stripSize > 0) {
-          if (direction === 'vertical') {
-            frozenContext.drawImage(
-              source,
-              0,
-              startPosition,
-              width,
-              stripSize,
-              0,
-              startPosition,
-              width,
-              stripSize
-            )
-          } else {
-            frozenContext.drawImage(
-              source,
-              startPosition,
-              0,
-              stripSize,
-              height,
-              startPosition,
-              0,
-              stripSize,
-              height
-            )
-          }
-
-          previousPosition = currentPosition
-        }
-
-        if (scanPosition >= dimension) {
-          phase = 'holding'
-          phaseStartedAt = now
-        }
-      } else if (phase === 'holding') {
-        if (now - phaseStartedAt >= HOLD_DURATION) {
-          reset()
-        }
+      if (scanPosition >= scanLength) {
+        phase = 'holding'
+        phaseStartedAt = now
+      }
+    } else if (phase === 'holding') {
+      if (now - phaseStartedAt >= HOLD_DURATION) {
+        reset()
       }
     }
 
+    // Rita den levande kamerabilden först.
     context.clearRect(0, 0, width, height)
     context.drawImage(source, 0, 0, width, height)
 
-    const frozenSize = direction === 'vertical'
-      ? height
-      : width
-
-    const visibleFrozenSize = phase === 'holding'
-      ? frozenSize
+    // Lägg den frysta delen ovanpå kamerabilden.
+    const frozenSize = phase === 'holding'
+      ? scanLength
       : Math.floor(scanPosition)
 
-    if (visibleFrozenSize > 0) {
+    if (frozenSize > 0) {
       context.save()
       context.beginPath()
 
-      if (direction === 'vertical') {
-        context.rect(0, 0, width, visibleFrozenSize)
+      if (isVertical) {
+        context.rect(0, 0, width, frozenSize)
       } else {
-        context.rect(0, 0, visibleFrozenSize, height)
+        context.rect(0, 0, frozenSize, height)
       }
 
       context.clip()
@@ -232,13 +157,9 @@ export function createTimeWarp() {
       context.restore()
     }
 
+    // Rita scanninglinjen.
     if (phase === 'scanning') {
-      const isVertical = direction === 'vertical'
-
-      const linePosition = Math.min(
-        scanPosition,
-        (isVertical ? height : width) - 1
-      )
+      const linePosition = Math.min(scanPosition, scanLength - 1)
 
       context.save()
       context.globalCompositeOperation = 'screen'
@@ -277,8 +198,6 @@ export function createTimeWarp() {
       context.stroke()
       context.restore()
     }
-
-    drawInstruction(context, width, height, now)
   }
 
   return {
