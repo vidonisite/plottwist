@@ -36,10 +36,22 @@ export default function EventButton({
   const [initialExpanded, setInitialExpanded] = useState(false)
   const [hovering, setHovering] = useState(false)
   const [themeEnabled, setThemeEnabled] = useState(true)
+  const [snowmanAnimating, setSnowmanAnimating] = useState(false)
 
   // Simuleringstiden används även när man inte är admin.
   const effectiveNow = getEffectiveNow(now, true)
   const event = getVisibleEvent(now, true)
+
+  function startSnowmanAnimation() {
+    if (!snowmanAnimating) {
+      setSnowmanAnimating(true)
+    }
+  }
+  
+  function handleButtonClick() {
+    startSnowmanAnimation()
+    handleClick()
+  }
 
   // Håll klockan uppdaterad.
   useEffect(() => {
@@ -128,8 +140,11 @@ export default function EventButton({
           ? 'event-button-enabled'
           : '',
       ].filter(Boolean).join(' ')}
-      onClick={handleClick}
-      onMouseEnter={() => setHovering(true)}
+      onClick={handleButtonClick}
+      onMouseEnter={() => {
+        setHovering(true)
+        startSnowmanAnimation()
+      }}
       onMouseLeave={() => setHovering(false)}
       disabled={disabled}
       aria-disabled={
@@ -162,8 +177,9 @@ export default function EventButton({
 
       <img
         src="/snowman.png"
-        className="snowman"
+        className={`snowman ${snowmanAnimating ? 'snowman-animating' : ''}`}
         alt=""
+        onAnimationEnd={() => setSnowmanAnimating(false)}
       />
     </button>
   )
