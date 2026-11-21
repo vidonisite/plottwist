@@ -1,6 +1,7 @@
-
-const CHRISTMAS_TEST_KEY = 'plot-twist-christmas-test'
+const ADMIN_TEST_DATETIME_KEY = 'plot-twist-admin-test-datetime'
 const CHRISTMAS_TEST_THEME_KEY = 'plot-twist-christmas-test-theme'
+
+export const ADMIN_TEST_TIME_EVENT = 'plot-twist-admin-test-time-change'
 
 const events = [
   {
@@ -26,43 +27,169 @@ function getExpansionKey(event, year) {
   return `plot-twist-event-expanded-${event.id}-${year}`
 }
 
-export function isChristmasTestMode() {
+function dispatchTestTimeChange() {
+  if (typeof window === 'undefined') return
+
+  window.dispatchEvent(new Event(ADMIN_TEST_TIME_EVENT))
+}
+
+function readAdminTestDateTime() {
   try {
-    return localStorage.getItem(CHRISTMAS_TEST_KEY) === 'true'
+    const saved = localStorage.getItem(ADMIN_TEST_DATETIME_KEY)
+
+    if (!saved) return null
+
+    const parsed = JSON.parse(saved)
+
+    if (
+      !parsed ||
+      !Number.isFinite(parsed.timestamp) ||
+      !Number.isFinite(parsed.savedAt)
+    ) {
+      return null
+    }
+
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function formatDateTimeLocal(date) {
+  const pad = (value) => String(value).padStart(2, '0')
+
+  return [
+    date.getFullYear(),
+    '-',
+    pad(date.getMonth() + 1),
+    '-',
+    pad(date.getDate()),
+    'T',
+    pad(date.getHours()),
+    ':',
+    pad(date.getMinutes()),
+  ].join('')
+}
+
+/**
+ * Returnerar den simulerade tiden för admin.
+ * Simuleringen fortsätter framåt i samma takt som den riktiga klockan.
+ * För alla andra användare returneras den riktiga tiden.
+ */
+export function getEffectiveNow(realNow = new Date(), isAdmin = false) {
+  if (!isAdmin) {
+    return new Date(realNow.getTime())
+  }
+
+  const saved = readAdminTestDateTime()
+
+  if (!saved) {
+    return new Date(realNow.getTime())
+  }
+
+  const elapsed = Math.max(0, realNow.getTime() - saved.savedAt)
+
+  return new Date(saved.timestamp + elapsed)
+}
+
+/**
+ * Hämtar datumet som ska visas i adminpanelens datumfält.
+ */
+export function getAdminTestDateTime(isAdmin = false) {
+  if (!isAdmin) return ''
+
+  const saved = readAdminTestDateTime()
+
+  if (!saved) return ''
+
+  const currentSimulatedTime = getEffectiveNow(new Date(), true)
+
+  return formatDateTimeLocal(currentSimulatedTime)
+}
+
+/**
+ * Sparar ett nytt simulerat datum och klockslag.
+ * Funktionen gör ingenting om anroparen inte är admin.
+ */
+export function setAdminTestDateTime(value, isAdmin = false) {
+  if (!isAdmin || typeof value !== 'string' || !value.trim()) {
+    return false
+  }
+
+  const parsedDate = new Date(value)
+
+  if (!Number.isFinite(parsedDate.getTime())) {
+    return false
+  }
+
+  // Säkerställ att datumet faktiskt går att tolka som ett giltigt
+  // lokalt datum och klockslag från datetime-local-fältet.
+  const normalizedValue = formatDateTimeLocal(parsedDate)
+
+  if (normalizedValue !== value) {
+    return false
+  }
+
+  try {
+    localStorage.setItem(
+      ADMIN_TEST_DATETIME_KEY,
+      JSON.stringify({
+        timestamp: parsedDate.getTime(),
+        savedAt: Date.now(),
+      })
+    )
   } catch {
     return false
   }
+
+  dispatchTestTimeChange()
+  return true
+}
+
+/**
+ * Tar bort simuleringen och återgår till riktig tid.
+ */
+export function clearAdminTestDateTime(isAdmin = false) {
+  if (!isAdmin) return
+
+  try {
+    localStorage.removeItem(ADMIN_TEST_DATETIME_KEY)
+  } catch {
+    // Appen kan fortfarande använda riktig tid under sessionen.
+  }
+
+  dispatchTestTimeChange()
+}
+
+/**
+ * Behålls som hjälpfunktion för att kontrollera om admin
+ * har aktiverat en simulerad tid.
+ */
+export function isChristmasTestMode(isAdmin = false) {
+  if (!isAdmin) return false
+
+  return readAdminTestDateTime() !== null
 }
 
 function getTestThemePreference() {
   try {
     const saved = localStorage.getItem(CHRISTMAS_TEST_THEME_KEY)
+
     return saved === null ? true : saved === 'true'
   } catch {
     return true
   }
 }
 
-export function getVisibleEvent(now = new Date()) {
-  const testMode = isChristmasTestMode()
+export function getVisibleEvent(realNow = new Date(), isAdmin = false) {
+  const now = getEffectiveNow(realNow, isAdmin)
+  const testMode = isChristmasTestMode(isAdmin)
   const currentYear = now.getFullYear()
 
   for (const year of [currentYear, currentYear + 1]) {
     for (const event of events) {
       const startsAt = makeDate(year, event.startMonth, event.startDay)
       const endsAt = makeDate(year, event.endMonth, event.endDay)
-
-      if (testMode && event.id === 'christmas') {
-        return {
-          ...event,
-          year,
-          phase: 'active',
-          startsAt,
-          endsAt,
-          themeEnabled: getTestThemePreference(),
-          testMode: true,
-        }
-      }
 
       const countdownStartsAt = new Date(
         startsAt.getTime() - 24 * 60 * 60 * 1000
@@ -76,23 +203,27 @@ export function getVisibleEvent(now = new Date()) {
           startsAt,
           endsAt,
           themeEnabled: false,
-          testMode: false,
+          testMode,
         }
       }
 
       if (now >= startsAt && now < endsAt) {
         let themeEnabled = true
 
-        try {
-          const saved = localStorage.getItem(
-            getPreferenceKey(event, year)
-          )
+        if (testMode && event.id === 'christmas') {
+          themeEnabled = getTestThemePreference()
+        } else {
+          try {
+            const saved = localStorage.getItem(
+              getPreferenceKey(event, year)
+            )
 
-          if (saved !== null) {
-            themeEnabled = saved === 'true'
+            if (saved !== null) {
+              themeEnabled = saved === 'true'
+            }
+          } catch {
+            // Standardinställningen är att temat är på.
           }
-        } catch {
-          // Standardinställningen är att temat är på.
         }
 
         return {
@@ -102,7 +233,7 @@ export function getVisibleEvent(now = new Date()) {
           startsAt,
           endsAt,
           themeEnabled,
-          testMode: false,
+          testMode,
         }
       }
     }
@@ -111,11 +242,14 @@ export function getVisibleEvent(now = new Date()) {
   return null
 }
 
-export function setEventTheme(event, enabled) {
+export function setEventTheme(event, enabled, isAdmin = false) {
   if (!event) return
 
+  // En simulerad inställning får bara ändras av admin.
+  if (event.testMode && !isAdmin) return
+
   try {
-    if (event.testMode) {
+    if (event.testMode && event.id === 'christmas') {
       localStorage.setItem(
         CHRISTMAS_TEST_THEME_KEY,
         String(enabled)
