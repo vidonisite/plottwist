@@ -8,19 +8,18 @@
   height: 58px;
 }
 
-/* Själva knappen */
-
 .event-button {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  right: auto;
+  bottom: auto;
 
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
 
-  width: 100%;
-  height: 100%;
+  width: 58px;
+  height: 58px;
   padding: 0;
 
   border: 2px solid #201827;
@@ -38,6 +37,12 @@
     transform .15s,
     box-shadow .15s,
     background .2s;
+}
+
+.event-button-expanded {
+  width: 220px;
+  justify-content: flex-start;
+  margin-left: -162px;
 }
 
 .event-button:hover:not(:disabled) {
@@ -63,13 +68,6 @@
 .event-button-icon svg {
   width: 27px;
   height: 27px;
-}
-
-/* Utfälld knapp */
-
-.event-button-expanded {
-  width: 220px;
-  justify-content: flex-start;
 }
 
 /* Nedräkningen */
