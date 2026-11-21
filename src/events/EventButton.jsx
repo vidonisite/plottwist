@@ -117,7 +117,7 @@ export default function EventButton({
 
   return (
     <>
-      <img src="https://pixabay.com/images/download/io-images-snowman-1106004_1920.png" className="snowman" />
+      <img src="/snowman.png" className="snowman" />
       <button
         type="button"
         className={[
