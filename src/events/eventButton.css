@@ -1,0 +1,103 @@
+
+.event-button {
+  position: absolute;
+  z-index: 8;
+  right: 24px;
+  bottom: 94px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  width: 58px;
+  height: 58px;
+  padding: 0;
+
+  border: 2px solid #201827;
+  border-radius: 18px;
+  color: #201827;
+  background: #f5a6c8;
+  box-shadow: 3px 3px 0 #201827;
+
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+
+  transition:
+    width .35s ease,
+    transform .15s,
+    box-shadow .15s,
+    background .2s;
+}
+
+.event-button:hover:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 #201827;
+}
+
+.event-button:disabled {
+  cursor: default;
+}
+
+.event-button-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 54px;
+  width: 54px;
+  height: 54px;
+}
+
+.event-button-icon svg {
+  width: 27px;
+  height: 27px;
+}
+
+.event-button-expanded {
+  width: 220px;
+  justify-content: flex-start;
+}
+
+.event-button-countdown {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding-right: 14px;
+  opacity: 1;
+  animation: event-countdown-appear .25s ease both;
+}
+
+.event-button-name {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+.event-button-time {
+  font-size: 17px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes event-countdown-appear {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event-button,
+  .event-button-countdown {
+    animation: none;
+    transition: none;
+  }
+}
