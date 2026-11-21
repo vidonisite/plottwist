@@ -213,6 +213,7 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  overflow-x: hidden;
 }
 
 .chat-list-item {
