@@ -740,3 +740,113 @@ body.christmas-theme .camera-start-area::after {
     animation: none;
   }
 }
+
+
+
+/* ========================================
+   CHRISTMAS TAKEOVER – SNOWFALL
+======================================== */
+
+/* Kamerans dekorationer ska vara helt stilla */
+body.christmas-theme .camera-start-area::before,
+body.christmas-theme .camera-start-area::after {
+  animation: none;
+}
+
+/* Snö över hela skärmen – lager 1 */
+body.christmas-theme::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,0.9) 1px, transparent 1.8px),
+    radial-gradient(circle, rgba(255,255,255,0.75) 1.5px, transparent 2px),
+    radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1.8px),
+    radial-gradient(circle, rgba(255,255,255,0.65) 1.5px, transparent 2px);
+
+  background-size:
+    100px 120px,
+    160px 180px,
+    130px 150px,
+    190px 210px;
+
+  background-position:
+    0 0,
+    40px 30px,
+    70px 60px,
+    20px 90px;
+
+  animation: snowfall-front 12s linear infinite;
+}
+
+/* Snö över hela skärmen – lager 2 */
+body.christmas-theme::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  pointer-events: none;
+
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,0.55) 1px, transparent 1.8px),
+    radial-gradient(circle, rgba(255,255,255,0.7) 1.5px, transparent 2px),
+    radial-gradient(circle, rgba(255,255,255,0.5) 1px, transparent 1.8px);
+
+  background-size:
+    140px 160px,
+    200px 220px,
+    170px 190px;
+
+  background-position:
+    30px 20px,
+    90px 70px,
+    10px 110px;
+
+  animation: snowfall-back 20s linear infinite;
+}
+
+/* Snön faller ENDAST nedåt */
+@keyframes snowfall-front {
+  from {
+    background-position:
+      0 0,
+      40px 30px,
+      70px 60px,
+      20px 90px;
+  }
+
+  to {
+    background-position:
+      0 120px,
+      40px 210px,
+      70px 150px,
+      20px 300px;
+  }
+}
+
+@keyframes snowfall-back {
+  from {
+    background-position:
+      30px 20px,
+      90px 70px,
+      10px 110px;
+  }
+
+  to {
+    background-position:
+      30px 180px,
+      90px 290px,
+      10px 300px;
+  }
+}
+
+/* Stäng av snöanimationerna vid reducerad rörelse */
+@media (prefers-reduced-motion: reduce) {
+  body.christmas-theme::before,
+  body.christmas-theme::after {
+    animation: none;
+  }
+}
