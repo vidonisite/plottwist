@@ -107,7 +107,7 @@
   z-index: 9;
 
   right: 8px;
-  bottom: calc(100% - 4px);
+  bottom: 100%;
 
   width: auto;
   height: 50px;
