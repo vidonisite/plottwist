@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Query } from 'appwrite'
 import { Gamepad2, Phone } from 'lucide-react'
+import EventButton from './events/EventButton.jsx'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import {
   disablePushNotifications,
@@ -1251,6 +1252,9 @@ export default function App() {
         {activeView === 'camera' && (
           <section className="workspace-view camera-view">
             <Camera currentUser={currentUser} onScore={awardTwistScore} />
+            <EventButton
+              disabled={Boolean(gameTransition)}
+            />
             <button
               type="button"
               className="camera-games-button"
