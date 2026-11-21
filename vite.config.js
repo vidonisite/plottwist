@@ -12,7 +12,7 @@ export default defineConfig({
       },
       srcDir: 'src',
       filename: 'sw.js',
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['icons/plot-twist.svg', 'icons/plot-twist-192.png', 'icons/plot-twist-512.png'],
       manifest: {
         name: 'PLOT TWIST',
