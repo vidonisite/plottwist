@@ -1,18 +1,24 @@
 
 import { useEffect, useState } from 'react'
 import { Snowflake } from 'lucide-react'
+
 import {
   getVisibleEvent,
   setEventTheme,
-  hasShownExpansion,
+  getExpansionEnd,
   markExpansionShown,
 } from './eventManager'
+
 import './eventButton.css'
 
 function getCountdown(target) {
-  const difference = Math.max(0, target.getTime() - Date.now())
+  const difference = Math.max(
+    0,
+    target.getTime() - Date.now()
+  )
 
   const totalSeconds = Math.floor(difference / 1000)
+
   const hours = Math.floor(totalSeconds / 3600)
   const minutes = Math.floor((totalSeconds % 3600) / 60)
   const seconds = totalSeconds % 60
@@ -31,6 +37,8 @@ export default function EventButton({ disabled = false }) {
 
   const event = getVisibleEvent(now)
 
+  // Uppdaterar klockan varje sekund.
+  // Nedräkningen baseras alltid på det riktiga startdatumet.
   useEffect(() => {
     function updateTime() {
       setNow(new Date())
@@ -46,27 +54,39 @@ export default function EventButton({ disabled = false }) {
     }
   }, [])
 
+  // Visar den expanderade knappen i totalt fem sekunder.
+  // Tiden sparas så att den inte börjar om vid avmontering.
   useEffect(() => {
     if (!event || event.phase !== 'upcoming') {
       setExpanded(false)
       return
     }
 
-    if (hasShownExpansion(event)) {
+    let endTime = getExpansionEnd(event)
+
+    if (endTime === null) {
+      endTime = markExpansionShown(event, 5000)
+    }
+
+    const remaining = Math.max(0, endTime - Date.now())
+
+    if (remaining <= 0) {
       setExpanded(false)
       return
     }
 
-    markExpansionShown(event)
     setExpanded(true)
 
     const timeout = setTimeout(() => {
       setExpanded(false)
-    }, 5000)
+    }, remaining)
 
-    return () => clearTimeout(timeout)
+    return () => {
+      clearTimeout(timeout)
+    }
   }, [event?.id, event?.year, event?.phase])
 
+  // Hämtar aktuell temainställning när eventet blir aktivt.
   useEffect(() => {
     if (event?.phase === 'active') {
       setThemeEnabled(event.themeEnabled)
@@ -80,9 +100,10 @@ export default function EventButton({ disabled = false }) {
 
   if (!event) return null
 
-  const countdown = event.phase === 'upcoming'
-    ? getCountdown(event.startsAt)
-    : null
+  const countdown =
+    event.phase === 'upcoming'
+      ? getCountdown(event.startsAt)
+      : null
 
   function handleClick() {
     if (disabled || event.phase !== 'active' || event.testMode) {
@@ -95,18 +116,24 @@ export default function EventButton({ disabled = false }) {
     setEventTheme(event, nextValue)
   }
 
+  const expandedClass =
+    expanded && event.phase === 'upcoming'
+      ? 'event-button-expanded'
+      : ''
+
+  const enabledClass =
+    themeEnabled && event.phase === 'active'
+      ? 'event-button-enabled'
+      : ''
+
   return (
     <button
       type="button"
       className={[
         'event-button',
         `event-button-${event.id}`,
-        expanded && event.phase === 'upcoming'
-          ? 'event-button-expanded'
-          : '',
-        themeEnabled && event.phase === 'active'
-          ? 'event-button-enabled'
-          : '',
+        expandedClass,
+        enabledClass,
       ].filter(Boolean).join(' ')}
       onClick={handleClick}
       disabled={
@@ -116,8 +143,8 @@ export default function EventButton({ disabled = false }) {
       }
       aria-label={
         event.phase === 'upcoming'
-          ? `Christmas starts in ${countdown}`
-          : `Christmas theme ${themeEnabled ? 'on' : 'off'}`
+          ? `${event.name} starts in ${countdown}`
+          : `${event.name} theme ${themeEnabled ? 'on' : 'off'}`
       }
       title="Event"
     >
@@ -128,7 +155,7 @@ export default function EventButton({ disabled = false }) {
       {expanded && event.phase === 'upcoming' && (
         <span className="event-button-countdown">
           <span className="event-button-name">
-            Christmas starts in
+            {event.name} starts in
           </span>
 
           <span className="event-button-time">
