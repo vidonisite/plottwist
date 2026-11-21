@@ -1,0 +1,64 @@
+
+/* =================================
+   PLOT TWIST — CHRISTMAS TAKEOVER
+   ================================= */
+
+body.christmas-theme {
+  --christmas-bg: #211b2b;
+  --christmas-panel: #30243b;
+  --christmas-card: #3b2b47;
+  --christmas-text: #fff8fc;
+  --christmas-muted: #d4bfd9;
+  --christmas-primary: #e8a6d7;
+  --christmas-secondary: #a9d8c1;
+  --christmas-accent: #f4d49b;
+  --christmas-border: rgba(255, 255, 255, 0.12);
+
+  color: var(--christmas-text);
+}
+
+/* Bakgrunder */
+body.christmas-theme #root,
+body.christmas-theme .app,
+body.christmas-theme .main-layout {
+  background-color: var(--christmas-bg) !important;
+  color: var(--christmas-text) !important;
+}
+
+/* Paneler och kort */
+body.christmas-theme .panel,
+body.christmas-theme .card,
+body.christmas-theme .sidebar,
+body.christmas-theme .modal,
+body.christmas-theme .chat-container {
+  background-color: var(--christmas-panel) !important;
+  color: var(--christmas-text) !important;
+  border-color: var(--christmas-border) !important;
+}
+
+/* Knappar */
+body.christmas-theme button {
+  border-color: var(--christmas-border);
+}
+
+/* Text */
+body.christmas-theme h1,
+body.christmas-theme h2,
+body.christmas-theme h3,
+body.christmas-theme strong {
+  color: var(--christmas-text);
+}
+
+/* Dekorativa detaljer */
+body.christmas-theme .primary,
+body.christmas-theme .active {
+  background-color: var(--christmas-primary) !important;
+  color: #39233b !important;
+}
+
+/* Formulär */
+body.christmas-theme input,
+body.christmas-theme textarea {
+  color: var(--christmas-text);
+  border-color: var(--christmas-border);
+}
