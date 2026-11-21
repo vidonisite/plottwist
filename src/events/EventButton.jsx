@@ -137,7 +137,7 @@ export default function EventButton({
       }
       aria-label={
         event.phase === 'upcoming'
-          ? `${event.name} starts in ${countdown}`
+          ? `${event.name} event in ${countdown}`
           : `${event.name} theme ${themeEnabled ? 'on' : 'off'}`
       }
       title="Event"
