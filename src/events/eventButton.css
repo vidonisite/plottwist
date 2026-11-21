@@ -1,16 +1,26 @@
-.event-button {
+.event-button-wrapper {
   position: absolute;
   z-index: 8;
   right: 24px;
   bottom: 94px;
+
+  width: 58px;
+  height: 58px;
+}
+
+/* Själva knappen */
+
+.event-button {
+  position: absolute;
+  inset: 0;
 
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
 
-  width: 58px;
-  height: 58px;
+  width: 100%;
+  height: 100%;
   padding: 0;
 
   border: 2px solid #201827;
@@ -39,6 +49,8 @@
   cursor: default;
 }
 
+/* Ikonen */
+
 .event-button-icon {
   display: flex;
   align-items: center;
@@ -53,10 +65,14 @@
   height: 27px;
 }
 
+/* Utfälld knapp */
+
 .event-button-expanded {
   width: 220px;
   justify-content: flex-start;
 }
+
+/* Nedräkningen */
 
 .event-button-countdown {
   display: flex;
@@ -81,11 +97,13 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Snögubben ligger UTANFÖR knappen */
+
 .snowman {
   position: absolute;
-  z-index: 9;
+  z-index: 10;
 
-  right: 8px;
+  right: 4px;
   bottom: calc(100% - 8px);
 
   width: auto;
@@ -99,9 +117,14 @@
     bottom .15s ease;
 }
 
-.event-button-expanded .snowman {
-  right: 8px;
+/* Flytta snögubben till knappens högra kant
+   även när knappen blir bredare. */
+
+.event-button-wrapper-expanded .snowman {
+  right: 4px;
 }
+
+/* Animation */
 
 @keyframes event-countdown-appear {
   from {
@@ -115,9 +138,12 @@
   }
 }
 
+/* Reducerad rörelse */
+
 @media (prefers-reduced-motion: reduce) {
   .event-button,
-  .event-button-countdown {
+  .event-button-countdown,
+  .snowman {
     animation: none;
     transition: none;
   }
