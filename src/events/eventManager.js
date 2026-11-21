@@ -1,5 +1,6 @@
 
 const CHRISTMAS_TEST_KEY = 'plot-twist-christmas-test'
+const CHRISTMAS_TEST_THEME_KEY = 'plot-twist-christmas-test-theme'
 
 const events = [
   {
@@ -33,25 +34,24 @@ export function isChristmasTestMode() {
   }
 }
 
+function getTestThemePreference() {
+  try {
+    const saved = localStorage.getItem(CHRISTMAS_TEST_THEME_KEY)
+    return saved === null ? true : saved === 'true'
+  } catch {
+    return true
+  }
+}
+
 export function getVisibleEvent(now = new Date()) {
   const testMode = isChristmasTestMode()
   const currentYear = now.getFullYear()
 
   for (const year of [currentYear, currentYear + 1]) {
     for (const event of events) {
-      const startsAt = makeDate(
-        year,
-        event.startMonth,
-        event.startDay
-      )
+      const startsAt = makeDate(year, event.startMonth, event.startDay)
+      const endsAt = makeDate(year, event.endMonth, event.endDay)
 
-      const endsAt = makeDate(
-        year,
-        event.endMonth,
-        event.endDay
-      )
-
-      // Testläget visar julknappen och aktiverar temat året runt.
       if (testMode && event.id === 'christmas') {
         return {
           ...event,
@@ -59,12 +59,11 @@ export function getVisibleEvent(now = new Date()) {
           phase: 'active',
           startsAt,
           endsAt,
-          themeEnabled: true,
+          themeEnabled: getTestThemePreference(),
           testMode: true,
         }
       }
 
-      // Knappen visas från exakt 24 timmar före eventets start.
       const countdownStartsAt = new Date(
         startsAt.getTime() - 24 * 60 * 60 * 1000
       )
@@ -81,7 +80,6 @@ export function getVisibleEvent(now = new Date()) {
         }
       }
 
-      // Eventet är aktivt fram till slutdatumet.
       if (now >= startsAt && now < endsAt) {
         let themeEnabled = true
 
@@ -114,9 +112,17 @@ export function getVisibleEvent(now = new Date()) {
 }
 
 export function setEventTheme(event, enabled) {
-  if (!event || event.testMode) return
+  if (!event) return
 
   try {
+    if (event.testMode) {
+      localStorage.setItem(
+        CHRISTMAS_TEST_THEME_KEY,
+        String(enabled)
+      )
+      return
+    }
+
     localStorage.setItem(
       getPreferenceKey(event, event.year),
       String(enabled)
@@ -136,7 +142,7 @@ export function getExpansionEnd(event) {
 
     if (saved === null) return null
 
-    // Stöd för gamla sparade värden från tidigare versioner.
+    // Hanterar även gamla sparade värden.
     if (saved === 'true') return 0
 
     const timestamp = Number(saved)
@@ -156,7 +162,6 @@ export function markExpansionShown(event, duration = 5000) {
 
   const existingEnd = getExpansionEnd(event)
 
-  // Om visningen redan har startat fortsätter vi på samma timer.
   if (existingEnd !== null) {
     return existingEnd
   }
