@@ -120,53 +120,71 @@
     bottom .15s ease;
 }
 
-.event-button:hover:not(:disabled) .snowman {
-  animation: snowman-adventure 3.2s ease-in-out;
+.snowman-animating {
+  animation: snowman-adventure 5.5s linear both;
 }
 
 @keyframes snowman-adventure {
-  /* Start */
+  /* Hoppar högt */
   0% {
     transform: translateY(0) rotate(0deg);
   }
 
-  /* Högt hopp */
-  9% {
-    transform: translateY(-75px) rotate(0deg);
+  8% {
+    transform: translateY(-80px) rotate(0deg);
   }
 
-  /* Första landningen */
-  15% {
+  /* Landar och studsar */
+  14% {
     transform: translateY(0) rotate(0deg);
   }
 
-  /* Liten studs */
-  20% {
-    transform: translateY(-22px) rotate(0deg);
+  18% {
+    transform: translateY(-20px) rotate(0deg);
   }
 
+  23% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  /* Börjar falla långsamt */
   25% {
     transform: translateY(0) rotate(0deg);
+    animation-timing-function: ease-in;
   }
 
-  /* Faller ned och snurrar åt vänster */
   40% {
-    transform: translateY(120vh) rotate(-720deg);
+    transform: translateY(25vh) rotate(-180deg);
+    animation-timing-function: ease-in;
   }
 
-  /* Borta under skärmen */
+  /* Accelererar och snurrar snabbare */
   55% {
-    transform: translateY(120vh) rotate(-720deg);
+    transform: translateY(120vh) rotate(-1080deg);
+    opacity: 1;
+  }
+
+  /* Försvinner under skärmen */
+  60% {
+    transform: translateY(120vh) rotate(-1080deg);
+    opacity: 0;
   }
 
   /* Kommer tillbaka ovanifrån */
-  56% {
-    transform: translateY(-120vh) rotate(-720deg);
+  69% {
+    transform: translateY(-120vh) rotate(-1080deg);
+    opacity: 0;
+  }
+
+  72% {
+    transform: translateY(-120vh) rotate(-1080deg);
+    opacity: 1;
   }
 
   /* Faller tillbaka till knappen */
   100% {
-    transform: translateY(0) rotate(0deg);
+    transform: translateY(0) rotate(-1440deg);
+    opacity: 1;
   }
 }
 
