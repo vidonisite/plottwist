@@ -1,6 +1,6 @@
 
 const SCAN_DURATION = 4500
-const HOLD_DURATION = 1200
+const HOLD_DURATION = 4000
 
 /**
  * Time Warp Scan.
