@@ -3,6 +3,7 @@ import { Query } from 'appwrite'
 import { Gamepad2, Phone } from 'lucide-react'
 import EventButton from './events/EventButton.jsx'
 import { useRegisterSW } from 'virtual:pwa-register/react'
+import EventThemeController from './events/EventThemeController.jsx'
 import {
   disablePushNotifications,
   enablePushNotifications,
