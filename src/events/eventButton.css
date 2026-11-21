@@ -130,7 +130,7 @@
   }
 
   35% {
-    transform: translateY(-9px);
+    transform: translateY(-20px);
   }
 
   65% {
@@ -138,7 +138,7 @@
   }
 
   82% {
-    transform: translateY(-3px);
+    transform: translateY(-8px);
   }
 
   100% {
