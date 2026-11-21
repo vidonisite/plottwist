@@ -39,10 +39,19 @@ export function getVisibleEvent(now = new Date()) {
 
   for (const year of [currentYear, currentYear + 1]) {
     for (const event of events) {
-      const startsAt = makeDate(year, event.startMonth, event.startDay)
-      const endsAt = makeDate(year, event.endMonth, event.endDay)
+      const startsAt = makeDate(
+        year,
+        event.startMonth,
+        event.startDay
+      )
 
-      // Testläget visar julknappen och aktiverar jultemat året runt.
+      const endsAt = makeDate(
+        year,
+        event.endMonth,
+        event.endDay
+      )
+
+      // Testläget visar julknappen och aktiverar temat året runt.
       if (testMode && event.id === 'christmas') {
         return {
           ...event,
@@ -55,6 +64,7 @@ export function getVisibleEvent(now = new Date()) {
         }
       }
 
+      // Knappen visas från exakt 24 timmar före eventets start.
       const countdownStartsAt = new Date(
         startsAt.getTime() - 24 * 60 * 60 * 1000
       )
@@ -71,6 +81,7 @@ export function getVisibleEvent(now = new Date()) {
         }
       }
 
+      // Eventet är aktivt fram till slutdatumet.
       if (now >= startsAt && now < endsAt) {
         let themeEnabled = true
 
@@ -115,27 +126,51 @@ export function setEventTheme(event, enabled) {
   }
 }
 
-export function hasShownExpansion(event) {
-  if (!event) return true
+export function getExpansionEnd(event) {
+  if (!event) return null
 
   try {
-    return localStorage.getItem(
+    const saved = localStorage.getItem(
       getExpansionKey(event, event.year)
-    ) === 'true'
+    )
+
+    if (saved === null) return null
+
+    // Stöd för gamla sparade värden från tidigare versioner.
+    if (saved === 'true') return 0
+
+    const timestamp = Number(saved)
+
+    return Number.isFinite(timestamp) ? timestamp : 0
   } catch {
-    return false
+    return null
   }
 }
 
-export function markExpansionShown(event) {
-  if (!event) return
+export function hasShownExpansion(event) {
+  return getExpansionEnd(event) !== null
+}
+
+export function markExpansionShown(event, duration = 5000) {
+  if (!event) return 0
+
+  const existingEnd = getExpansionEnd(event)
+
+  // Om visningen redan har startat fortsätter vi på samma timer.
+  if (existingEnd !== null) {
+    return existingEnd
+  }
+
+  const endTime = Date.now() + duration
 
   try {
     localStorage.setItem(
       getExpansionKey(event, event.year),
-      'true'
+      String(endTime)
     )
   } catch {
-    // Om lagring inte fungerar kan animationen visas igen vid nästa besök.
+    // Om lagring inte fungerar används timern under aktuell session.
   }
+
+  return endTime
 }
