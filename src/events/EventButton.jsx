@@ -5,8 +5,6 @@ import {
   getVisibleEvent,
   getEffectiveNow,
   setEventTheme,
-  getExpansionEnd,
-  markExpansionShown,
   ADMIN_TEST_TIME_EVENT,
 } from './eventManager'
 
@@ -33,15 +31,17 @@ function getCountdown(target, currentTime) {
 
 export default function EventButton({
   disabled = false,
-  isAdmin = false,
 }) {
   const [now, setNow] = useState(() => new Date())
-  const [expanded, setExpanded] = useState(false)
+  const [initialExpanded, setInitialExpanded] = useState(false)
+  const [hovering, setHovering] = useState(false)
   const [themeEnabled, setThemeEnabled] = useState(true)
 
-  const effectiveNow = getEffectiveNow(now, isAdmin)
-  const event = getVisibleEvent(now, isAdmin)
+  // Simuleringstiden används även när man inte är admin.
+  const effectiveNow = getEffectiveNow(now, true)
+  const event = getVisibleEvent(now, true)
 
+  // Håll klockan uppdaterad.
   useEffect(() => {
     function updateTime() {
       setNow(new Date())
@@ -68,34 +68,24 @@ export default function EventButton({
     }
   }, [])
 
+  // Visa nedräkningen automatiskt i fem sekunder
+  // när appen öppnas och ett event är på väg.
   useEffect(() => {
     if (!event || event.phase !== 'upcoming') {
-      setExpanded(false)
+      setInitialExpanded(false)
       return
     }
 
-    let endTime = getExpansionEnd(event)
-
-    if (endTime === null) {
-      endTime = markExpansionShown(event, 5000)
-    }
-
-    const remaining = Math.max(0, endTime - Date.now())
-
-    if (remaining <= 0) {
-      setExpanded(false)
-      return
-    }
-
-    setExpanded(true)
+    setInitialExpanded(true)
 
     const timeout = setTimeout(() => {
-      setExpanded(false)
-    }, remaining)
+      setInitialExpanded(false)
+    }, 5000)
 
     return () => clearTimeout(timeout)
   }, [event?.id, event?.year, event?.phase])
 
+  // Läs in eventets aktuella temainställning.
   useEffect(() => {
     if (event?.phase === 'active') {
       setThemeEnabled(event.themeEnabled)
@@ -109,6 +99,8 @@ export default function EventButton({
 
   if (!event) return null
 
+  const expanded = initialExpanded || hovering
+
   const countdown =
     event.phase === 'upcoming'
       ? getCountdown(event.startsAt, effectiveNow)
@@ -120,7 +112,7 @@ export default function EventButton({
     const nextValue = !themeEnabled
 
     setThemeEnabled(nextValue)
-    setEventTheme(event, nextValue, isAdmin)
+    setEventTheme(event, nextValue, true)
   }
 
   return (
@@ -137,9 +129,11 @@ export default function EventButton({
           : '',
       ].filter(Boolean).join(' ')}
       onClick={handleClick}
-      disabled={
-        disabled ||
-        event.phase === 'upcoming'
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+      disabled={disabled}
+      aria-disabled={
+        disabled || event.phase === 'upcoming'
       }
       aria-label={
         event.phase === 'upcoming'
