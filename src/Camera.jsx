@@ -1580,6 +1580,16 @@ export default function Camera({
     setErrorMessage('')
   }
 
+  function handleTimeWarpClick(event) {
+    if (filterRef.current !== 'time-warp' || isRecording) return
+  
+    // Byt riktning utan att klicket påverkar andra kameraelement.
+    event.stopPropagation()
+  
+    // Funktionen anropas av samma Time Warp-instans som ritar bilden.
+    timeWarpRef.current?.toggleDirection()
+  }
+
   function cycleFaceEmoji(event) {
     event.preventDefault()
     event.stopPropagation()
