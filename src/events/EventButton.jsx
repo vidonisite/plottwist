@@ -12,11 +12,7 @@ import {
 import './eventButton.css'
 
 function getCountdown(target) {
-  const difference = Math.max(
-    0,
-    target.getTime() - Date.now()
-  )
-
+  const difference = Math.max(0, target.getTime() - Date.now())
   const totalSeconds = Math.floor(difference / 1000)
 
   const hours = Math.floor(totalSeconds / 3600)
@@ -37,8 +33,6 @@ export default function EventButton({ disabled = false }) {
 
   const event = getVisibleEvent(now)
 
-  // Uppdaterar klockan varje sekund.
-  // Nedräkningen baseras alltid på det riktiga startdatumet.
   useEffect(() => {
     function updateTime() {
       setNow(new Date())
@@ -54,8 +48,6 @@ export default function EventButton({ disabled = false }) {
     }
   }, [])
 
-  // Visar den expanderade knappen i totalt fem sekunder.
-  // Tiden sparas så att den inte börjar om vid avmontering.
   useEffect(() => {
     if (!event || event.phase !== 'upcoming') {
       setExpanded(false)
@@ -81,12 +73,9 @@ export default function EventButton({ disabled = false }) {
       setExpanded(false)
     }, remaining)
 
-    return () => {
-      clearTimeout(timeout)
-    }
+    return () => clearTimeout(timeout)
   }, [event?.id, event?.year, event?.phase])
 
-  // Hämtar aktuell temainställning när eventet blir aktivt.
   useEffect(() => {
     if (event?.phase === 'active') {
       setThemeEnabled(event.themeEnabled)
@@ -106,9 +95,7 @@ export default function EventButton({ disabled = false }) {
       : null
 
   function handleClick() {
-    if (disabled || event.phase !== 'active' || event.testMode) {
-      return
-    }
+    if (disabled || event.phase !== 'active') return
 
     const nextValue = !themeEnabled
 
@@ -116,30 +103,23 @@ export default function EventButton({ disabled = false }) {
     setEventTheme(event, nextValue)
   }
 
-  const expandedClass =
-    expanded && event.phase === 'upcoming'
-      ? 'event-button-expanded'
-      : ''
-
-  const enabledClass =
-    themeEnabled && event.phase === 'active'
-      ? 'event-button-enabled'
-      : ''
-
   return (
     <button
       type="button"
       className={[
         'event-button',
         `event-button-${event.id}`,
-        expandedClass,
-        enabledClass,
+        expanded && event.phase === 'upcoming'
+          ? 'event-button-expanded'
+          : '',
+        themeEnabled && event.phase === 'active'
+          ? 'event-button-enabled'
+          : '',
       ].filter(Boolean).join(' ')}
       onClick={handleClick}
       disabled={
         disabled ||
-        event.phase === 'upcoming' ||
-        event.testMode
+        event.phase === 'upcoming'
       }
       aria-label={
         event.phase === 'upcoming'
