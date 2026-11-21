@@ -211,6 +211,8 @@ export default function Camera({
   const mindarLifecycleRef = useRef(Promise.resolve())
   const mindarReadyRef = useRef(false)
 
+  const timeWarpRef = useRef(null)
+
   const holdTimerRef = useRef(null)
   const recordingTimerRef = useRef(null)
   const pointerDownRef = useRef(false)
@@ -638,6 +640,7 @@ export default function Camera({
     let landmarkerFailed = false
 
     const timeWarp = createTimeWarp()
+    timeWarpRef.current = timeWarp
 
     async function getLandmarker() {
       if (landmarkerRef.current) return landmarkerRef.current
@@ -1999,7 +2002,10 @@ export default function Camera({
         {/* KAMERAN */}
         {cameraState !== 'preview' && (
           <>
-            <div className={`camera-frame filter-${filter}`}>
+            <div
+              className={`camera-frame filter-${filter}`}
+              onClick={filter === 'time-warp' ? handleTimeWarpClick : undefined}
+            >
               <video
                 ref={videoRef}
                 autoPlay
@@ -2045,6 +2051,57 @@ export default function Camera({
                     <span />
                     LIVE
                   </span>
+
+                  {filter === 'time-warp' && (
+                    <>
+                      <style>
+                        {`
+                          @keyframes timeWarpHintFade {
+                            0% {
+                              opacity: 0;
+                              transform: translate(-50%, -44%);
+                            }
+                            15% {
+                              opacity: 1;
+                              transform: translate(-50%, -50%);
+                            }
+                            65% {
+                              opacity: 1;
+                              transform: translate(-50%, -50%);
+                            }
+                            100% {
+                              opacity: 0;
+                              transform: translate(-50%, -50%);
+                            }
+                          }
+                        `}
+                      </style>
+                  
+                      <div
+                        key="time-warp-hint"
+                        style={{
+                          position: 'absolute',
+                          zIndex: 6,
+                          top: '50%',
+                          left: '50%',
+                          width: 'max-content',
+                          maxWidth: '85%',
+                          padding: '12px 18px',
+                          borderRadius: '12px',
+                          background: 'rgba(50, 14, 59, 0.78)',
+                          color: '#FFFFFF',
+                          fontSize: 'clamp(12px, 2.5vw, 17px)',
+                          fontWeight: 800,
+                          letterSpacing: '1.2px',
+                          textAlign: 'center',
+                          pointerEvents: 'none',
+                          animation: 'timeWarpHintFade 1.5s ease forwards',
+                        }}
+                      >
+                        KLICKA FÖR ATT BYTA RIKTNING
+                      </div>
+                    </>
+                  )}
 
                   {filter === 'emoji' && (
                     <button
