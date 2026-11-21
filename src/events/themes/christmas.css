@@ -850,3 +850,24 @@ body.christmas-theme::after {
     animation: none;
   }
 }
+
+
+
+/* ========================================
+   EVENT BUTTON – CHRISTMAS
+======================================== */
+
+.event-button-christmas {
+  color: #fff8e8;
+  background: #174b38;
+  border-color: #201827;
+  box-shadow: 3px 3px 0 #201827;
+}
+
+.event-button-christmas:hover:not(:disabled) {
+  background: #226447;
+}
+
+.event-button-christmas.event-button-expanded {
+  background: #a83245;
+}
