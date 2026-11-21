@@ -116,50 +116,48 @@ export default function EventButton({
   }
 
   return (
-    <>
+    <button
+      type="button"
+      className={[
+        'event-button',
+        `event-button-${event.id}`,
+        expanded && event.phase === 'upcoming'
+          ? 'event-button-expanded'
+          : '',
+        themeEnabled && event.phase === 'active'
+          ? 'event-button-enabled'
+          : '',
+      ].filter(Boolean).join(' ')}
+      onClick={handleClick}
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+      disabled={disabled}
+      aria-disabled={
+        disabled || event.phase === 'upcoming'
+      }
+      aria-label={
+        event.phase === 'upcoming'
+          ? `${event.name} event in ${countdown}`
+          : `${event.name} theme ${themeEnabled ? 'on' : 'off'}`
+      }
+      title="Event"
+    >
+      <span className="event-button-icon">
+        <Snowflake aria-hidden="true" />
+      </span>
       <img src="/snowman.png" className="snowman" />
-      <button
-        type="button"
-        className={[
-          'event-button',
-          `event-button-${event.id}`,
-          expanded && event.phase === 'upcoming'
-            ? 'event-button-expanded'
-            : '',
-          themeEnabled && event.phase === 'active'
-            ? 'event-button-enabled'
-            : '',
-        ].filter(Boolean).join(' ')}
-        onClick={handleClick}
-        onMouseEnter={() => setHovering(true)}
-        onMouseLeave={() => setHovering(false)}
-        disabled={disabled}
-        aria-disabled={
-          disabled || event.phase === 'upcoming'
-        }
-        aria-label={
-          event.phase === 'upcoming'
-            ? `${event.name} event in ${countdown}`
-            : `${event.name} theme ${themeEnabled ? 'on' : 'off'}`
-        }
-        title="Event"
-      >
-        <span className="event-button-icon">
-          <Snowflake aria-hidden="true" />
-        </span>
-  
-        {expanded && event.phase === 'upcoming' && (
-          <span className="event-button-countdown">
-            <span className="event-button-name">
-              {event.name} starts in
-            </span>
-  
-            <span className="event-button-time">
-              {countdown}
-            </span>
+
+      {expanded && event.phase === 'upcoming' && (
+        <span className="event-button-countdown">
+          <span className="event-button-name">
+            {event.name} starts in
           </span>
-        )}
-      </button>
-    </>
+
+          <span className="event-button-time">
+            {countdown}
+          </span>
+        </span>
+      )}
+    </button>
   )
 }
