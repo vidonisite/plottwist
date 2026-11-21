@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Query } from 'appwrite'
 import { Gamepad2, Phone } from 'lucide-react'
+import { useRegisterSW } from 'virtual:pwa-register/react'
 import {
   disablePushNotifications,
   enablePushNotifications,
@@ -63,6 +64,30 @@ function latestMemberActivityAt(members) {
 }
 
 export default function App() {
+    const {
+      needRefresh: [needRefresh, setNeedRefresh],
+      updateServiceWorker,
+    } = useRegisterSW({
+      immediate: true,
+
+      onRegisteredSW: (_swUrl, registration) => {
+        if (!registration) return
+
+        // Kontrollera efter nya versioner var femte minut.
+        window.setInterval(() => {
+          if (document.visibilityState === 'visible') {
+            registration.update().catch((error) => {
+              console.error('Kunde inte kontrollera uppdateringar:', error)
+            })
+          }
+        }, 5 * 60 * 1000)
+      },
+
+      onRegisterError: (error) => {
+        console.error('Kunde inte registrera service workern:', error)
+      },
+    })
+
   const [currentUser, setCurrentUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const profileRef = useRef(profile)
@@ -99,6 +124,13 @@ export default function App() {
   const [twistScoreHovered, setTwistScoreHovered] = useState(false)
   const [twistScorePinned, setTwistScorePinned] = useState(false)
   const voiceCall = useVoiceCall(currentUser)
+
+  const updateBlocked =
+    activeView !== 'camera' ||
+    Boolean(voiceCall.call) ||
+    Boolean(gameTransition) ||
+    groupDetailsOpen
+
   const closeGroupDetails = useCallback(() => setGroupDetailsOpen(false), [])
 
   useEffect(() => {
@@ -1520,6 +1552,49 @@ export default function App() {
         onToggleMute={voiceCall.toggleMute}
         onDismiss={voiceCall.dismissCall}
       />
+
+
+      {needRefresh && (
+        <div className="pwa-update-card" role="status">
+          <div className="pwa-update-icon">✳</div>
+
+          <div className="pwa-update-content">
+            <strong>En ny uppdatering finns!</strong>
+
+            <p>
+              En ny version av PLOT TWIST är redo.
+              Du kan uppdatera nu eller fortsätta använda appen.
+            </p>
+
+            {updateBlocked && (
+              <p className="pwa-update-warning">
+                Avsluta det du håller på med innan du uppdaterar.
+              </p>
+            )}
+
+            <div className="pwa-update-actions">
+              <button
+                type="button"
+                className="pwa-update-later"
+                onClick={() => setNeedRefresh(false)}
+              >
+                Senare
+              </button>
+
+              <button
+                type="button"
+                className="pwa-update-now"
+                disabled={updateBlocked}
+                onClick={() => updateServiceWorker()}
+              >
+                Uppdatera nu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
       <div className="twist-score-toasts" aria-live="polite" aria-atomic="false">
         {scoreToasts.map(({ id, points }) => (
           <div className="twist-score-toast" key={id} role="status">

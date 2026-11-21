@@ -23,5 +23,8 @@
     "typescript": "latest",
     "vite": "latest",
     "vite-plugin-pwa": "latest"
+  },
+  "devDependencies": {
+    "workbox-window": "^7.4.1"
   }
 }

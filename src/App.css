@@ -1552,3 +1552,95 @@ input:focus-visible {
     transition: none;
   }
 }
+
+
+
+.pwa-update-card {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 10000;
+  display: flex;
+  gap: 14px;
+  width: min(390px, calc(100vw - 32px));
+  padding: 20px;
+  border: 1px solid #e8dcef;
+  border-radius: 20px;
+  background: #fff;
+  color: #211b2b;
+  box-shadow: 0 12px 40px rgba(33, 27, 43, 0.18);
+}
+
+.pwa-update-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: #f1e6ff;
+  color: #8c52ff;
+  font-size: 24px;
+}
+
+.pwa-update-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.pwa-update-content > strong {
+  display: block;
+  font-size: 16px;
+}
+
+.pwa-update-content p {
+  margin: 7px 0 0;
+  color: #716979;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.pwa-update-content .pwa-update-warning {
+  color: #a15b28;
+  font-weight: 600;
+}
+
+.pwa-update-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 16px;
+}
+
+.pwa-update-actions button {
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pwa-update-later {
+  background: #f3eff6;
+  color: #51465b;
+}
+
+.pwa-update-now {
+  background: #8c52ff;
+  color: white;
+}
+
+.pwa-update-now:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (max-width: 480px) {
+  .pwa-update-card {
+    right: 12px;
+    bottom: 12px;
+    width: calc(100vw - 24px);
+  }
+}
