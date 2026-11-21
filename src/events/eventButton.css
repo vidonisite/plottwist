@@ -107,7 +107,7 @@
   z-index: 9;
 
   left: 8px;
-  bottom: calc(100% + 1px);
+  bottom: calc(100% + 3px);
 
   width: auto;
   height: 50px;
@@ -118,6 +118,32 @@
   transition:
     left .35s ease,
     bottom .15s ease;
+}
+
+.event-button:hover:not(:disabled) .snowman {
+  animation: snowman-hop .45s ease;
+}
+
+@keyframes snowman-hop {
+  0% {
+    transform: translateY(0);
+  }
+
+  35% {
+    transform: translateY(-9px);
+  }
+
+  65% {
+    transform: translateY(0);
+  }
+
+  82% {
+    transform: translateY(-3px);
+  }
+
+  100% {
+    transform: translateY(0);
+  }
 }
 
 @keyframes event-countdown-appear {
@@ -134,7 +160,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .event-button,
-  .event-button-countdown {
+  .event-button-countdown,
+  .snowman {
     animation: none;
     transition: none;
   }
