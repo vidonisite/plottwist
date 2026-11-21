@@ -1,64 +1,623 @@
 
-/* =================================
+/* =====================================================
    PLOT TWIST — CHRISTMAS TAKEOVER
-   ================================= */
+   Temporärt jultema för hela appen
+   Aktiveras med: body.christmas-theme
+   ===================================================== */
+
+
+/* -----------------------------------------------------
+   1. JULENS FÄRGPALETT
+   ----------------------------------------------------- */
 
 body.christmas-theme {
-  --christmas-bg: #211b2b;
-  --christmas-panel: #30243b;
-  --christmas-card: #3b2b47;
-  --christmas-text: #fff8fc;
-  --christmas-muted: #d4bfd9;
-  --christmas-primary: #e8a6d7;
-  --christmas-secondary: #a9d8c1;
-  --christmas-accent: #f4d49b;
-  --christmas-border: rgba(255, 255, 255, 0.12);
+  /* Bakgrunder */
+  --background: #17251f;
+  --surface: #fffaf3;
+  --surface-soft: #f8f0e8;
+  --surface-hover: #f1e4dc;
 
-  color: var(--christmas-text);
+  /* Text */
+  --text: #352630;
+  --text-muted: #81717a;
+  --text-subtle: #a39499;
+  --text-on-accent: #fffaf3;
+  --text-on-dark: #fffaf3;
+
+  /* Julrött */
+  --pink: #c85b70;
+  --pink-light: #e9a1a9;
+  --pink-hover: #b94b62;
+  --pink-soft: rgba(200, 91, 112, 0.12);
+  --pink-border: rgba(200, 91, 112, 0.25);
+
+  /* Grangrönt */
+  --purple: #72977d;
+  --purple-dark: #365d48;
+  --purple-hover: #527b60;
+  --purple-soft: rgba(83, 126, 96, 0.12);
+  --purple-border: rgba(83, 126, 96, 0.24);
+
+  /* Guld och kanter */
+  --border: #eaded4;
+  --border-strong: #ddc9bb;
+  --focus: #c99c58;
+
+  /* Genomskinliga färger */
+  --white-04: rgba(255, 250, 243, 0.04);
+  --white-07: rgba(255, 250, 243, 0.07);
+  --white-10: rgba(255, 250, 243, 0.10);
+  --white-16: rgba(255, 250, 243, 0.16);
+  --white-90: rgba(255, 250, 243, 0.9);
+
+  --pink-28: rgba(200, 91, 112, 0.28);
+  --purple-18: rgba(83, 126, 96, 0.18);
+  --purple-34: rgba(83, 126, 96, 0.34);
+
+  /* Mörka ytor */
+  --dark-purple: #243b30;
+  --dark-card: #304638;
+  --dark-card-end: #24362d;
+
+  /* Status */
+  --status-online: #76a982;
+  --selection-background: #e9c58d;
+  --selection-text: #352630;
+
+  color: var(--text);
+  background: var(--background);
 }
 
-/* Bakgrunder */
-body.christmas-theme #root,
-body.christmas-theme .app,
-body.christmas-theme .main-layout {
-  background-color: var(--christmas-bg) !important;
-  color: var(--christmas-text) !important;
+
+/* -----------------------------------------------------
+   2. APPENS YTTRE BAKGRUND
+   ----------------------------------------------------- */
+
+body.christmas-theme {
+  background: var(--background);
+  color: var(--text);
 }
 
-/* Paneler och kort */
-body.christmas-theme .panel,
-body.christmas-theme .card,
-body.christmas-theme .sidebar,
-body.christmas-theme .modal,
-body.christmas-theme .chat-container {
-  background-color: var(--christmas-panel) !important;
-  color: var(--christmas-text) !important;
-  border-color: var(--christmas-border) !important;
+body.christmas-theme #root {
+  background: var(--background);
 }
 
-/* Knappar */
-body.christmas-theme button {
-  border-color: var(--christmas-border);
+body.christmas-theme .app-shell {
+  background:
+    radial-gradient(
+      ellipse at 12% 8%,
+      rgba(201, 156, 88, 0.10),
+      transparent 38%
+    ),
+    var(--background);
 }
 
-/* Text */
-body.christmas-theme h1,
-body.christmas-theme h2,
-body.christmas-theme h3,
-body.christmas-theme strong {
-  color: var(--christmas-text);
+
+/* -----------------------------------------------------
+   3. SIDOMENYN
+   Mörk grangrön med ljus text
+   ----------------------------------------------------- */
+
+body.christmas-theme .sidebar {
+  --text: #fff8f0;
+  --text-muted: #c9c0b9;
+  --text-subtle: #a69a94;
+
+  --surface: #294033;
+  --surface-soft: rgba(255, 250, 243, 0.09);
+  --surface-hover: rgba(255, 250, 243, 0.14);
+
+  --purple: #d4ad72;
+  --purple-dark: #b88a4b;
+  --purple-hover: #c99c58;
+  --purple-soft: rgba(212, 173, 114, 0.15);
+  --purple-border: rgba(212, 173, 114, 0.25);
+
+  --border: rgba(255, 250, 243, 0.12);
+  --border-strong: rgba(255, 250, 243, 0.2);
+
+  color: var(--text);
 }
 
-/* Dekorativa detaljer */
-body.christmas-theme .primary,
-body.christmas-theme .active {
-  background-color: var(--christmas-primary) !important;
-  color: #39233b !important;
+body.christmas-theme .brand {
+  color: #fff8f0;
 }
 
-/* Formulär */
-body.christmas-theme input,
-body.christmas-theme textarea {
-  color: var(--christmas-text);
-  border-color: var(--christmas-border);
+body.christmas-theme .brand-mark {
+  color: #fffaf3;
+  background: #bd596b;
+}
+
+body.christmas-theme .brand-name {
+  color: #fff8f0;
+}
+
+body.christmas-theme .brand-name strong {
+  color: #e4c38e;
+}
+
+body.christmas-theme .brand-icon-button {
+  color: #f0d6ae;
+  background: rgba(255, 250, 243, 0.10);
+}
+
+body.christmas-theme .brand-icon-button:hover {
+  color: #26392e;
+  background: #e4c38e;
+}
+
+body.christmas-theme .brand-icon-button.selected {
+  color: #26392e;
+  background: #e4c38e;
+}
+
+body.christmas-theme .search-box {
+  color: #eee3da;
+  background: rgba(255, 250, 243, 0.10);
+}
+
+body.christmas-theme .search-box input {
+  color: #fff8f0;
+}
+
+body.christmas-theme .search-box input::placeholder {
+  color: #bcb0a9;
+}
+
+body.christmas-theme .clear-search {
+  color: #e6d9cf;
+}
+
+body.christmas-theme .sidebar-section-title {
+  color: #c9c0b9;
+}
+
+body.christmas-theme .chat-count {
+  color: #fff8f0;
+  background: rgba(255, 250, 243, 0.13);
+}
+
+body.christmas-theme .chat-list-item {
+  color: #fff8f0;
+}
+
+body.christmas-theme .chat-list-item:hover {
+  background: rgba(255, 250, 243, 0.09);
+}
+
+body.christmas-theme .chat-list-item.selected {
+  border-color: rgba(228, 195, 142, 0.55);
+  background: rgba(228, 195, 142, 0.15);
+}
+
+body.christmas-theme .chat-avatar {
+  color: #fff8f0;
+  background: #527b60;
+}
+
+body.christmas-theme .chat-avatar.group-avatar {
+  background: #3c5947;
+}
+
+body.christmas-theme .group-avatar-extra {
+  color: #fff8f0;
+  background: #bd596b;
+}
+
+body.christmas-theme .chat-list-copy strong {
+  color: #fff8f0;
+}
+
+body.christmas-theme .chat-list-copy small {
+  color: #c9c0b9;
+}
+
+body.christmas-theme .empty-search {
+  color: #c9c0b9;
+}
+
+body.christmas-theme .sidebar-action {
+  color: #d4c9c1;
+}
+
+body.christmas-theme .sidebar-action:hover,
+body.christmas-theme .sidebar-action.selected {
+  color: #fff8f0;
+  background: rgba(228, 195, 142, 0.14);
+}
+
+body.christmas-theme .profile-settings-button:hover,
+body.christmas-theme .profile-settings-button.selected {
+  border-color: #d4ad72;
+  background: rgba(228, 195, 142, 0.14);
+}
+
+body.christmas-theme .profile-score-badge {
+  border-color: #294033;
+  color: #26392e;
+  background: #e4c38e;
+}
+
+body.christmas-theme .sidebar-footer {
+  color: #c9c0b9;
+}
+
+body.christmas-theme .footer-dot {
+  background: #86b68c;
+}
+
+
+/* -----------------------------------------------------
+   4. HUVUDPANELEN
+   Varm vintervit yta
+   ----------------------------------------------------- */
+
+body.christmas-theme .main-panel {
+  border-color: #dfd0c5;
+  color: #352630;
+  background: #fffaf3;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.10);
+}
+
+body.christmas-theme .workspace-view {
+  color: #352630;
+}
+
+body.christmas-theme .main-panel .page,
+body.christmas-theme .main-panel .page h1,
+body.christmas-theme .main-panel .page h2 {
+  color: #352630;
+}
+
+body.christmas-theme .main-panel .page-intro {
+  color: #81717a;
+}
+
+body.christmas-theme .mobile-brand .brand-name {
+  color: #fff8f0;
+}
+
+body.christmas-theme .mobile-brand .brand-name strong {
+  color: #e4c38e;
+}
+
+
+/* -----------------------------------------------------
+   5. CHATTAR
+   ----------------------------------------------------- */
+
+body.christmas-theme .conversation-heading {
+  border-bottom-color: #eaded4;
+}
+
+body.christmas-theme .conversation-heading h1 {
+  color: #352630;
+}
+
+body.christmas-theme .conversation-heading p {
+  color: #81717a;
+}
+
+body.christmas-theme .conversation-call-button {
+  border-color: #d8c3a0;
+  color: #365d48;
+  background: #f5eddf;
+}
+
+body.christmas-theme .conversation-call-button:hover {
+  color: #fffaf3;
+  background: #365d48;
+}
+
+body.christmas-theme .chat-avatar.large {
+  color: #365d48;
+  background: #e6eee5;
+}
+
+body.christmas-theme .conversation-group-name-button:hover {
+  color: #bd596b;
+}
+
+
+/* -----------------------------------------------------
+   6. PERSONER OCH INSTÄLLNINGAR
+   ----------------------------------------------------- */
+
+body.christmas-theme .view-symbol {
+  color: #fffaf3;
+  background: #bd596b;
+}
+
+body.christmas-theme .purple-symbol {
+  color: #fffaf3;
+  background: #365d48;
+}
+
+body.christmas-theme .simple-view h1 {
+  color: #352630;
+}
+
+body.christmas-theme .view-description {
+  color: #81717a;
+}
+
+body.christmas-theme .person-search-form label,
+body.christmas-theme .settings-card label {
+  color: #352630;
+}
+
+body.christmas-theme .person-search-input {
+  border-color: #ddc9bb;
+  color: #bd596b;
+  background: #fffaf3;
+}
+
+body.christmas-theme .person-search-input input,
+body.christmas-theme .settings-card input {
+  color: #352630;
+}
+
+body.christmas-theme .person-search-input input::placeholder,
+body.christmas-theme .settings-card input::placeholder {
+  color: #a39499;
+}
+
+body.christmas-theme .accent-button {
+  color: #fffaf3;
+  background: #365d48;
+}
+
+body.christmas-theme .accent-button:hover {
+  background: #527b60;
+}
+
+body.christmas-theme .feature-note {
+  color: #95859b;
+}
+
+body.christmas-theme .settings-card {
+  border-color: #eaded4;
+  background: #fffaf3;
+}
+
+body.christmas-theme .settings-card input {
+  border-color: #ddc9bb;
+}
+
+body.christmas-theme .settings-row {
+  border-color: #eaded4;
+  background: #fffaf3;
+}
+
+body.christmas-theme .settings-row strong {
+  color: #352630;
+}
+
+body.christmas-theme .settings-row p {
+  color: #81717a;
+}
+
+body.christmas-theme .toggle-switch {
+  background: #d8ccc5;
+}
+
+body.christmas-theme .toggle-switch.on {
+  background: #365d48;
+}
+
+body.christmas-theme .toggle-switch span {
+  background: #fffaf3;
+}
+
+body.christmas-theme .setting-help {
+  color: #95859b;
+}
+
+
+/* -----------------------------------------------------
+   7. GRUPPINFORMATION
+   ----------------------------------------------------- */
+
+body.christmas-theme .group-details-page {
+  border-color: #eaded4;
+  color: #352630;
+  background: #fffaf3;
+}
+
+body.christmas-theme .group-details-header {
+  border-bottom-color: #eaded4;
+}
+
+body.christmas-theme .group-details-back {
+  border-color: #eaded4;
+  color: #365d48;
+  background: #f5eddf;
+}
+
+body.christmas-theme .group-details-back:hover {
+  background: #e8eee5;
+}
+
+body.christmas-theme .group-details-heading > p,
+body.christmas-theme .group-details-heading > span {
+  color: #81717a;
+}
+
+body.christmas-theme .group-details-heading h2 {
+  color: #352630;
+}
+
+body.christmas-theme .group-details-section h3 {
+  color: #352630;
+}
+
+body.christmas-theme .group-details-muted {
+  color: #81717a;
+}
+
+body.christmas-theme .group-details-person {
+  border-color: #eaded4;
+  background: #fffaf3;
+}
+
+body.christmas-theme .group-details-person-name {
+  color: #352630;
+}
+
+body.christmas-theme .group-details-person-name small {
+  color: #81717a;
+}
+
+body.christmas-theme .group-details-add {
+  color: #fffaf3;
+  background: #365d48;
+}
+
+body.christmas-theme .group-details-add:hover {
+  background: #527b60;
+}
+
+body.christmas-theme .group-details-remove,
+body.christmas-theme .group-details-leave {
+  border-color: rgba(189, 89, 107, 0.25);
+  color: #a64459;
+  background: #f9e8e8;
+}
+
+body.christmas-theme .group-details-remove:hover,
+body.christmas-theme .group-details-leave:hover:not(:disabled) {
+  background: #f3dada;
+}
+
+body.christmas-theme .group-details-page .group-details-footer {
+  border-top-color: #eaded4;
+  background: #fffaf3;
+}
+
+body.christmas-theme .group-details-error {
+  border-color: rgba(189, 89, 107, 0.25);
+  color: #a64459;
+  background: #f9e8e8;
+}
+
+
+/* -----------------------------------------------------
+   8. BADGES OCH TWIST SCORE
+   ----------------------------------------------------- */
+
+body.christmas-theme .unread-badge {
+  color: #fffaf3;
+  background: #bd596b;
+}
+
+body.christmas-theme .twist-score-badge {
+  border-color: rgba(201, 156, 88, 0.25);
+  color: #60431f;
+  background: #efd19b;
+}
+
+body.christmas-theme .twist-score-tooltip {
+  border-color: #eaded4;
+  color: #352630;
+  background: #fffaf3;
+}
+
+body.christmas-theme .twist-score-tooltip p {
+  color: #81717a;
+}
+
+body.christmas-theme .twist-score-toast {
+  border-color: rgba(201, 156, 88, 0.3);
+  color: #60431f;
+  background: #efd19b;
+}
+
+
+/* -----------------------------------------------------
+   9. FOKUS OCH MARKERINGAR
+   ----------------------------------------------------- */
+
+body.christmas-theme button:focus-visible,
+body.christmas-theme input:focus-visible,
+body.christmas-theme textarea:focus-visible {
+  outline-color: #c99c58;
+}
+
+body.christmas-theme ::selection {
+  color: #352630;
+  background: #e9c58d;
+}
+
+
+/* -----------------------------------------------------
+   10. SCROLLBARS
+   ----------------------------------------------------- */
+
+body.christmas-theme * {
+  scrollbar-color: #c5aa8b transparent;
+}
+
+body.christmas-theme *::-webkit-scrollbar-thumb {
+  border-radius: 99px;
+  background: #c5aa8b;
+}
+
+body.christmas-theme *::-webkit-scrollbar-thumb:hover {
+  background: #a98a68;
+}
+
+
+/* -----------------------------------------------------
+   11. PWA-UPPDATERING
+   Behåll läsbarheten även under julen
+   ----------------------------------------------------- */
+
+body.christmas-theme .pwa-update-card {
+  border-color: #eaded4;
+  color: #352630;
+  background: #fffaf3;
+}
+
+body.christmas-theme .pwa-update-icon {
+  color: #fffaf3;
+  background: #365d48;
+}
+
+body.christmas-theme .pwa-update-content p {
+  color: #81717a;
+}
+
+body.christmas-theme .pwa-update-later {
+  color: #51434b;
+  background: #f1e7df;
+}
+
+body.christmas-theme .pwa-update-now {
+  color: #fffaf3;
+  background: #365d48;
+}
+
+
+/* -----------------------------------------------------
+   12. MOBILANPASSNING
+   Behåll appens befintliga layout
+   ----------------------------------------------------- */
+
+@media (max-width: 600px) {
+  body.christmas-theme .main-panel {
+    border-color: #dfd0c5;
+  }
+}
+
+
+/* -----------------------------------------------------
+   13. MINSKAD RÖRELSE
+   ----------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  body.christmas-theme *,
+  body.christmas-theme *::before,
+  body.christmas-theme *::after {
+    scroll-behavior: auto;
+  }
 }
