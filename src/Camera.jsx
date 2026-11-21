@@ -637,6 +637,8 @@ export default function Camera({
     let landmarkerPromise = null
     let landmarkerFailed = false
 
+    const timeWarp = createTimeWarp()
+
     async function getLandmarker() {
       if (landmarkerRef.current) return landmarkerRef.current
       if (landmarkerFailed) return null
@@ -773,7 +775,6 @@ export default function Camera({
   // MindAR Studio körs i sin egen isolerade export-sida, men får en klon av
   // PLOT TWISTs befintliga stream. Resultatcanvasen kopieras in i canvasRef.
   useEffect(() => {
-    const timeWarp = createTimeWarp()
     const mindarFilter = getMindARFilter(filter)
     if (cameraState !== 'live' || !mindarFilter) return
 
