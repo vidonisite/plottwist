@@ -27,6 +27,7 @@ import { startGlam } from './filters/glam.jsx'
 import { startNoLips } from './filters/nolips.jsx'
 import { startBigNose } from './filters/bignose.jsx'
 import { startSad } from './filters/sad.jsx'
+import { createTimeWarp } from './filters/timewarp.jsx'
 import {
   startMindAR,
   MINDAR_FILTERS,
@@ -47,7 +48,8 @@ import { addLatestMessageTimes } from './lib/groupMembers.js'
 import './Camera.css'
 
 const FILTERS = [
-  { id: 'none', label: 'No filter', symbol: '📷' },
+  { id: 'none', label: 'No filter', symbol: ' ' },
+  { id: 'time-warp', label: 'Time Warp Scan', symbol: '⏳', isNew: true },
   { id: 'emoji', label: 'Emoji', symbol: '😍', isNew: true },
   { id: 'big-nose', label: 'Big Nose', symbol: '👃', isNew: true },
   { id: 'sad', label: 'Sad', symbol: '😟', isNew: true },
@@ -744,6 +746,8 @@ export default function Camera({
         drawFaceFilter((source, targetContext, face) => {
           drawFaceEmoji(source, targetContext, face, selectedEmojiRef.current)
         })
+      } else if (activeFilter === 'time-warp') {
+        timeWarp.draw(sourceCanvas, context)
       } else if (activeFilter === 'dreamy') {
         drawDreamy(sourceCanvas, context)
       } else if (activeFilter === 'none') {
@@ -769,6 +773,7 @@ export default function Camera({
   // MindAR Studio körs i sin egen isolerade export-sida, men får en klon av
   // PLOT TWISTs befintliga stream. Resultatcanvasen kopieras in i canvasRef.
   useEffect(() => {
+    const timeWarp = createTimeWarp()
     const mindarFilter = getMindARFilter(filter)
     if (cameraState !== 'live' || !mindarFilter) return
 
