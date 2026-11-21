@@ -22,7 +22,6 @@ const GAME_LIST = [
   {
     id: 'snake',
     name: 'Snake',
-    description: 'Klassiskt ormspel – ensam eller mot upp till tre kompisar.',
     minPlayers: 2,
     maxPlayers: 4,
     icon: '🐍',
@@ -31,7 +30,6 @@ const GAME_LIST = [
   {
     id: 'memory',
     name: 'Memory',
-    description: 'Hitta tio emoji-par mot en kompis.',
     minPlayers: 2,
     maxPlayers: 2,
     icon: '🧠',
@@ -40,7 +38,6 @@ const GAME_LIST = [
   {
     id: 'tic-tac-toe',
     name: 'Tic-tac-toe',
-    description: 'Tre i rad mot en kompis eller bot.',
     minPlayers: 2,
     maxPlayers: 2,
     icon: '⭕',
@@ -49,7 +46,6 @@ const GAME_LIST = [
   {
     id: 'hangman',
     name: 'Hangman',
-    description: 'Gissa ord tillsammans innan ljusen slocknar.',
     minPlayers: 2,
     maxPlayers: 10,
     icon: '𐦂',
@@ -991,7 +987,6 @@ export default function Games({
               </span>
               <span className="game-card-copy">
                 <strong>{game.name}</strong>
-                <span>{game.description}</span>
               </span>
               <Gamepad2 className="game-card-icon" aria-hidden="true" />
             </button>
