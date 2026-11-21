@@ -1131,7 +1131,7 @@ export default function App() {
   return (
     <>
       {/* EventThemeController måste vara monterad oavsett vilken vy som visas. */}
-      <EventThemeController />
+      <EventThemeController isAdmin={profile?.admin === true} />
 
       <div className="app-shell">
         <aside className="sidebar">
@@ -1335,6 +1335,7 @@ export default function App() {
 
               <EventButton
                 disabled={Boolean(gameTransition)}
+                isAdmin={profile?.admin === true}
               />
 
               <button
