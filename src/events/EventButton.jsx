@@ -1,18 +1,23 @@
-
 import { useEffect, useState } from 'react'
 import { Snowflake } from 'lucide-react'
 
 import {
   getVisibleEvent,
+  getEffectiveNow,
   setEventTheme,
   getExpansionEnd,
   markExpansionShown,
+  ADMIN_TEST_TIME_EVENT,
 } from './eventManager'
 
 import './eventButton.css'
 
-function getCountdown(target) {
-  const difference = Math.max(0, target.getTime() - Date.now())
+function getCountdown(target, currentTime) {
+  const difference = Math.max(
+    0,
+    target.getTime() - currentTime.getTime()
+  )
+
   const totalSeconds = Math.floor(difference / 1000)
 
   const hours = Math.floor(totalSeconds / 3600)
@@ -26,12 +31,16 @@ function getCountdown(target) {
   ].join(':')
 }
 
-export default function EventButton({ disabled = false }) {
+export default function EventButton({
+  disabled = false,
+  isAdmin = false,
+}) {
   const [now, setNow] = useState(() => new Date())
   const [expanded, setExpanded] = useState(false)
   const [themeEnabled, setThemeEnabled] = useState(true)
 
-  const event = getVisibleEvent(now)
+  const effectiveNow = getEffectiveNow(now, isAdmin)
+  const event = getVisibleEvent(now, isAdmin)
 
   useEffect(() => {
     function updateTime() {
@@ -42,9 +51,20 @@ export default function EventButton({ disabled = false }) {
 
     document.addEventListener('visibilitychange', updateTime)
 
+    window.addEventListener(ADMIN_TEST_TIME_EVENT, updateTime)
+
     return () => {
       clearInterval(interval)
-      document.removeEventListener('visibilitychange', updateTime)
+
+      document.removeEventListener(
+        'visibilitychange',
+        updateTime
+      )
+
+      window.removeEventListener(
+        ADMIN_TEST_TIME_EVENT,
+        updateTime
+      )
     }
   }, [])
 
@@ -91,7 +111,7 @@ export default function EventButton({ disabled = false }) {
 
   const countdown =
     event.phase === 'upcoming'
-      ? getCountdown(event.startsAt)
+      ? getCountdown(event.startsAt, effectiveNow)
       : null
 
   function handleClick() {
@@ -100,7 +120,7 @@ export default function EventButton({ disabled = false }) {
     const nextValue = !themeEnabled
 
     setThemeEnabled(nextValue)
-    setEventTheme(event, nextValue)
+    setEventTheme(event, nextValue, isAdmin)
   }
 
   return (
