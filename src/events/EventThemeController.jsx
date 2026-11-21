@@ -10,18 +10,38 @@ import {
 
 import './themes/christmas.css'
 
-export default function EventThemeController({ isAdmin = false }) {
+export default function EventThemeController() {
+  const [isVisible, setIsVisible] = useState(false)
+
   const [testDateTime, setTestDateTime] = useState(() =>
-    getAdminTestDateTime(isAdmin)
+    getAdminTestDateTime(true)
   )
+
   const [testActive, setTestActive] = useState(() =>
-    Boolean(getAdminTestDateTime(isAdmin))
+    Boolean(getAdminTestDateTime(true))
   )
+
   const [message, setMessage] = useState('')
+
+  // Gör simulatorn tillgänglig via webbläsarens Console.
+  useEffect(() => {
+    const simulatorApi = {
+      show: () => setIsVisible(true),
+      hide: () => setIsVisible(false),
+    }
+
+    window.plotTwistEventSimulator = simulatorApi
+
+    return () => {
+      if (window.plotTwistEventSimulator === simulatorApi) {
+        delete window.plotTwistEventSimulator
+      }
+    }
+  }, [])
 
   useEffect(() => {
     function updateTheme() {
-      const event = getVisibleEvent(new Date(), isAdmin)
+      const event = getVisibleEvent(new Date(), true)
 
       document.body.classList.toggle(
         'christmas-theme',
@@ -44,8 +64,8 @@ export default function EventThemeController({ isAdmin = false }) {
     }
 
     function handleTestTimeChange() {
-      setTestDateTime(getAdminTestDateTime(isAdmin))
-      setTestActive(Boolean(getAdminTestDateTime(isAdmin)))
+      setTestDateTime(getAdminTestDateTime(true))
+      setTestActive(Boolean(getAdminTestDateTime(true)))
       setMessage('')
       updateTheme()
     }
@@ -75,11 +95,9 @@ export default function EventThemeController({ isAdmin = false }) {
 
       document.body.classList.remove('christmas-theme')
     }
-  }, [isAdmin])
+  }, [])
 
   function handleApply() {
-    if (!isAdmin) return
-
     if (!testDateTime) {
       setMessage('Välj ett datum och klockslag först.')
       return
@@ -97,15 +115,14 @@ export default function EventThemeController({ isAdmin = false }) {
   }
 
   function handleClear() {
-    if (!isAdmin) return
-
     clearAdminTestDateTime(true)
+
     setTestDateTime('')
     setTestActive(false)
     setMessage('Simuleringen är avstängd.')
   }
 
-  if (!isAdmin) return null
+  if (!isVisible) return null
 
   return (
     <aside
@@ -138,6 +155,36 @@ export default function EventThemeController({ isAdmin = false }) {
           Event time simulator
         </strong>
 
+        <button
+          type="button"
+          onClick={() => setIsVisible(false)}
+          aria-label="Hide event time simulator"
+          style={{
+            border: 0,
+            background: 'transparent',
+            color: '#766b7b',
+            fontSize: '20px',
+            lineHeight: 1,
+            cursor: 'pointer',
+            padding: '0 3px',
+          }}
+        >
+          ×
+        </button>
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '10px',
+        }}
+      >
+        <span style={{ fontSize: '12px', fontWeight: 600 }}>
+          Simulation status
+        </span>
+
         <span
           style={{
             padding: '4px 8px',
@@ -167,7 +214,7 @@ export default function EventThemeController({ isAdmin = false }) {
       <input
         id="admin-event-test-datetime"
         type="datetime-local"
-        value={testDateTime}
+        value={testDateTime || ''}
         onChange={(event) => {
           setTestDateTime(event.target.value)
           setMessage('')
