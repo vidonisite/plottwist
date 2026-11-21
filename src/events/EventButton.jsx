@@ -37,6 +37,7 @@ export default function EventButton({
   const [hovering, setHovering] = useState(false)
   const [themeEnabled, setThemeEnabled] = useState(true)
 
+  // Simuleringstiden används även när man inte är admin.
   const effectiveNow = getEffectiveNow(now, true)
   const event = getVisibleEvent(now, true)
 
@@ -115,40 +116,33 @@ export default function EventButton({
   }
 
   return (
-    <div
+    <button
+      type="button"
       className={[
-        'event-button-wrapper',
+        'event-button',
+        `event-button-${event.id}`,
         expanded && event.phase === 'upcoming'
-          ? 'event-button-wrapper-expanded'
+          ? 'event-button-expanded'
+          : '',
+        themeEnabled && event.phase === 'active'
+          ? 'event-button-enabled'
           : '',
       ].filter(Boolean).join(' ')}
+      onClick={handleClick}
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
+      disabled={disabled}
+      aria-disabled={
+        disabled || event.phase === 'upcoming'
+      }
+      aria-label={
+        event.phase === 'upcoming'
+          ? `${event.name} event in ${countdown}`
+          : `${event.name} theme ${themeEnabled ? 'on' : 'off'}`
+      }
+      title="Event"
     >
-      <button
-        type="button"
-        className={[
-          'event-button',
-          `event-button-${event.id}`,
-          expanded && event.phase === 'upcoming'
-            ? 'event-button-expanded'
-            : '',
-          themeEnabled && event.phase === 'active'
-            ? 'event-button-enabled'
-            : '',
-        ].filter(Boolean).join(' ')}
-        onClick={handleClick}
-        disabled={disabled}
-        aria-disabled={
-          disabled || event.phase === 'upcoming'
-        }
-        aria-label={
-          event.phase === 'upcoming'
-            ? `${event.name} event in ${countdown}`
-            : `${event.name} theme ${themeEnabled ? 'on' : 'off'}`
-        }
-        title="Event"
-      >
+      <span className="event-button-content">
         <span className="event-button-icon">
           <Snowflake aria-hidden="true" />
         </span>
@@ -164,14 +158,13 @@ export default function EventButton({
             </span>
           </span>
         )}
-      </button>
+      </span>
 
       <img
         src="/snowman.png"
-        alt=""
-        aria-hidden="true"
         className="snowman"
+        alt=""
       />
-    </div>
+    </button>
   )
 }
