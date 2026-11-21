@@ -121,28 +121,52 @@
 }
 
 .event-button:hover:not(:disabled) .snowman {
-  animation: snowman-hop .45s ease;
+  animation: snowman-adventure 3.2s ease-in-out;
 }
 
-@keyframes snowman-hop {
+@keyframes snowman-adventure {
+  /* Start */
   0% {
-    transform: translateY(0);
+    transform: translateY(0) rotate(0deg);
   }
 
-  35% {
-    transform: translateY(-20px);
+  /* Högt hopp */
+  9% {
+    transform: translateY(-75px) rotate(0deg);
   }
 
-  65% {
-    transform: translateY(0);
+  /* Första landningen */
+  15% {
+    transform: translateY(0) rotate(0deg);
   }
 
-  82% {
-    transform: translateY(-8px);
+  /* Liten studs */
+  20% {
+    transform: translateY(-22px) rotate(0deg);
   }
 
+  25% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  /* Faller ned och snurrar åt vänster */
+  40% {
+    transform: translateY(120vh) rotate(-720deg);
+  }
+
+  /* Borta under skärmen */
+  55% {
+    transform: translateY(120vh) rotate(-720deg);
+  }
+
+  /* Kommer tillbaka ovanifrån */
+  56% {
+    transform: translateY(-120vh) rotate(-720deg);
+  }
+
+  /* Faller tillbaka till knappen */
   100% {
-    transform: translateY(0);
+    transform: translateY(0) rotate(0deg);
   }
 }
 
