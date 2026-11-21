@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Query } from 'appwrite'
 import { Gamepad2, Phone } from 'lucide-react'
@@ -66,29 +67,29 @@ function latestMemberActivityAt(members) {
 }
 
 export default function App() {
-    const {
-      needRefresh: [needRefresh, setNeedRefresh],
-      updateServiceWorker,
-    } = useRegisterSW({
-      immediate: true,
+  const {
+    needRefresh: [needRefresh, setNeedRefresh],
+    updateServiceWorker,
+  } = useRegisterSW({
+    immediate: true,
 
-      onRegisteredSW: (_swUrl, registration) => {
-        if (!registration) return
+    onRegisteredSW: (_swUrl, registration) => {
+      if (!registration) return
 
-        // Kontrollera efter nya versioner var femte minut.
-        window.setInterval(() => {
-          if (document.visibilityState === 'visible') {
-            registration.update().catch((error) => {
-              console.error('Kunde inte kontrollera uppdateringar:', error)
-            })
-          }
-        }, 5 * 60 * 1000)
-      },
+      // Kontrollera efter nya versioner var femte minut.
+      window.setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          registration.update().catch((error) => {
+            console.error('Kunde inte kontrollera uppdateringar:', error)
+          })
+        }
+      }, 5 * 60 * 1000)
+    },
 
-      onRegisterError: (error) => {
-        console.error('Kunde inte registrera service workern:', error)
-      },
-    })
+    onRegisterError: (error) => {
+      console.error('Kunde inte registrera service workern:', error)
+    },
+  })
 
   const [currentUser, setCurrentUser] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -154,6 +155,7 @@ export default function App() {
 
     document.addEventListener('pointerdown', closeOnOutsideClick)
     document.addEventListener('keydown', closeOnEscape)
+
     return () => {
       document.removeEventListener('pointerdown', closeOnOutsideClick)
       document.removeEventListener('keydown', closeOnEscape)
@@ -177,17 +179,21 @@ export default function App() {
     if (scoredEventsRef.current.has(eventId)) {
       return Promise.resolve(false)
     }
+
     scoredEventsRef.current.add(eventId)
 
     const updateScore = async () => {
       let currentProfile = profileRef.current
+
       if (!currentProfile?.$id && currentUser?.name) {
         const rowId = currentUser.name.trim().toLowerCase()
+
         currentProfile = await tablesDB.getRow({
           databaseId: DATABASE_ID,
           tableId: USERS_TABLE_ID,
           rowId,
         })
+
         profileRef.current = currentProfile
       }
 
@@ -196,6 +202,7 @@ export default function App() {
       }
 
       const currentScore = Number(currentProfile.twistscore)
+
       const updatedProfile = await tablesDB.updateRow({
         databaseId: DATABASE_ID,
         tableId: USERS_TABLE_ID,
@@ -210,6 +217,7 @@ export default function App() {
 
       profileRef.current = updatedProfile
       setProfile(updatedProfile)
+
       return true
     }
 
@@ -219,13 +227,17 @@ export default function App() {
     return result.then((updated) => {
       if (updated) {
         const toastId = ++scoreToastSequenceRef.current
+
         setScoreToasts((toasts) => [...toasts, { id: toastId, points }])
+
         const timer = window.setTimeout(() => {
           setScoreToasts((toasts) => toasts.filter((toast) => toast.id !== toastId))
           scoreToastTimersRef.current.delete(toastId)
         }, 2000)
+
         scoreToastTimersRef.current.set(toastId, timer)
       }
+
       return updated
     }).catch((error) => {
       scoredEventsRef.current.delete(eventId)
@@ -250,6 +262,7 @@ export default function App() {
 
         if (subscription) {
           await registerPushSubscription(subscription)
+
           if (!cancelled) setNotifications(true)
           return
         }
@@ -261,13 +274,16 @@ export default function App() {
               'Notiser är blockerade i webbläsaren. Ändra webbplatsens notisbehörighet i webbläsarinställningarna.'
             )
           }
+
           return
         }
 
         const newSubscription = await enablePushNotifications()
+
         if (!cancelled) setNotifications(Boolean(newSubscription))
       } catch (error) {
         console.error('Kunde inte kontrollera pushnotiser:', error)
+
         if (!cancelled) {
           setNotifications(false)
           setNotificationError(
@@ -306,6 +322,7 @@ export default function App() {
 
           if (error?.code !== 401) {
             console.error('Kunde inte kontrollera sessionen:', error)
+
             setAuthError(
               'Kunde inte kontakta Appwrite. Kontrollera anslutningen och försök igen.'
             )
@@ -415,6 +432,7 @@ export default function App() {
 
         const updateChatActivity = (chat) => {
           if (chat.id !== payload.conversationId) return chat
+
           const messageTime = new Date(payload.$createdAt).getTime()
           const currentActivityTime = chat.lastActivityAt
             ? new Date(chat.lastActivityAt).getTime()
@@ -422,6 +440,7 @@ export default function App() {
           const lastReadTime = chat.lastReadAt
             ? new Date(chat.lastReadAt).getTime()
             : 0
+
           const countsAsUnread =
             payload.senderId !== currentUser.$id &&
             !NON_UNREAD_MESSAGE_TYPES.has(payload.type) &&
@@ -555,7 +574,9 @@ export default function App() {
           if (!membersByConversation.has(member.conversationId)) {
             membersByConversation.set(member.conversationId, [])
           }
+
           membersByConversation.get(member.conversationId).push(member)
+
           if (member.userId) allMemberUserIds.add(member.userId)
         }
 
@@ -568,9 +589,11 @@ export default function App() {
             Query.limit(5000),
           ],
         })
+
         const profilesByUserId = new Map(
           profilesResponse.rows.map((item) => [item.userId, item])
         )
+
         if (profileRef.current?.userId) {
           profilesByUserId.set(profileRef.current.userId, profileRef.current)
         }
@@ -579,15 +602,18 @@ export default function App() {
           memberships.map(async (membership) => {
             try {
               const conversation = conversationsById.get(membership.conversationId)
+
               if (!conversation) {
                 throw new Error('Konversationen kunde inte hittas.')
               }
 
               const members = membersByConversation.get(conversation.$id) || []
               const memberCount = members.length
+
               // Olästa meddelanden räknas fortfarande separat per konversation.
               // Det bevarar den befintliga läslogiken och filtreringen av spelhändelser.
               const lastReadAt = membership.lastReadAt || membership.$createdAt
+
               const unreadResponse = await tablesDB.listRows({
                 databaseId: DATABASE_ID,
                 tableId: MESSAGES_TABLE_ID,
@@ -608,11 +634,13 @@ export default function App() {
                   Query.limit(1),
                 ],
               })
+
               const unreadCount = unreadResponse.total || 0
 
               if (conversation.type === 'group') {
                 const groupMembers = members.map((member) => {
                   const memberProfile = profilesByUserId.get(member.userId)
+
                   return {
                     userId: member.userId,
                     username: memberProfile?.username || 'Okänd användare',
@@ -622,10 +650,12 @@ export default function App() {
                     ),
                   }
                 })
+
                 const groupMembersWithActivity = await addLatestMessageTimes(
                   groupMembers,
                   conversation.$id
                 )
+
                 const lastActivityAt = latestMemberActivityAt(groupMembersWithActivity)
 
                 return {
@@ -647,6 +677,7 @@ export default function App() {
               const otherMember = members.find(
                 (member) => member.userId !== currentUser.$id
               )
+
               if (!otherMember) return null
 
               const otherProfile = profilesByUserId.get(otherMember.userId)
@@ -698,11 +729,13 @@ export default function App() {
                 conversationIdForLog(membership),
                 error
               )
+
               if (!cancelled) {
                 setChatError(
                   `Kunde inte läsa konversationen: ${error.message || 'Okänt fel'}`
                 )
               }
+
               return null
             }
           })
@@ -715,13 +748,16 @@ export default function App() {
             loadedChats.filter(Boolean).map((chat) => [chat.id, chat])
           ).values()
         )
+
         setChats(uniqueChats)
+
         setActiveChat((previous) => {
           if (!previous) return previous
           return uniqueChats.find((chat) => chat.id === previous.id) || previous
         })
       } catch (error) {
         console.error('Kunde inte ladda chattlistan:', error)
+
         if (!cancelled) {
           setChatError(
             `Kunde inte ladda chattar: ${error.message || 'Okänt fel'}`
@@ -733,6 +769,7 @@ export default function App() {
     }
 
     loadChats()
+
     return () => {
       cancelled = true
     }
@@ -743,11 +780,13 @@ export default function App() {
 
     const conversationId = new URLSearchParams(window.location.search)
       .get('conversationId')
+
     if (!conversationId) return
 
     const requestedChat = chats.find(
       (chat) => chat.id === conversationId && chat.type === 'direct'
     )
+
     if (requestedChat) {
       setActiveChat(requestedChat)
       setActiveView('chat')
@@ -815,6 +854,7 @@ export default function App() {
         console.error('Kunde inte markera chatten som läst:', error)
 
         const permissionProblem = error?.code === 401 || error?.code === 403
+
         return {
           ok: false,
           message: permissionProblem
@@ -839,6 +879,7 @@ export default function App() {
 
     try {
       await voiceCall.endCall()
+
       let subscription = null
       let pushCleanupError = ''
 
@@ -846,6 +887,7 @@ export default function App() {
         subscription = await getPushSubscription()
       } catch (error) {
         console.error('Kunde inte läsa pushprenumerationen:', error)
+
         pushCleanupError =
           'Du loggades ut, men pushprenumerationens status kunde inte kontrolleras.'
       }
@@ -855,12 +897,14 @@ export default function App() {
           await disablePushNotifications()
         } catch (error) {
           console.error('Kunde inte ta bort pushprenumerationen:', error)
+
           await subscription.unsubscribe().catch((unsubscribeError) => {
             console.error(
               'Kunde inte avregistrera pushprenumerationen lokalt:',
               unsubscribeError
             )
           })
+
           pushCleanupError =
             'Du loggades ut, men servern kunde inte ta bort pushprenumerationen. Kontrollera notisinställningarna nästa gång du loggar in.'
         }
@@ -879,6 +923,7 @@ export default function App() {
       setAuthError(pushCleanupError)
     } catch (error) {
       console.error('Kunde inte logga ut:', error)
+
       setAuthError(
         `Kunde inte logga ut: ${error.message || 'Okänt fel'}`
       )
@@ -889,6 +934,7 @@ export default function App() {
 
   const filteredChats = useMemo(() => {
     const query = search.trim().toLowerCase()
+
     const matchingChats = query
       ? chats.filter((chat) => chat.name.toLowerCase().includes(query))
       : chats
@@ -897,6 +943,7 @@ export default function App() {
       const activityDifference =
         (Date.parse(b.lastActivityAt || '') || 0) -
         (Date.parse(a.lastActivityAt || '') || 0)
+
       return activityDifference || a.name.localeCompare(b.name)
     })
   }, [chats, search])
@@ -909,11 +956,14 @@ export default function App() {
     if (voiceCall.call && voiceCall.call.conversationId !== chat.id) {
       void voiceCall.endCall()
     }
+
     setGroupDetailsOpen(false)
+
     // Behåll den sparade läspositionen och eventuella olästa meddelanden.
     // Chat-komponenten flyttar fram läspositionen när meddelanden faktiskt syns.
     setActiveChat(chat)
     setActiveView('chat')
+
     window.history.replaceState(
       null,
       '',
@@ -923,23 +973,28 @@ export default function App() {
 
   function showCamera() {
     if (voiceCall.call) void voiceCall.endCall()
+
     setGroupDetailsOpen(false)
     setActiveChat(null)
     setActiveView('camera')
+
     window.history.replaceState(null, '', '/')
   }
 
   function showView(view) {
     if (voiceCall.call) void voiceCall.endCall()
+
     setGroupDetailsOpen(false)
     setActiveChat(null)
     setActiveView(view)
+
     window.history.replaceState(null, '', '/')
   }
 
   function showGames(event) {
     const panel = mainPanelRef.current
     const button = event.currentTarget
+
     if (!panel || gameTransition) return
 
     const panelRect = panel.getBoundingClientRect()
@@ -950,6 +1005,7 @@ export default function App() {
     setGameInvite(null)
     setGameReturnView('camera')
     setGameViewEntering(false)
+
     setGameTransition({
       startLeft: buttonRect.left - panelLeft + panel.scrollLeft,
       startTop: buttonRect.top - panelTop + panel.scrollTop,
@@ -994,6 +1050,7 @@ export default function App() {
       }
     } catch (error) {
       console.error('Kunde inte ändra pushnotiser:', error)
+
       setNotificationError(
         error.message || 'Pushnotisinställningen kunde inte ändras.'
       )
@@ -1038,575 +1095,610 @@ export default function App() {
 
   if (checkingSession) {
     return (
-      <main className="auth-screen">
-        <section className="auth-card">
-          <div className="auth-brand">
-            <span className="auth-brand-mark">✳</span>
-            <span>PLOT <em>TWIST</em></span>
-          </div>
-          <p className="auth-description">Kontrollerar din session...</p>
-        </section>
-      </main>
+      <>
+        <EventThemeController />
+
+        <main className="auth-screen">
+          <section className="auth-card">
+            <div className="auth-brand">
+              <span className="auth-brand-mark">✳</span>
+              <span>PLOT <em>TWIST</em></span>
+            </div>
+
+            <p className="auth-description">Kontrollerar din session...</p>
+          </section>
+        </main>
+      </>
     )
   }
 
   if (!currentUser) {
     return (
       <>
+        <EventThemeController />
+
         {authError && (
           <div role="alert" className="auth-error">
             {authError}
           </div>
         )}
+
         <AuthPage onAuthenticated={handleAuthenticated} />
       </>
     )
   }
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
+    <>
+      {/* EventThemeController måste vara monterad oavsett vilken vy som visas. */}
+      <EventThemeController />
 
-        {/* Logga och de två knapparna */}
-        <div className="sidebar-brand-row">
-          <button
-            className="brand"
-            onClick={showCamera}
-            aria-label="PLOT TWIST, gå till kameran"
-          >
+      <div className="app-shell">
+        <aside className="sidebar">
+
+          {/* Logga och de två knapparna */}
+          <div className="sidebar-brand-row">
+            <button
+              className="brand"
+              onClick={showCamera}
+              aria-label="PLOT TWIST, gå till kameran"
+            >
+              <span className="brand-mark">✳</span>
+              <span className="brand-name">
+                PLOT <strong>TWIST</strong>
+              </span>
+            </button>
+
+            <div className="brand-buttons">
+              <button
+                className={`brand-icon-button ${
+                  activeView === 'add' ? 'selected' : ''
+                }`}
+                onClick={() => showView('add')}
+                aria-label="Lägg till vänner"
+                title="Lägg till vänner"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <circle cx="9" cy="8" r="3.5" />
+                  <path d="M2.8 20c.4-3.5 2.7-5.5 6.2-5.5s5.8 2 6.2 5.5" />
+                  <path d="M17 8v6M14 11h6" />
+                </svg>
+              </button>
+
+              <button
+                className={`brand-icon-button group-create-button ${
+                  activeView === 'create-group' ? 'selected' : ''
+                }`}
+                onClick={() => showView('create-group')}
+                aria-label="Skapa grupp"
+                title="Skapa grupp"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          <div className="sidebar-search-row">
+            <label className="search-box">
+              <span aria-hidden="true">⌕</span>
+
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Sök chattar"
+                aria-label="Sök chattar"
+              />
+
+              {search && (
+                <button
+                  type="button"
+                  className="clear-search"
+                  onClick={() => setSearch('')}
+                  aria-label="Rensa sökning"
+                >
+                  ×
+                </button>
+              )}
+            </label>
+          </div>
+
+          <div className="sidebar-section-title">
+            <span>CHATTAR</span>
+          </div>
+
+          <div className="chat-list">
+            {loadingChats && (
+              <p className="empty-search">Laddar chattar...</p>
+            )}
+
+            {chatError && (
+              <p className="empty-search" role="alert">
+                {chatError}
+              </p>
+            )}
+
+            {filteredChats.map((chat) => (
+              <button
+                key={chat.id}
+                className={`chat-list-item ${
+                  activeView === 'chat' && activeChat?.id === chat.id
+                    ? 'selected'
+                    : ''
+                }`}
+                onClick={() => openChat(chat)}
+              >
+                {chat.type === 'group' ? (
+                  <GroupAvatar
+                    members={chat.members}
+                    memberCount={chat.memberCount}
+                    name={chat.name}
+                  />
+                ) : (
+                  <ProfileAvatar
+                    profile={chat.avatarProfile}
+                    userId={chat.otherUserId}
+                    name={chat.username}
+                    className="chat-avatar"
+                  />
+                )}
+
+                <span className="chat-list-copy">
+                  <strong className="chat-name-line">
+                    <span className="chat-name-text">{chat.name}</span>
+                  </strong>
+
+                  <small>{chat.preview}</small>
+                </span>
+
+                {chat.unreadCount > 0 && (
+                  <span
+                    className="unread-badge"
+                    aria-label={`${chat.unreadCount} olästa meddelanden`}
+                  >
+                    {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
+                  </span>
+                )}
+              </button>
+            ))}
+
+            {!loadingChats && filteredChats.length === 0 && (
+              <p className="empty-search">
+                {search
+                  ? 'Inga chattar matchar sökningen.'
+                  : 'Du har inga chattar ännu.'}
+              </p>
+            )}
+          </div>
+
+          <div className="sidebar-bottom">
+            <div className="sidebar-bottom-actions">
+              <button
+                className={`sidebar-action ${
+                  activeView === 'settings' ? 'selected' : ''
+                }`}
+                onClick={() => showView('settings')}
+              >
+                <span className="sidebar-action-icon">⚙</span>
+                <span>Inställningar</span>
+              </button>
+
+              <button
+                type="button"
+                className={`profile-settings-button ${
+                  activeView === 'avatar-settings' ? 'selected' : ''
+                }`}
+                onClick={() => showView('avatar-settings')}
+                aria-label={`Profilbild och avatarinställningar. Twist Score: ${twistScore}`}
+                title={`Twist Score: ${twistScore}`}
+              >
+                <ProfileAvatar
+                  profile={profile}
+                  userId={currentUser.$id}
+                  name={profile?.username || currentUser.name}
+                  size={38}
+                  className="profile-settings-avatar"
+                />
+
+                <span className="profile-score-badge" aria-hidden="true">
+                  {twistScore}
+                </span>
+              </button>
+            </div>
+
+            <div className="sidebar-footer">
+              <span className="footer-dot" />
+
+              <span>
+                @{profile?.username || currentUser.name}
+                {' · Twist Score: '}
+                {twistScore}
+              </span>
+            </div>
+          </div>
+        </aside>
+
+        <main className="main-panel" ref={mainPanelRef}>
+          <div className="mobile-brand">
             <span className="brand-mark">✳</span>
             <span className="brand-name">
               PLOT <strong>TWIST</strong>
             </span>
-          </button>
-
-          <div className="brand-buttons">
-            <button
-              className={`brand-icon-button ${
-                activeView === 'add' ? 'selected' : ''
-              }`}
-              onClick={() => showView('add')}
-              aria-label="Lägg till vänner"
-              title="Lägg till vänner"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
-              >
-                <circle cx="9" cy="8" r="3.5" />
-                <path d="M2.8 20c.4-3.5 2.7-5.5 6.2-5.5s5.8 2 6.2 5.5" />
-                <path d="M17 8v6M14 11h6" />
-              </svg>
-            </button>
-
-            <button
-              className={`brand-icon-button group-create-button ${
-                activeView === 'create-group' ? 'selected' : ''
-              }`}
-              onClick={() => showView('create-group')}
-              aria-label="Skapa grupp"
-              title="Skapa grupp"
-            >
-              +
-            </button>
           </div>
-        </div>
 
-        <div className="sidebar-search-row">
-          <label className="search-box">
-            <span aria-hidden="true">⌕</span>
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Sök chattar"
-              aria-label="Sök chattar"
-            />
+          {activeView === 'camera' && (
+            <section className="workspace-view camera-view">
+              <Camera currentUser={currentUser} onScore={awardTwistScore} />
 
-            {search && (
+              <EventButton
+                disabled={Boolean(gameTransition)}
+              />
+
               <button
                 type="button"
-                className="clear-search"
-                onClick={() => setSearch('')}
-                aria-label="Rensa sökning"
+                className="camera-games-button"
+                onClick={showGames}
+                disabled={Boolean(gameTransition)}
+                aria-label="Öppna spel"
+                title="Spel"
               >
-                ×
+                <Gamepad2 aria-hidden="true" />
               </button>
-            )}
-          </label>
-        </div>
-
-        <div className="sidebar-section-title">
-          <span>CHATTAR</span>
-        </div>
-
-        <div className="chat-list">
-          {loadingChats && (
-            <p className="empty-search">Laddar chattar...</p>
+            </section>
           )}
 
-          {chatError && (
-            <p className="empty-search" role="alert">
-              {chatError}
-            </p>
-          )}
-
-          {filteredChats.map((chat) => (
-            <button
-              key={chat.id}
-              className={`chat-list-item ${
-                activeView === 'chat' && activeChat?.id === chat.id
-                  ? 'selected'
-                  : ''
-              }`}
-              onClick={() => openChat(chat)}
-            >
-              {chat.type === 'group' ? (
-                <GroupAvatar
-                  members={chat.members}
-                  memberCount={chat.memberCount}
-                  name={chat.name}
-                />
-              ) : (
-                <ProfileAvatar
-                  profile={chat.avatarProfile}
-                  userId={chat.otherUserId}
-                  name={chat.username}
-                  className="chat-avatar"
-                />
-              )}
-
-              <span className="chat-list-copy">
-                <strong className="chat-name-line">
-                  <span className="chat-name-text">{chat.name}</span>
-                </strong>
-                <small>{chat.preview}</small>
-              </span>
-
-              {chat.unreadCount > 0 && (
-                <span className="unread-badge" aria-label={`${chat.unreadCount} olästa meddelanden`}>
-                  {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
-                </span>
-              )}
-            </button>
-          ))}
-
-          {!loadingChats && filteredChats.length === 0 && (
-            <p className="empty-search">
-              {search
-                ? 'Inga chattar matchar sökningen.'
-                : 'Du har inga chattar ännu.'}
-            </p>
-          )}
-        </div>
-
-        <div className="sidebar-bottom">
-          <div className="sidebar-bottom-actions">
-            <button
-              className={`sidebar-action ${
-                activeView === 'settings' ? 'selected' : ''
-              }`}
-              onClick={() => showView('settings')}
-            >
-              <span className="sidebar-action-icon">⚙</span>
-              <span>Inställningar</span>
-            </button>
-            <button
-              type="button"
-              className={`profile-settings-button ${activeView === 'avatar-settings' ? 'selected' : ''}`}
-              onClick={() => showView('avatar-settings')}
-              aria-label={`Profilbild och avatarinställningar. Twist Score: ${twistScore}`}
-              title={`Twist Score: ${twistScore}`}
-            >
-              <ProfileAvatar
-                profile={profile}
-                userId={currentUser.$id}
-                name={profile?.username || currentUser.name}
-                size={38}
-                className="profile-settings-avatar"
-              />
-              <span className="profile-score-badge" aria-hidden="true">
-                {twistScore}
-              </span>
-            </button>
-          </div>
-
-          <div className="sidebar-footer">
-            <span className="footer-dot" />
-            <span>
-              @{profile?.username || currentUser.name}
-              {' · Twist Score: '}
-              {twistScore}
-            </span>
-          </div>
-        </div>
-      </aside>
-
-      <main className="main-panel" ref={mainPanelRef}>
-        <div className="mobile-brand">
-          <span className="brand-mark">✳</span>
-          <span className="brand-name">
-            PLOT <strong>TWIST</strong>
-          </span>
-        </div>
-
-        {activeView === 'camera' && (
-          <section className="workspace-view camera-view">
-            <Camera currentUser={currentUser} onScore={awardTwistScore} />
-            <EventButton
-              disabled={Boolean(gameTransition)}
-            />
-            <button
-              type="button"
-              className="camera-games-button"
-              onClick={showGames}
-              disabled={Boolean(gameTransition)}
-              aria-label="Öppna spel"
-              title="Spel"
-            >
-              <Gamepad2 aria-hidden="true" />
-            </button>
-          </section>
-        )}
-
-        {activeView === 'chat' && (
-          <div className="conversation-views-viewport">
-            <div
-              key={activeChat?.id}
-              className={`conversation-screen-track ${
-                groupDetailsOpen ? 'show-group-details' : ''
-              }`}
-            >
-              {/* CHATTSIDAN – den här komponenten förblir monterad */}
-              <section
-                className="conversation-screen chat-screen"
-                aria-hidden={groupDetailsOpen}
-                inert={groupDetailsOpen}
+          {activeView === 'chat' && (
+            <div className="conversation-views-viewport">
+              <div
+                key={activeChat?.id}
+                className={`conversation-screen-track ${
+                  groupDetailsOpen ? 'show-group-details' : ''
+                }`}
               >
-                <div className="conversation-heading">
-                  {activeChat?.type === 'group' ? (
-                    <GroupAvatar
-                      members={activeChat.members}
-                      memberCount={activeChat.memberCount}
-                      name={activeChat.name}
-                      size={56}
-                      className="large"
-                    />
-                  ) : (
-                    <ProfileAvatar
-                      profile={activeChat?.avatarProfile}
-                      userId={activeChat?.otherUserId}
-                      name={activeChat?.username || activeChat?.name}
-                      size={56}
-                      className="chat-avatar large"
-                    />
-                  )}
+                {/* CHATTSIDAN – den här komponenten förblir monterad */}
+                <section
+                  className="conversation-screen chat-screen"
+                  aria-hidden={groupDetailsOpen}
+                  inert={groupDetailsOpen}
+                >
+                  <div className="conversation-heading">
+                    {activeChat?.type === 'group' ? (
+                      <GroupAvatar
+                        members={activeChat.members}
+                        memberCount={activeChat.memberCount}
+                        name={activeChat.name}
+                        size={56}
+                        className="large"
+                      />
+                    ) : (
+                      <ProfileAvatar
+                        profile={activeChat?.avatarProfile}
+                        userId={activeChat?.otherUserId}
+                        name={activeChat?.username || activeChat?.name}
+                        size={56}
+                        className="chat-avatar large"
+                      />
+                    )}
 
-                  <div>
-                    <h1>
-                      {activeChat?.type === 'group'
-                        ? (
-                          <button
-                            type="button"
-                            className="conversation-group-name-button"
-                            onClick={() => setGroupDetailsOpen(true)}
-                            aria-label={`Visa information om gruppen ${activeChat.name}`}
-                          >
-                            {activeChat.name}
-                          </button>
-                        )
-                        : (
-                          <span className="chat-name-line">
-                            <span className="chat-name-text">
-                              @{activeChat?.username || activeChat?.name || 'Din chatt'}
-                            </span>
-                            <div
-                              ref={twistScoreInfoRef}
-                              className={`twist-score-info ${
-                                twistScoreHovered || twistScorePinned ? 'is-open' : ''
-                              }`}
-                              onPointerEnter={() => setTwistScoreHovered(true)}
-                              onPointerLeave={() => setTwistScoreHovered(false)}
+                    <div>
+                      <h1>
+                        {activeChat?.type === 'group'
+                          ? (
+                            <button
+                              type="button"
+                              className="conversation-group-name-button"
+                              onClick={() => setGroupDetailsOpen(true)}
+                              aria-label={`Visa information om gruppen ${activeChat.name}`}
                             >
-                              <button
-                                type="button"
-                                className="twist-score-badge"
-                                aria-label={`Twist Score ${activeChat?.twistscore ?? 0}`}
-                                aria-expanded={twistScoreHovered || twistScorePinned}
-                                aria-controls="twist-score-tooltip"
-                                onClick={() => setTwistScorePinned((open) => !open)}
-                              >
-                                ☀️{activeChat?.twistscore ?? 0}
-                              </button>
+                              {activeChat.name}
+                            </button>
+                          )
+                          : (
+                            <span className="chat-name-line">
+                              <span className="chat-name-text">
+                                @{activeChat?.username || activeChat?.name || 'Din chatt'}
+                              </span>
+
                               <div
-                                id="twist-score-tooltip"
-                                className="twist-score-tooltip"
-                                role="note"
+                                ref={twistScoreInfoRef}
+                                className={`twist-score-info ${
+                                  twistScoreHovered || twistScorePinned ? 'is-open' : ''
+                                }`}
+                                onPointerEnter={() => setTwistScoreHovered(true)}
+                                onPointerLeave={() => setTwistScoreHovered(false)}
                               >
-                                <strong>Twist Score ☀️</strong>
-                                <p>skicka en bild - 1p<br />skicka en video - 1p per sekund<br />kolla på någons twist - 1p<br />spela - 1p<br />vinna spelet - 1p extra</p>
+                                <button
+                                  type="button"
+                                  className="twist-score-badge"
+                                  aria-label={`Twist Score ${activeChat?.twistscore ?? 0}`}
+                                  aria-expanded={twistScoreHovered || twistScorePinned}
+                                  aria-controls="twist-score-tooltip"
+                                  onClick={() => setTwistScorePinned((open) => !open)}
+                                >
+                                  ☀️{activeChat?.twistscore ?? 0}
+                                </button>
+
+                                <div
+                                  id="twist-score-tooltip"
+                                  className="twist-score-tooltip"
+                                  role="note"
+                                >
+                                  <strong>Twist Score ☀️</strong>
+                                  <p>
+                                    skicka en bild - 1p<br />
+                                    skicka en video - 1p per sekund<br />
+                                    kolla på någons twist - 1p<br />
+                                    spela - 1p<br />
+                                    vinna spelet - 1p extra
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          </span>
-                        )}
-                    </h1>
+                            </span>
+                          )}
+                      </h1>
 
-                    <p>
-                      {activeChat?.type === 'group'
-                        ? `${activeChat.memberCount || 'Flera'} medlemmar`
-                        : 'Privat konversation'}
-                    </p>
+                      <p>
+                        {activeChat?.type === 'group'
+                          ? `${activeChat.memberCount || 'Flera'} medlemmar`
+                          : 'Privat konversation'}
+                      </p>
+                    </div>
+
+                    {activeChat?.type === 'direct' && !voiceCall.call && (
+                      <button
+                        type="button"
+                        className="conversation-call-button"
+                        aria-label={`Ring @${activeChat.username || activeChat.name}`}
+                        title="Starta röstsamtal"
+                        onClick={() => voiceCall.startCall({
+                          conversationId: activeChat.id,
+                          recipientId: activeChat.otherUserId,
+                          recipientName: activeChat.username || activeChat.name,
+                          recipientProfile: activeChat.avatarProfile,
+                        })}
+                      >
+                        <Phone aria-hidden="true" />
+                      </button>
+                    )}
                   </div>
 
-                  {activeChat?.type === 'direct' && !voiceCall.call && (
-                    <button
-                      type="button"
-                      className="conversation-call-button"
-                      aria-label={`Ring @${activeChat.username || activeChat.name}`}
-                      title="Starta röstsamtal"
-                      onClick={() => voiceCall.startCall({
-                        conversationId: activeChat.id,
-                        recipientId: activeChat.otherUserId,
-                        recipientName: activeChat.username || activeChat.name,
-                        recipientProfile: activeChat.avatarProfile,
-                      })}
-                    >
-                      <Phone aria-hidden="true" />
-                    </button>
-                  )}
-                </div>
-
-                <section className="workspace-view chat-view">
-                  <div className="conversation-content">
-                    <Chat
-                      chat={activeChat}
-                      currentUser={currentUser}
-                      onRead={handleChatRead}
-                      onAcceptGameInvite={joinGameInvite}
-                      onScore={awardTwistScore}
-                    />
-                  </div>
+                  <section className="workspace-view chat-view">
+                    <div className="conversation-content">
+                      <Chat
+                        chat={activeChat}
+                        currentUser={currentUser}
+                        onRead={handleChatRead}
+                        onAcceptGameInvite={joinGameInvite}
+                        onScore={awardTwistScore}
+                      />
+                    </div>
+                  </section>
                 </section>
-              </section>
 
-              {/* GRUPPINFORMATION – visas som en sida bredvid chatten */}
-              <section
-                className="conversation-screen group-screen"
-                aria-hidden={!groupDetailsOpen}
-                inert={!groupDetailsOpen}
-              >
-                {activeChat?.type === 'group' && (
-                  <GroupDetails
-                    group={activeChat}
-                    currentUser={currentUser}
-                    isActive={groupDetailsOpen}
-                    onClose={closeGroupDetails}
-                    onMembersChanged={() => setChatsRefresh((value) => value + 1)}
-                    onLeave={() => {
-                      setGroupDetailsOpen(false)
-                      setChatsRefresh((value) => value + 1)
-                      setActiveChat(null)
-                      setActiveView('camera')
-                      window.history.replaceState(null, '', '/')
-                    }}
-                  />
-                )}
-              </section>
+                {/* GRUPPINFORMATION – visas som en sida bredvid chatten */}
+                <section
+                  className="conversation-screen group-screen"
+                  aria-hidden={!groupDetailsOpen}
+                  inert={!groupDetailsOpen}
+                >
+                  {activeChat?.type === 'group' && (
+                    <GroupDetails
+                      group={activeChat}
+                      currentUser={currentUser}
+                      isActive={groupDetailsOpen}
+                      onClose={closeGroupDetails}
+                      onMembersChanged={() => setChatsRefresh((value) => value + 1)}
+                      onLeave={() => {
+                        setGroupDetailsOpen(false)
+                        setChatsRefresh((value) => value + 1)
+                        setActiveChat(null)
+                        setActiveView('camera')
+                        window.history.replaceState(null, '', '/')
+                      }}
+                    />
+                  )}
+                </section>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {activeView === 'add' && <AddPeople />}
+          {activeView === 'add' && <AddPeople />}
 
-        {activeView === 'games' && (
-          <Games
-            currentUser={currentUser}
-            onScore={awardTwistScore}
-            initialInvite={gameInvite}
-            animateIn={gameViewEntering}
-            onEntranceAnimationEnd={() => setGameViewEntering(false)}
-            onExit={() => {
-              setGameInvite(null)
-              setActiveView(gameReturnView)
-            }}
-          />
-        )}
+          {activeView === 'games' && (
+            <Games
+              currentUser={currentUser}
+              onScore={awardTwistScore}
+              initialInvite={gameInvite}
+              animateIn={gameViewEntering}
+              onEntranceAnimationEnd={() => setGameViewEntering(false)}
+              onExit={() => {
+                setGameInvite(null)
+                setActiveView(gameReturnView)
+              }}
+            />
+          )}
 
-        {activeView === 'create-group' && (
-          <CreateGroup
-            currentUser={currentUser}
-            onCreated={handleGroupCreated}
-            onCancel={showCamera}
-          />
-        )}
+          {activeView === 'create-group' && (
+            <CreateGroup
+              currentUser={currentUser}
+              onCreated={handleGroupCreated}
+              onCancel={showCamera}
+            />
+          )}
 
-        {activeView === 'settings' && (
-          <section className="workspace-view simple-view settings-view">
-            <div className="view-symbol purple-symbol">⚙</div>
-            <h1>Inställningar</h1>
-            <p className="view-description">
-              Anpassa din plats på PLOT TWIST.
-            </p>
+          {activeView === 'settings' && (
+            <section className="workspace-view simple-view settings-view">
+              <div className="view-symbol purple-symbol">⚙</div>
+              <h1>Inställningar</h1>
 
-            <div className="settings-card">
-              <label htmlFor="display-name">Visningsnamn</label>
-              <input
-                id="display-name"
-                value={displayName}
-                onChange={(event) => setDisplayName(event.target.value)}
-                placeholder="Vad ska andra kalla dig?"
-              />
-              <p className="setting-help">
-                Det här namnet sparas bara i den här vyn just nu.
+              <p className="view-description">
+                Anpassa din plats på PLOT TWIST.
               </p>
-            </div>
 
-            <div className="settings-row">
-              <div>
-                <strong>Notiser</strong>
-                <p>
-                  {pushNotificationsSupported
-                    ? 'Få notiser när du får ett nytt meddelande'
-                    : 'Pushnotiser stöds inte i den här webbläsaren'}
+              <div className="settings-card">
+                <label htmlFor="display-name">Visningsnamn</label>
+
+                <input
+                  id="display-name"
+                  value={displayName}
+                  onChange={(event) => setDisplayName(event.target.value)}
+                  placeholder="Vad ska andra kalla dig?"
+                />
+
+                <p className="setting-help">
+                  Det här namnet sparas bara i den här vyn just nu.
                 </p>
               </div>
 
-              <button
-                type="button"
-                role="switch"
-                aria-checked={notifications}
-                aria-label="Aktivera pushnotiser"
-                aria-busy={updatingNotifications}
-                disabled={updatingNotifications || !pushNotificationsSupported}
-                className={`toggle-switch ${notifications ? 'on' : ''}`}
-                onClick={togglePushNotifications}
-              >
-                <span />
-              </button>
+              <div className="settings-row">
+                <div>
+                  <strong>Notiser</strong>
+                  <p>
+                    {pushNotificationsSupported
+                      ? 'Få notiser när du får ett nytt meddelande'
+                      : 'Pushnotiser stöds inte i den här webbläsaren'}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={notifications}
+                  aria-label="Aktivera pushnotiser"
+                  aria-busy={updatingNotifications}
+                  disabled={updatingNotifications || !pushNotificationsSupported}
+                  className={`toggle-switch ${notifications ? 'on' : ''}`}
+                  onClick={togglePushNotifications}
+                >
+                  <span />
+                </button>
+              </div>
+
+              {notificationError && (
+                <p className="auth-error" role="alert">
+                  {notificationError}
+                </p>
+              )}
+
+              <div className="settings-card">
+                <p><strong>Inloggat konto</strong></p>
+                <p>{currentUser.email}</p>
+
+                <p className="setting-help">
+                  Användarnamn: @{profile?.username || currentUser.name}
+                </p>
+
+                <button
+                  type="button"
+                  className="auth-submit"
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                >
+                  {loggingOut ? 'Loggar ut...' : 'Logga ut'}
+                </button>
+              </div>
+
+              {authError && (
+                <p className="auth-error" role="alert">
+                  {authError}
+                </p>
+              )}
+            </section>
+          )}
+
+          {activeView === 'avatar-settings' && (
+            <section className="workspace-view avatar-settings-view">
+              <AvatarBuilder
+                profile={profile}
+                userId={currentUser.$id}
+                name={profile?.username || currentUser.name}
+                onSaved={saveAvatar}
+              />
+            </section>
+          )}
+
+          {gameTransition && (
+            <div
+              className="games-panel-transition"
+              style={{
+                '--game-start-left': `${gameTransition.startLeft}px`,
+                '--game-start-top': `${gameTransition.startTop}px`,
+                '--game-start-width': `${gameTransition.startWidth}px`,
+                '--game-start-height': `${gameTransition.startHeight}px`,
+                '--game-end-left': `${gameTransition.endLeft}px`,
+                '--game-end-top': `${gameTransition.endTop}px`,
+                '--game-end-width': `${gameTransition.endWidth}px`,
+                '--game-end-height': `${gameTransition.endHeight}px`,
+              }}
+              onAnimationEnd={finishGameTransition}
+              aria-hidden="true"
+            >
+              <Gamepad2 />
             </div>
+          )}
+        </main>
 
-            {notificationError && (
-              <p className="auth-error" role="alert">
-                {notificationError}
+        <VoiceCallOverlay
+          call={voiceCall.call}
+          muted={voiceCall.muted}
+          onAnswer={voiceCall.answerCall}
+          onReject={() => voiceCall.rejectCall('rejected')}
+          onEnd={voiceCall.endCall}
+          onToggleMute={voiceCall.toggleMute}
+          onDismiss={voiceCall.dismissCall}
+        />
+
+        {needRefresh && (
+          <div className="pwa-update-card" role="status">
+            <div className="pwa-update-icon">✳</div>
+
+            <div className="pwa-update-content">
+              <strong>En ny uppdatering finns!</strong>
+
+              <p>
+                En ny version av PLOT TWIST är redo.
+                Du kan uppdatera nu eller fortsätta använda appen.
               </p>
-            )}
 
-            <div className="settings-card">
-              <p><strong>Inloggat konto</strong></p>
-              <p>{currentUser.email}</p>
-              <p className="setting-help">
-                Användarnamn: @{profile?.username || currentUser.name}
-              </p>
+              {updateBlocked && (
+                <p className="pwa-update-warning">
+                  Avsluta det du håller på med innan du uppdaterar.
+                </p>
+              )}
 
-              <button
-                type="button"
-                className="auth-submit"
-                onClick={handleLogout}
-                disabled={loggingOut}
-              >
-                {loggingOut ? 'Loggar ut...' : 'Logga ut'}
-              </button>
+              <div className="pwa-update-actions">
+                <button
+                  type="button"
+                  className="pwa-update-later"
+                  onClick={() => setNeedRefresh(false)}
+                >
+                  Senare
+                </button>
+
+                <button
+                  type="button"
+                  className="pwa-update-now"
+                  disabled={updateBlocked}
+                  onClick={() => updateServiceWorker()}
+                >
+                  Uppdatera nu
+                </button>
+              </div>
             </div>
-
-            {authError && (
-              <p className="auth-error" role="alert">
-                {authError}
-              </p>
-            )}
-          </section>
-        )}
-
-        {activeView === 'avatar-settings' && (
-          <section className="workspace-view avatar-settings-view">
-            <AvatarBuilder
-              profile={profile}
-              userId={currentUser.$id}
-              name={profile?.username || currentUser.name}
-              onSaved={saveAvatar}
-            />
-          </section>
-        )}
-
-        {gameTransition && (
-          <div
-            className="games-panel-transition"
-            style={{
-              '--game-start-left': `${gameTransition.startLeft}px`,
-              '--game-start-top': `${gameTransition.startTop}px`,
-              '--game-start-width': `${gameTransition.startWidth}px`,
-              '--game-start-height': `${gameTransition.startHeight}px`,
-              '--game-end-left': `${gameTransition.endLeft}px`,
-              '--game-end-top': `${gameTransition.endTop}px`,
-              '--game-end-width': `${gameTransition.endWidth}px`,
-              '--game-end-height': `${gameTransition.endHeight}px`,
-            }}
-            onAnimationEnd={finishGameTransition}
-            aria-hidden="true"
-          >
-            <Gamepad2 />
           </div>
         )}
-      </main>
 
-      <VoiceCallOverlay
-        call={voiceCall.call}
-        muted={voiceCall.muted}
-        onAnswer={voiceCall.answerCall}
-        onReject={() => voiceCall.rejectCall('rejected')}
-        onEnd={voiceCall.endCall}
-        onToggleMute={voiceCall.toggleMute}
-        onDismiss={voiceCall.dismissCall}
-      />
-
-
-      {needRefresh && (
-        <div className="pwa-update-card" role="status">
-          <div className="pwa-update-icon">✳</div>
-
-          <div className="pwa-update-content">
-            <strong>En ny uppdatering finns!</strong>
-
-            <p>
-              En ny version av PLOT TWIST är redo.
-              Du kan uppdatera nu eller fortsätta använda appen.
-            </p>
-
-            {updateBlocked && (
-              <p className="pwa-update-warning">
-                Avsluta det du håller på med innan du uppdaterar.
-              </p>
-            )}
-
-            <div className="pwa-update-actions">
-              <button
-                type="button"
-                className="pwa-update-later"
-                onClick={() => setNeedRefresh(false)}
-              >
-                Senare
-              </button>
-
-              <button
-                type="button"
-                className="pwa-update-now"
-                disabled={updateBlocked}
-                onClick={() => updateServiceWorker()}
-              >
-                Uppdatera nu
-              </button>
+        <div className="twist-score-toasts" aria-live="polite" aria-atomic="false">
+          {scoreToasts.map(({ id, points }) => (
+            <div className="twist-score-toast" key={id} role="status">
+              +{points} Twist Score
             </div>
-          </div>
+          ))}
         </div>
-      )}
-
-
-      <div className="twist-score-toasts" aria-live="polite" aria-atomic="false">
-        {scoreToasts.map(({ id, points }) => (
-          <div className="twist-score-toast" key={id} role="status">
-            +{points} Twist Score
-          </div>
-        ))}
       </div>
-    </div>
+    </>
   )
 }
