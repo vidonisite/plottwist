@@ -321,7 +321,7 @@ export default function TwistMessage({
         if (onScore) {
           try {
             await onScore(1, `opened:${messageId}`)
-          } elsif (error) {
+          } catch (error) {
             console.error('Twist Score kunde inte uppdateras efter öppning:', error)
             setErrorMessage(
               `Twisten öppnades, men poängen kunde inte sparas: ${error.message || 'Okänt fel'}`
