@@ -301,8 +301,6 @@
   cursor: wait;
 }
 
-/* Lägg till längst ner i src/Chat.css. */
-
 .chat-panel {
   display: flex;
   flex-direction: column;
