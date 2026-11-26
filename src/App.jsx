@@ -1630,7 +1630,11 @@ export default function App() {
 
           {activeView === 'camera' && (
             <section className="workspace-view camera-view">
-              <Camera currentUser={currentUser} onScore={awardTwistScore} />
+              <Camera
+                currentUser={currentUser}
+                isAdmin={profile?.admin === true}
+                onScore={awardTwistScore}
+              />
 
               <EventButton
                 disabled={Boolean(gameTransition)}

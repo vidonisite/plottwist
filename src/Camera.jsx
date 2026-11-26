@@ -32,6 +32,7 @@ import { startSad } from './filters/sad.jsx'
 import { createTimeWarp } from './filters/timewarp.jsx'
 import { drawSquareFace } from './filters/squareface.jsx'
 import { FACE_EMOJIS, drawFaceEmoji } from './filters/emoji.jsx'
+import { createRainbowMouth } from './filters/rainbow-mouth.jsx'
 import {
   createTwistReference,
   uploadTwistVideoVersion,
@@ -47,6 +48,13 @@ const FILTERS = [
   { id: 'none', label: 'No filter', symbol: ' ' },
   { id: 'kaleidoscope', label: 'Kalejdoskop', symbol: '🪞', isNew: true },
   { id: 'time-warp', label: 'Time Warp Scan', symbol: '⏳', isNew: true },
+  {
+    id: 'rainbow-mouth',
+    label: 'Regnbåge ur munnen',
+    symbol: '🌈',
+    isNew: true,
+    hideForNonAdmins: true,
+  },
   { id: 'emoji', label: 'Emoji', symbol: '😍' },
   { id: 'big-nose', label: 'Big Nose', symbol: '👃' },
   { id: 'sad', label: 'Sad', symbol: '😟' },
@@ -183,6 +191,7 @@ async function stableId(value) {
 
 export default function Camera({
   currentUser,
+  isAdmin = false,
   onScore,
   targetConversation = null,
   onClose,
@@ -243,13 +252,16 @@ export default function Camera({
   const [hasSent, setHasSent] = useState(false)
 
   const currentUserId = currentUser?.$id
+  const visibleFilters = FILTERS.filter(
+    (item) => isAdmin || !item.hideForNonAdmins
+  )
 
   useEffect(() => {
     filterRef.current = filter
     setSelectedFilterIndex(
-      FILTERS.findIndex((item) => item.id === filter)
+      visibleFilters.findIndex((item) => item.id === filter)
     )
-  }, [filter])
+  }, [filter, isAdmin])
 
   useEffect(() => {
     captureRef.current = capture
@@ -616,6 +628,7 @@ export default function Camera({
     let landmarkerFailed = false
 
     const timeWarp = createTimeWarp()
+    const drawRainbowMouth = createRainbowMouth()
     timeWarpRef.current = timeWarp
 
     async function getLandmarker() {
@@ -721,6 +734,8 @@ export default function Camera({
         drawFaceFilter((source, targetContext, face) => {
           drawFaceEmoji(source, targetContext, face, selectedEmojiRef.current)
         })
+      } else if (activeFilter === 'rainbow-mouth') {
+        drawFaceFilter(drawRainbowMouth)
       } else if (activeFilter === 'time-warp') {
         timeWarp.draw(sourceCanvas, context)
       } else if (activeFilter === 'dreamy') {
@@ -2075,7 +2090,7 @@ export default function Camera({
                     transform: `translateX(calc(50% - ${selectedFilterIndex * 64}px - 27px))`,
                   }}
                 >
-                  {FILTERS.map((item) => (
+                  {visibleFilters.map((item) => (
                     <button
                       key={item.id}
                       type="button"
