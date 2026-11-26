@@ -61,7 +61,7 @@ export function createRainbowMouth() {
       ) {
         emitter = {
           x: (1 - (upperLip.x + lowerLip.x) / 2) * width,
-          y: Math.max(0, ((upperLip.y + lowerLip.y) / 2) * height + 5),
+          y: ((upperLip.y + lowerLip.y) / 2) * height,
           spread: Math.max(5, mouthWidth * 0.22),
         }
       }
