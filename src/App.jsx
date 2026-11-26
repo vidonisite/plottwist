@@ -105,6 +105,7 @@ export default function App() {
   const [activeView, setActiveView] = useState('camera')
   const [activeChat, setActiveChat] = useState(null)
   const [groupDetailsOpen, setGroupDetailsOpen] = useState(false)
+  const leaderboardButtonRef = useRef(null)
 
   const [search, setSearch] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -1373,6 +1374,7 @@ export default function App() {
                   className={`profile-settings-button leaderboard-menu-button ${
                     activeView === 'leaderboard' ? 'selected' : ''
                   }`}
+                  ref={leaderboardButtonRef}
                   onClick={() => showView('leaderboard')}
                   aria-label="Öppna leaderboard"
                   title="Leaderboard"
@@ -1383,6 +1385,7 @@ export default function App() {
                   announcementId="leaderboard"
                   userId={currentUser.$id}
                   active={activeView === 'leaderboard'}
+                  targetRef={leaderboardButtonRef}
                   title="Leaderboard"
                   description="Se hur din Twist Score står sig mot andra."
                 />
