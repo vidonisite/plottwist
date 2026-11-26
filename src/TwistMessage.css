@@ -143,8 +143,9 @@
 
   width: 100%;
   height: 100%;
-  max-width: calc(100vh - 80px);
+  max-width: 100%;
   max-height: 100%;
+  min-height: 0;
 
   margin: 0 auto;
   padding: 0;
@@ -185,8 +186,7 @@
   justify-content: center;
 
   width: 100%;
-  aspect-ratio: 1 / 1;
-  flex-shrink: 1;
+  flex: 1 1 auto;
 
   min-width: 0;
   min-height: 0;
@@ -201,9 +201,8 @@
 .twist-media {
   display: block;
 
-  width: 100%;
-  height: 100%;
-
+  width: auto;
+  height: auto;
   max-width: 100%;
   max-height: 100%;
 

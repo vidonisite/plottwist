@@ -537,6 +537,16 @@
   background: var(--purple-soft);
 }
 
+.leaderboard-menu-button {
+  color: var(--purple-dark);
+}
+
+.leaderboard-menu-button svg {
+  width: 21px;
+  height: 21px;
+  stroke-width: 2;
+}
+
 .profile-settings-avatar {
   border-radius: 12px;
 }
@@ -821,6 +831,88 @@
   color: var(--text-on-dark);
   background: var(--purple-dark);
   font-size: 23px;
+}
+
+.leaderboard-view .view-symbol svg {
+  width: 25px;
+  height: 25px;
+}
+
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.leaderboard-item {
+  display: grid;
+  grid-template-columns: 38px 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.leaderboard-rank {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.leaderboard-rank-1 {
+  color: #604414;
+  background: #f2c95e;
+}
+
+.leaderboard-rank-2 {
+  color: #3e4650;
+  background: #cbd2da;
+}
+
+.leaderboard-rank-3 {
+  color: #57351f;
+  background: #c98253;
+}
+
+.leaderboard-avatar {
+  border-radius: 14px;
+  background: var(--purple-soft);
+}
+
+.leaderboard-username {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-score {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.leaderboard-message {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.leaderboard-error {
+  color: #b33b58;
 }
 
 .simple-view h1 {
@@ -1143,6 +1235,26 @@ input:focus-visible {
   .profile-settings-avatar {
     width: 34px !important;
     height: 34px !important;
+  }
+
+  .leaderboard-item {
+    grid-template-columns: 32px 40px minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 9px 10px;
+  }
+
+  .leaderboard-rank {
+    width: 30px;
+    height: 30px;
+  }
+
+  .leaderboard-avatar {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .leaderboard-score {
+    font-size: 12px;
   }
 
   .sidebar-footer {

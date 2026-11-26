@@ -1,7 +1,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Query } from 'appwrite'
-import { Gamepad2, Phone } from 'lucide-react'
+import { Gamepad2, Phone, Trophy } from 'lucide-react'
 import EventButton from './events/EventButton.jsx'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import EventThemeController from './events/EventThemeController.jsx'
@@ -118,6 +118,9 @@ export default function App() {
   const [loadingChats, setLoadingChats] = useState(false)
   const [chatError, setChatError] = useState('')
   const [chatsRefresh, setChatsRefresh] = useState(0)
+  const [leaderboard, setLeaderboard] = useState([])
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false)
+  const [leaderboardError, setLeaderboardError] = useState('')
   const [gameInvite, setGameInvite] = useState(null)
   const [gameReturnView, setGameReturnView] = useState('camera')
   const [gameTransition, setGameTransition] = useState(null)
@@ -382,6 +385,24 @@ export default function App() {
         const updatedProfile = event.payload
         if (!updatedProfile?.userId) return
 
+        if (event.events?.some((name) => name.endsWith('.delete'))) {
+          setLeaderboard((previous) =>
+            previous.filter((item) => item.userId !== updatedProfile.userId)
+          )
+        } else {
+          setLeaderboard((previous) => {
+            const existingIndex = previous.findIndex(
+              (item) => item.userId === updatedProfile.userId
+            )
+
+            if (existingIndex === -1) return [...previous, updatedProfile]
+
+            return previous.map((item, index) =>
+              index === existingIndex ? updatedProfile : item
+            )
+          })
+        }
+
         if (updatedProfile.userId === currentUser.$id) {
           setProfile(updatedProfile)
         }
@@ -415,6 +436,53 @@ export default function App() {
 
     return () => unsubscribe()
   }, [currentUser?.$id])
+
+  useEffect(() => {
+    if (activeView !== 'leaderboard') return
+
+    let cancelled = false
+
+    async function loadLeaderboard() {
+      setLeaderboardLoading(true)
+      setLeaderboardError('')
+
+      try {
+        const rows = []
+        let cursorAfter = null
+
+        while (true) {
+          const queries = [Query.limit(100), Query.orderAsc('$id')]
+          if (cursorAfter) queries.push(Query.cursorAfter(cursorAfter))
+
+          const response = await tablesDB.listRows({
+            databaseId: DATABASE_ID,
+            tableId: USERS_TABLE_ID,
+            queries,
+          })
+
+          rows.push(...response.rows)
+          if (response.rows.length < 100) break
+
+          cursorAfter = response.rows[response.rows.length - 1].$id
+        }
+
+        if (!cancelled) setLeaderboard(rows)
+      } catch (error) {
+        console.error('Kunde inte hämta leaderboarden:', error)
+        if (!cancelled) {
+          setLeaderboardError('Kunde inte hämta leaderboarden. Försök igen senare.')
+        }
+      } finally {
+        if (!cancelled) setLeaderboardLoading(false)
+      }
+    }
+
+    void loadLeaderboard()
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeView])
 
   useEffect(() => {
     if (!currentUser?.$id) return
@@ -951,6 +1019,18 @@ export default function App() {
   const twistScore = Number.isSafeInteger(Number(profile?.twistscore))
     ? Number(profile.twistscore)
     : 0
+  const sortedLeaderboard = useMemo(
+    () => [...leaderboard].sort((a, b) => {
+      const scoreA = Number(a.twistscore)
+      const scoreB = Number(b.twistscore)
+      const safeScoreA = Number.isSafeInteger(scoreA) && scoreA >= 0 ? scoreA : 0
+      const safeScoreB = Number.isSafeInteger(scoreB) && scoreB >= 0 ? scoreB : 0
+
+      return safeScoreB - safeScoreA ||
+        (a.username || '').localeCompare(b.username || '')
+    }),
+    [leaderboard]
+  )
 
   function openChat(chat) {
     if (voiceCall.call && voiceCall.call.conversationId !== chat.id) {
@@ -1288,6 +1368,18 @@ export default function App() {
 
               <button
                 type="button"
+                className={`profile-settings-button leaderboard-menu-button ${
+                  activeView === 'leaderboard' ? 'selected' : ''
+                }`}
+                onClick={() => showView('leaderboard')}
+                aria-label="Öppna leaderboard"
+                title="Leaderboard"
+              >
+                <Trophy aria-hidden="true" />
+              </button>
+
+              <button
+                type="button"
                 className={`profile-settings-button ${
                   activeView === 'avatar-settings' ? 'selected' : ''
                 }`}
@@ -1618,6 +1710,71 @@ export default function App() {
                 name={profile?.username || currentUser.name}
                 onSaved={saveAvatar}
               />
+            </section>
+          )}
+
+          {activeView === 'leaderboard' && (
+            <section className="workspace-view simple-view leaderboard-view">
+              <div className="view-symbol purple-symbol">
+                <Trophy aria-hidden="true" />
+              </div>
+              <h1>Leaderboard</h1>
+              <p className="view-description">
+                Alla användare sorterade efter Twist Score.
+              </p>
+
+              {leaderboardLoading && (
+                <p className="leaderboard-message">Laddar leaderboard...</p>
+              )}
+
+              {leaderboardError && (
+                <p className="leaderboard-message leaderboard-error" role="alert">
+                  {leaderboardError}
+                </p>
+              )}
+
+              {!leaderboardLoading && !leaderboardError &&
+                sortedLeaderboard.length === 0 && (
+                  <p className="leaderboard-message">
+                    Det finns inga användare att visa ännu.
+                  </p>
+                )}
+
+              {!leaderboardLoading && !leaderboardError &&
+                sortedLeaderboard.length > 0 && (
+                <ol className="leaderboard-list">
+                  {sortedLeaderboard.map((user, index) => {
+                    const score = Number(user.twistscore)
+                    const safeScore =
+                      Number.isSafeInteger(score) && score >= 0 ? score : 0
+
+                    return (
+                      <li className="leaderboard-item" key={user.$id}>
+                        <span
+                          className={`leaderboard-rank ${
+                            index < 3 ? `leaderboard-rank-${index + 1}` : ''
+                          }`}
+                        >
+                          {index + 1}
+                        </span>
+                        <ProfileAvatar
+                          profile={user}
+                          userId={user.userId}
+                          name={user.username || 'Okänd användare'}
+                          size={44}
+                          className="leaderboard-avatar"
+                        />
+                        <span className="leaderboard-username">
+                          @{user.username || 'Okänd användare'}
+                        </span>
+                        <span className="leaderboard-score">
+                          {safeScore} <span aria-label="Twist Score">☀️</span>
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ol>
+              )}
             </section>
           )}
 
