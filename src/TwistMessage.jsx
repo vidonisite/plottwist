@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Query, Permission, Role } from 'appwrite'
 
 import {
@@ -461,7 +462,7 @@ export default function TwistMessage({
         </span>
       </div>
 
-      {mediaUrl && (
+      {mediaUrl && createPortal(
         <div
           className="twist-fullscreen"
           onClick={closeTwist}
@@ -537,7 +538,8 @@ export default function TwistMessage({
               →
             </button>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )
