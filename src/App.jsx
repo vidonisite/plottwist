@@ -34,6 +34,7 @@ import CreateGroup from './CreateGroup.jsx'
 import ProfileAvatar from './components/ProfileAvatar.jsx'
 import GroupAvatar from './components/GroupAvatar.jsx'
 import AvatarBuilder from './components/AvatarBuilder.jsx'
+import FeatureAnnouncement from './components/FeatureAnnouncement.jsx'
 import { addLatestMessageTimes } from './lib/groupMembers.js'
 import useVoiceCall from './hooks/useVoiceCall.js'
 import VoiceCallOverlay from './components/VoiceCallOverlay.jsx'
@@ -1366,17 +1367,26 @@ export default function App() {
                 <span>Inställningar</span>
               </button>
 
-              <button
-                type="button"
-                className={`profile-settings-button leaderboard-menu-button ${
-                  activeView === 'leaderboard' ? 'selected' : ''
-                }`}
-                onClick={() => showView('leaderboard')}
-                aria-label="Öppna leaderboard"
-                title="Leaderboard"
-              >
-                <Trophy aria-hidden="true" />
-              </button>
+              <div className="feature-announcement-anchor">
+                <button
+                  type="button"
+                  className={`profile-settings-button leaderboard-menu-button ${
+                    activeView === 'leaderboard' ? 'selected' : ''
+                  }`}
+                  onClick={() => showView('leaderboard')}
+                  aria-label="Öppna leaderboard"
+                  title="Leaderboard"
+                >
+                  <Trophy aria-hidden="true" />
+                </button>
+                <FeatureAnnouncement
+                  announcementId="leaderboard"
+                  userId={currentUser.$id}
+                  active={activeView === 'leaderboard'}
+                  title="Leaderboard"
+                  description="Se hur din Twist Score står sig mot andra."
+                />
+              </div>
 
               <button
                 type="button"
@@ -1814,16 +1824,17 @@ export default function App() {
             <div className="pwa-update-icon">✳</div>
 
             <div className="pwa-update-content">
-              <strong>En ny uppdatering finns!</strong>
+              <strong>Uppdatera PLOT TWIST</strong>
 
               <p>
-                En ny version av PLOT TWIST är redo.
-                Du kan uppdatera nu eller fortsätta använda appen.
+                En ny version är redo. Uppdatera nu för att komma igång med
+                den senaste versionen. Det kräver bara en snabb omstart av
+                appen – inte en stor systemuppdatering.
               </p>
 
               {updateBlocked && (
                 <p className="pwa-update-warning">
-                  Avsluta det du håller på med innan du uppdaterar.
+                  Uppdatera när du är klar med det du håller på med.
                 </p>
               )}
 
