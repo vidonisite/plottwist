@@ -1161,7 +1161,10 @@ export default function App() {
           currentRank: currentIndex + 1,
           firstVisibleRank: firstVisibleIndex + 1,
           previousRank: previousIndex + 1,
-          rows: sortedLeaderboard.slice(firstVisibleIndex, currentIndex + 2),
+          rows: sortedLeaderboard.slice(
+            firstVisibleIndex,
+            Math.max(currentIndex + 2, previousIndex + 1)
+          ),
         })
       }
     }
@@ -2128,12 +2131,25 @@ export default function App() {
                   const safeScore =
                     Number.isSafeInteger(score) && score >= 0 ? score : 0
                   const isCurrentUser = user.userId === currentUser?.$id
+                  const rank = rankUpAnnouncement.firstVisibleRank + index
+                  const isDisplaced = rank > rankUpAnnouncement.currentRank &&
+                    rank <= rankUpAnnouncement.previousRank
+                  const climbDistance =
+                    rankUpAnnouncement.previousRank - rankUpAnnouncement.currentRank
+                  const climbOffset = Array(climbDistance)
+                    .fill('100% + 8px')
+                    .join(' + ')
 
                   return (
                     <li
                       className={`leaderboard-item rank-climb-item${
                         isCurrentUser ? ' rank-climb-item--current' : ''
+                      }${
+                        isDisplaced ? ' rank-climb-item--displaced' : ''
                       }`}
+                      style={isCurrentUser
+                        ? { '--rank-climb-start-offset': `calc(${climbOffset})` }
+                        : undefined}
                       key={user.$id}
                     >
                       {isCurrentUser && (
@@ -2144,7 +2160,7 @@ export default function App() {
                         </>
                       )}
                       <span className="leaderboard-rank">
-                        {rankUpAnnouncement.firstVisibleRank + index}
+                        {rank}
                       </span>
                       <ProfileAvatar
                         profile={user}

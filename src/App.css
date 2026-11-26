@@ -757,6 +757,7 @@
 
   .rank-climb-preview,
   .rank-climb-item--current,
+  .rank-climb-item--displaced,
   .rank-climb-sparkle {
     animation: none;
   }
@@ -1003,9 +1004,17 @@
 
 .rank-climb-item--current {
   position: relative;
+  z-index: 2;
   border-color: var(--purple);
   background: var(--purple-soft);
   animation: rank-climb-row-rise 1.35s both;
+  animation-delay: .45s;
+}
+
+.rank-climb-item--displaced {
+  position: relative;
+  z-index: 1;
+  animation: rank-climb-row-follow 1.35s both;
   animation-delay: .45s;
 }
 
@@ -1062,12 +1071,12 @@
 @keyframes rank-climb-row-rise {
   from {
     opacity: 1;
-    transform: translateY(calc(100% + 8px)) scale(.98);
+    transform: translateY(var(--rank-climb-start-offset, calc(100% + 8px))) scale(.98);
   }
 
   36% {
     opacity: 1;
-    transform: translateY(calc(100% + 8px)) scale(.98);
+    transform: translateY(var(--rank-climb-start-offset, calc(100% + 8px))) scale(.98);
   }
 
   80% {
@@ -1082,6 +1091,21 @@
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes rank-climb-row-follow {
+  from {
+    transform: translateY(calc(-100% - 8px));
+  }
+
+  36% {
+    transform: translateY(calc(-100% - 8px));
+  }
+
+  80%,
+  to {
+    transform: translateY(0);
   }
 }
 
