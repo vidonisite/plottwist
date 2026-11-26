@@ -23,17 +23,12 @@ import {
 import { drawBigEyes } from './filters/bigeyes.jsx'
 import { drawFishEye } from './filters/fisheye.jsx'
 import { drawAlien } from './filters/alien.jsx'
+import { drawKaleidoscope } from './filters/kaleidoscope.jsx'
 import { startGlam } from './filters/glam.jsx'
 import { startNoLips } from './filters/nolips.jsx'
 import { startBigNose } from './filters/bignose.jsx'
 import { startSad } from './filters/sad.jsx'
 import { createTimeWarp } from './filters/timewarp.jsx'
-import {
-  startMindAR,
-  MINDAR_FILTERS,
-  getMindARFilter,
-  isMindARFilter,
-} from './filters/mindar.jsx'
 import { drawSquareFace } from './filters/squareface.jsx'
 import { FACE_EMOJIS, drawFaceEmoji } from './filters/emoji.jsx'
 import {
@@ -49,11 +44,11 @@ import './Camera.css'
 
 const FILTERS = [
   { id: 'none', label: 'No filter', symbol: ' ' },
+  { id: 'kaleidoscope', label: 'Kalejdoskop', symbol: '🪞', isNew: true },
   { id: 'time-warp', label: 'Time Warp Scan', symbol: '⏳', isNew: true },
-  { id: 'emoji', label: 'Emoji', symbol: '😍', isNew: true },
-  { id: 'big-nose', label: 'Big Nose', symbol: '👃', isNew: true },
-  { id: 'sad', label: 'Sad', symbol: '😟', isNew: true },
-  ...MINDAR_FILTERS,
+  { id: 'emoji', label: 'Emoji', symbol: '😍' },
+  { id: 'big-nose', label: 'Big Nose', symbol: '👃' },
+  { id: 'sad', label: 'Sad', symbol: '😟' },
   { id: 'fisheye', label: 'Fish Eye', symbol: '🐟' },
   { id: 'glam', label: 'Glam Makeup', symbol: '💄' },
   { id: 'nolips', label: 'No Lips', symbol: '💋' },
@@ -195,8 +190,6 @@ export default function Camera({
   const captureTextEditorRef = useRef(null)
   const canvasRef = useRef(null)
   const makeupCanvasRef = useRef(null)
-  const mindarHostRef = useRef(null)
-  const mindarOutputCanvasRef = useRef(null)
 
   const streamRef = useRef(null)
   const landmarkerRef = useRef(null)
@@ -207,9 +200,6 @@ export default function Camera({
   const selectedEmojiRef = useRef('😍')
   const makeupLifecycleRef = useRef(Promise.resolve())
   const makeupStartRef = useRef(false)
-  const mindarInstanceRef = useRef(null)
-  const mindarLifecycleRef = useRef(Promise.resolve())
-  const mindarReadyRef = useRef(false)
 
   const timeWarpRef = useRef(null)
 
@@ -298,11 +288,6 @@ export default function Camera({
   }, [])
 
   const takePhoto = useCallback(() => {
-    if (isMindARFilter(filterRef.current) && !mindarReadyRef.current) {
-      setErrorMessage('MindAR 3D håller fortfarande på att starta. Försök strax igen.')
-      return
-    }
-
     const sourceCanvas = getVisibleCanvas()
 
     if (!sourceCanvas) {
@@ -388,11 +373,6 @@ export default function Camera({
   }, [stopRecordingTimers])
 
   const startRecording = useCallback(() => {
-    if (isMindARFilter(filterRef.current) && !mindarReadyRef.current) {
-      setErrorMessage('MindAR 3D håller fortfarande på att starta. Försök strax igen.')
-      return
-    }
-
     const canvas = getVisibleCanvas()
 
     if (!canvas) {
@@ -576,12 +556,6 @@ export default function Camera({
         void stopAndDisposeMakeup(instance)
       }
 
-      const mindarInstance = mindarInstanceRef.current
-      mindarInstanceRef.current = null
-      mindarOutputCanvasRef.current = null
-      mindarReadyRef.current = false
-      if (mindarInstance) void mindarInstance.stop()
-
       clearCanvas(canvasRef.current)
       clearCanvas(makeupCanvasRef.current)
 
@@ -729,18 +703,10 @@ export default function Camera({
 
       const activeFilter = filterRef.current
 
-      if (isMindARFilter(activeFilter)) {
-        const mindarCanvas = mindarOutputCanvasRef.current
-        context.clearRect(0, 0, SIZE, SIZE)
-
-        if (mindarCanvas?.width && mindarCanvas?.height) {
-          // MindAR-exportens outputCanvas innehåller redan kamerabilden + 3D-renderingen.
-          context.drawImage(mindarCanvas, 0, 0, SIZE, SIZE)
-        } else {
-          context.drawImage(sourceCanvas, 0, 0, SIZE, SIZE)
-        }
-      } else if (activeFilter === 'fisheye') {
+      if (activeFilter === 'fisheye') {
         drawFishEye(sourceCanvas, context)
+      } else if (activeFilter === 'kaleidoscope') {
+        drawKaleidoscope(sourceCanvas, context)
       } else if (activeFilter === 'big-eyes') {
         drawFaceFilter(drawBigEyes)
       } else if (activeFilter === 'square-face') {
@@ -772,77 +738,6 @@ export default function Camera({
       stopped = true
       cancelAnimationFrame(animationRef.current)
       clearCanvas(canvas)
-    }
-  }, [cameraState, filter])
-
-  // MindAR Studio körs i sin egen isolerade export-sida, men får en klon av
-  // PLOT TWISTs befintliga stream. Resultatcanvasen kopieras in i canvasRef.
-  useEffect(() => {
-    const mindarFilter = getMindARFilter(filter)
-    if (cameraState !== 'live' || !mindarFilter) return
-
-    let cancelled = false
-    const abortController = new AbortController()
-    mindarReadyRef.current = false
-    mindarOutputCanvasRef.current = null
-    setErrorMessage('')
-
-    const startTask = mindarLifecycleRef.current.then(async () => {
-      if (cancelled) return
-
-      const stream = streamRef.current
-      if (!stream?.active) {
-        throw new Error('PLOT TWISTs kamerastream är inte aktiv.')
-      }
-
-      const facingMode = stream.getVideoTracks()[0]?.getSettings?.().facingMode
-      const instance = await startMindAR({
-        host: mindarHostRef.current,
-        stream,
-        mirror: facingMode !== 'environment',
-        filterId: mindarFilter.assetId,
-        signal: abortController.signal,
-      })
-
-      if (cancelled) {
-        await instance.stop()
-        return
-      }
-
-      mindarInstanceRef.current = instance
-      mindarOutputCanvasRef.current = instance.outputCanvas
-      mindarReadyRef.current = true
-    })
-
-    startTask.catch((error) => {
-      if (cancelled || error?.name === 'AbortError') return
-
-      console.error('MindAR 3D kunde inte startas:', error)
-      mindarReadyRef.current = false
-      mindarOutputCanvasRef.current = null
-      setErrorMessage(`MindAR 3D kunde inte laddas: ${error.message || 'Okänt fel'}`)
-    })
-
-    return () => {
-      cancelled = true
-      abortController.abort()
-      mindarReadyRef.current = false
-      mindarOutputCanvasRef.current = null
-
-      const cleanupTask = startTask
-        .catch(() => {})
-        .then(async () => {
-          const instance = mindarInstanceRef.current
-          mindarInstanceRef.current = null
-
-          if (instance) {
-            await instance.stop()
-          }
-        })
-
-      mindarLifecycleRef.current = cleanupTask.catch((error) => {
-        console.error('MindAR kunde inte stängas ordentligt:', error)
-      })
     }
   }, [cameraState, filter])
 
@@ -1034,12 +929,6 @@ export default function Camera({
     if (instance) {
       await stopAndDisposeMakeup(instance)
     }
-
-    const mindarInstance = mindarInstanceRef.current
-    mindarInstanceRef.current = null
-    mindarOutputCanvasRef.current = null
-    mindarReadyRef.current = false
-    if (mindarInstance) await mindarInstance.stop()
 
     clearCanvas(canvasRef.current)
     clearCanvas(makeupCanvasRef.current)
@@ -2038,21 +1927,6 @@ export default function Camera({
                     className="camera-canvas makeup-canvas"
                     style={{
                       display: ['glam', 'nolips', 'big-nose', 'sad'].includes(filter) ? 'block' : 'none',
-                    }}
-                  />
-
-                  <div
-                    ref={mindarHostRef}
-                    aria-hidden="true"
-                    style={{
-                      position: 'absolute',
-                      left: '-10000px',
-                      top: 0,
-                      width: `${SIZE}px`,
-                      height: `${SIZE}px`,
-                      overflow: 'hidden',
-                      visibility: 'hidden',
-                      pointerEvents: 'none',
                     }}
                   />
 

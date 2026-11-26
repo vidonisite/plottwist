@@ -49,6 +49,10 @@
   object-fit: cover;
 }
 
+.makeup-canvas {
+  transform: scaleX(-1);
+}
+
 .glam-canvas {
   transform: none;
 }
