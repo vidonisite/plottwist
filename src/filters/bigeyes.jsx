@@ -156,9 +156,12 @@ function drawSticker(outputContext, layer, feature, scale) {
   )
 }
 
-export function drawBigEyes(source, outputContext, landmarks) {
+export function drawBigEyes(source, outputContext, landmarks, options = {}) {
   if (!source || !outputContext || !landmarks) return
 
+  const eyeScale = options.eyeScale ?? EYE_SCALE
+  const eyeSeparation = options.eyeSeparation ?? EYE_SEPARATION
+  const mouthScale = options.mouthScale ?? MOUTH_SCALE
   const { width, height } = source
   const { eyes, mouth } = getLayers()
 
@@ -178,7 +181,7 @@ export function drawBigEyes(source, outputContext, landmarks) {
   })
 
   const [leftEye, rightEye] = preparedEyes
-  let actualEyeScale = EYE_SCALE
+  let actualEyeScale = eyeScale
 
   if (leftEye && rightEye) {
     const centerDistance = Math.abs(rightEye.centerX - leftEye.centerX)
@@ -187,8 +190,8 @@ export function drawBigEyes(source, outputContext, landmarks) {
 
     if (expandedEyeWidth > 0) {
       // Adapt to face size and eye spacing so the enlarged eyes remain distinct.
-      const spacingLimit = (centerDistance * EYE_SEPARATION) / expandedEyeWidth
-      actualEyeScale = Math.min(EYE_SCALE, Math.max(1.35, spacingLimit))
+      const spacingLimit = (centerDistance * eyeSeparation) / expandedEyeWidth
+      actualEyeScale = Math.min(eyeScale, Math.max(1.35, spacingLimit))
     }
   }
 
@@ -206,6 +209,6 @@ export function drawBigEyes(source, outputContext, landmarks) {
   )
 
   if (mouthFeature && prepareLayer(source, mouth, mouthFeature, MOUTH_EXPANSION)) {
-    drawSticker(outputContext, mouth, mouthFeature, MOUTH_SCALE)
+    drawSticker(outputContext, mouth, mouthFeature, mouthScale)
   }
 }

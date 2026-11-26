@@ -1136,10 +1136,25 @@
   margin-top: 14px;
 }
 
+.settings-update-card {
+  margin-top: 14px;
+}
+
 .rank-climb-preview-button {
   align-self: flex-start;
   padding: 0 16px;
   cursor: pointer;
+}
+
+.settings-update-button {
+  align-self: flex-start;
+  padding: 0 16px;
+  cursor: pointer;
+}
+
+.settings-update-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
 
 .settings-card input {
@@ -1839,11 +1854,6 @@ input:focus-visible {
   color: #716979;
   font-size: 13px;
   line-height: 1.5;
-}
-
-.pwa-update-content .pwa-update-warning {
-  color: #a15b28;
-  font-weight: 600;
 }
 
 .pwa-update-actions {

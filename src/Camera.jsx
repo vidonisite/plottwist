@@ -21,6 +21,7 @@ import {
 } from './lib/appwrite.js'
 
 import { drawBigEyes } from './filters/bigeyes.jsx'
+import { drawBadVibes } from './filters/badvibes.jsx'
 import { drawFishEye } from './filters/fisheye.jsx'
 import { drawAlien } from './filters/alien.jsx'
 import { drawKaleidoscope } from './filters/kaleidoscope.jsx'
@@ -49,6 +50,7 @@ const FILTERS = [
   { id: 'emoji', label: 'Emoji', symbol: '😍' },
   { id: 'big-nose', label: 'Big Nose', symbol: '👃' },
   { id: 'sad', label: 'Sad', symbol: '😟' },
+  { id: 'bad-vibes', label: 'Bad Vibes', symbol: '😵', isNew: true },
   { id: 'fisheye', label: 'Fish Eye', symbol: '🐟' },
   { id: 'glam', label: 'Glam Makeup', symbol: '💄' },
   { id: 'nolips', label: 'No Lips', symbol: '💋' },
@@ -707,6 +709,8 @@ export default function Camera({
         drawFishEye(sourceCanvas, context)
       } else if (activeFilter === 'kaleidoscope') {
         drawKaleidoscope(sourceCanvas, context)
+      } else if (activeFilter === 'bad-vibes') {
+        drawFaceFilter(drawBadVibes)
       } else if (activeFilter === 'big-eyes') {
         drawFaceFilter(drawBigEyes)
       } else if (activeFilter === 'square-face') {

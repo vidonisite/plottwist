@@ -67,7 +67,40 @@ function latestMemberActivityAt(members) {
   }, null)
 }
 
+function waitForWaitingServiceWorker(registration) {
+  if (registration.waiting) return Promise.resolve('waiting')
+
+  const installingWorker = registration.installing
+  if (!installingWorker) return Promise.resolve('none')
+
+  return new Promise((resolve) => {
+    const timeoutId = window.setTimeout(() => finish('timeout'), 60_000)
+
+    function finish(result) {
+      window.clearTimeout(timeoutId)
+      installingWorker.removeEventListener('statechange', checkState)
+      resolve(result)
+    }
+
+    function checkState() {
+      if (registration.waiting) {
+        finish('waiting')
+      } else if (installingWorker.state === 'installed') {
+        finish('none')
+      } else if (installingWorker.state === 'redundant') {
+        finish('failed')
+      }
+    }
+
+    installingWorker.addEventListener('statechange', checkState)
+    checkState()
+  })
+}
+
 export default function App() {
+  const serviceWorkerRegistrationRef = useRef(null)
+  const [checkingForUpdate, setCheckingForUpdate] = useState(false)
+  const [updateCheckMessage, setUpdateCheckMessage] = useState('')
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
@@ -77,14 +110,16 @@ export default function App() {
     onRegisteredSW: (_swUrl, registration) => {
       if (!registration) return
 
-      // Kontrollera efter nya versioner var femte minut.
+      serviceWorkerRegistrationRef.current = registration
+
+      // Kontrollera efter nya versioner varje minut.
       window.setInterval(() => {
         if (document.visibilityState === 'visible') {
           registration.update().catch((error) => {
             console.error('Kunde inte kontrollera uppdateringar:', error)
           })
         }
-      }, 5 * 60 * 1000)
+      }, 60 * 1000)
     },
 
     onRegisterError: (error) => {
@@ -136,11 +171,49 @@ export default function App() {
   const [twistScorePinned, setTwistScorePinned] = useState(false)
   const voiceCall = useVoiceCall(currentUser)
 
-  const updateBlocked =
-    activeView !== 'camera' ||
-    Boolean(voiceCall.call) ||
-    Boolean(gameTransition) ||
-    groupDetailsOpen
+  const checkForAppUpdate = async () => {
+    if (checkingForUpdate) return
+
+    setCheckingForUpdate(true)
+    setUpdateCheckMessage('Söker efter uppdatering...')
+
+    try {
+      const registration =
+        serviceWorkerRegistrationRef.current ||
+        (await navigator.serviceWorker?.getRegistration())
+
+      if (!registration) {
+        throw new Error('Service workern är inte registrerad.')
+      }
+
+      serviceWorkerRegistrationRef.current = registration
+
+      if (!registration.waiting) {
+        await registration.update()
+      }
+
+      const updateState = await waitForWaitingServiceWorker(registration)
+      if (updateState === 'waiting') {
+        setUpdateCheckMessage('Uppdateringen är klar. Appen startar om...')
+        await updateServiceWorker()
+      } else if (updateState === 'timeout') {
+        setUpdateCheckMessage(
+          'Uppdateringen tar längre tid än väntat. Försök igen om en stund.'
+        )
+      } else if (updateState === 'failed') {
+        throw new Error('Service workern kunde inte installeras.')
+      } else {
+        setUpdateCheckMessage('Du har redan den senaste versionen.')
+      }
+    } catch (error) {
+      console.error('Kunde inte söka efter appuppdateringar:', error)
+      setUpdateCheckMessage(
+        'Kunde inte söka efter uppdateringar. Kontrollera anslutningen och försök igen.'
+      )
+    } finally {
+      setCheckingForUpdate(false)
+    }
+  }
 
   const closeGroupDetails = useCallback(() => setGroupDetailsOpen(false), [])
 
@@ -1778,6 +1851,29 @@ export default function App() {
                 </p>
               </div>
 
+              <div className="settings-card settings-update-card">
+                <div>
+                  <strong>Appuppdatering</strong>
+                  <p className="setting-help">
+                    Sök efter och installera den senaste versionen direkt.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="accent-button settings-update-button"
+                  onClick={checkForAppUpdate}
+                  disabled={checkingForUpdate}
+                  aria-busy={checkingForUpdate}
+                >
+                  {checkingForUpdate ? 'Söker...' : 'Sök efter uppdatering'}
+                </button>
+                {updateCheckMessage && (
+                  <p className="setting-help" role="status">
+                    {updateCheckMessage}
+                  </p>
+                )}
+              </div>
+
               <div className="settings-row">
                 <div>
                   <strong>Notiser</strong>
@@ -1967,16 +2063,8 @@ export default function App() {
               <strong>Uppdatera PLOT TWIST</strong>
 
               <p>
-                En ny version är redo. Uppdatera nu för att komma igång med
-                den senaste versionen. Det kräver bara en snabb omstart av
-                appen – inte en stor systemuppdatering.
+                En ny version är klar. Omstarten tar bara några sekunder.
               </p>
-
-              {updateBlocked && (
-                <p className="pwa-update-warning">
-                  Uppdatera när du är klar med det du håller på med.
-                </p>
-              )}
 
               <div className="pwa-update-actions">
                 <button
@@ -1990,7 +2078,6 @@ export default function App() {
                 <button
                   type="button"
                   className="pwa-update-now"
-                  disabled={updateBlocked}
                   onClick={() => updateServiceWorker()}
                 >
                   Uppdatera nu

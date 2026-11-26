@@ -26,6 +26,28 @@ const DOM_ANNOUNCEMENTS = [
       },
     ],
   },
+  {
+    announcementId: 'bad-vibes',
+    scopeSelector: '.camera-content',
+    steps: [
+      {
+        targetSelector: '.camera-start-area',
+        title: 'Starta kameran',
+        description: 'Tryck här för att starta kameran. Sedan visar vi var Bad Vibes-filtret finns.',
+        isAvailable: ({ target }) => Boolean(target && !target.disabled),
+        isComplete: ({ scope }) =>
+          !scope.querySelector('.camera-start-area'),
+      },
+      {
+        targetSelector: '.filter-option[title="Bad Vibes"]',
+        title: 'Nytt filter: Bad Vibes',
+        description: 'Välj Bad Vibes för ett mindre ansikte och extra stora ögon.',
+        isAvailable: ({ target }) => Boolean(target && !target.disabled),
+        isComplete: ({ target }) =>
+          Boolean(target?.classList.contains('selected')),
+      },
+    ],
+  },
 ]
 
 function getAnnouncementProgress(announcement) {
