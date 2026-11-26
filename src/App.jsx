@@ -2136,6 +2136,13 @@ export default function App() {
                       }`}
                       key={user.$id}
                     >
+                      {isCurrentUser && (
+                        <>
+                          <span className="rank-climb-sparkle" aria-hidden="true">✦</span>
+                          <span className="rank-climb-sparkle" aria-hidden="true">✧</span>
+                          <span className="rank-climb-sparkle" aria-hidden="true">✦</span>
+                        </>
+                      )}
                       <span className="leaderboard-rank">
                         {rankUpAnnouncement.firstVisibleRank + index}
                       </span>
