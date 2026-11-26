@@ -6,7 +6,7 @@ import './FeatureAnnouncement.css'
 const DOM_ANNOUNCEMENTS = [
   {
     announcementId: 'kaleidoscope',
-    scopeSelector: '.camera-frame',
+    scopeSelector: '.camera-content',
     steps: [
       {
         targetSelector: '.camera-start-area',
