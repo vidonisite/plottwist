@@ -755,6 +755,11 @@
     animation: none;
   }
 
+  .rank-climb-preview,
+  .rank-climb-item--current {
+    animation: none;
+  }
+
   .conversation-heading,
   .chat-view,
   .main-panel > .people-page,
@@ -915,6 +920,119 @@
   color: #b33b58;
 }
 
+.rank-climb-backdrop {
+  position: fixed;
+  z-index: 10002;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(26, 17, 33, .38);
+  backdrop-filter: blur(3px);
+}
+
+.rank-climb-preview {
+  position: relative;
+  box-sizing: border-box;
+  width: min(440px, 100%);
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: 0 20px 70px rgba(20, 12, 27, .3);
+  animation: rank-climb-preview-enter .32s cubic-bezier(.2, .75, .3, 1) both;
+}
+
+.rank-climb-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--text-muted);
+  background: var(--purple-soft);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.rank-climb-label {
+  color: var(--purple-dark);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.rank-climb-preview h2 {
+  margin: 8px 40px 4px 0;
+  font-size: 26px;
+  letter-spacing: -.04em;
+}
+
+.rank-climb-preview > p:not(.rank-climb-hint) {
+  margin: 0 0 20px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.rank-climb-list {
+  gap: 8px;
+}
+
+.rank-climb-item {
+  grid-template-columns: 34px 40px minmax(0, 1fr) auto;
+  gap: 9px;
+  padding: 9px 10px;
+}
+
+.rank-climb-item .leaderboard-avatar {
+  width: 40px;
+  height: 40px;
+}
+
+.rank-climb-item--current {
+  border-color: var(--purple);
+  background: var(--purple-soft);
+  animation: rank-climb-row-rise .65s cubic-bezier(.18, .8, .25, 1) both;
+}
+
+.rank-climb-hint {
+  margin: 14px 0 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+@keyframes rank-climb-preview-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes rank-climb-row-rise {
+  from {
+    opacity: .6;
+    transform: translateY(36px) scale(.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .simple-view h1 {
   margin: 0;
   color: var(--text);
@@ -1012,6 +1130,16 @@
   border: 1px solid var(--border);
   border-radius: 18px;
   background: var(--surface);
+}
+
+.rank-climb-settings-card {
+  margin-top: 14px;
+}
+
+.rank-climb-preview-button {
+  align-self: flex-start;
+  padding: 0 16px;
+  cursor: pointer;
 }
 
 .settings-card input {

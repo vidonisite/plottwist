@@ -1120,29 +1120,38 @@ export default function Camera({
         }),
       ])
 
-      const [profilesResponse, conversations] = await Promise.all([
-        contactsResponse.rows.length
+      const contactUserIds = [...new Set(
+        contactsResponse.rows
+          .map((contact) => contact.contactUserId)
+          .filter(Boolean)
+      )]
+      const membershipConversationIds = [...new Set(
+        membershipsResponse.rows.map((membership) => membership.conversationId)
+          .filter(Boolean)
+      )]
+      const [profilesResponse, conversationsResponse] = await Promise.all([
+        contactUserIds.length
           ? tablesDB.listRows({
             databaseId: DATABASE_ID,
             tableId: USERS_TABLE_ID,
-            queries: [Query.limit(100)],
+            queries: [
+              Query.equal('userId', contactUserIds),
+              Query.limit(contactUserIds.length),
+            ],
           })
           : Promise.resolve({ rows: [] }),
-        Promise.all(membershipsResponse.rows.map(async (membership) => {
-          try {
-            return await tablesDB.getRow({
-              databaseId: DATABASE_ID,
-              tableId: CONVERSATIONS_TABLE_ID,
-              rowId: membership.conversationId,
-            })
-          } catch (error) {
-            if (error?.code !== 404) {
-              console.error('Kunde inte läsa en gruppkonversation:', error)
-            }
-            return null
-          }
-        })),
+        membershipConversationIds.length
+          ? tablesDB.listRows({
+            databaseId: DATABASE_ID,
+            tableId: CONVERSATIONS_TABLE_ID,
+            queries: [
+              Query.equal('$id', membershipConversationIds),
+              Query.limit(membershipConversationIds.length),
+            ],
+          })
+          : Promise.resolve({ rows: [] }),
       ])
+      const conversations = conversationsResponse.rows
 
       const membershipByConversationId = new Map(
         membershipsResponse.rows.map((membership) => [

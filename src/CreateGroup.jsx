@@ -34,23 +34,30 @@ export default function CreateGroup({
       setErrorMessage('')
 
       try {
-        const [contactsResponse, profilesResponse] = await Promise.all([
-          tablesDB.listRows({
-            databaseId: DATABASE_ID,
-            tableId: CONTACTS_TABLE_ID,
-            queries: [
-              Query.equal('ownerId', [currentUser.$id]),
-              Query.equal('status', ['accepted']),
-              Query.limit(500),
-            ],
-          }),
-
-          tablesDB.listRows({
+        const contactsResponse = await tablesDB.listRows({
+          databaseId: DATABASE_ID,
+          tableId: CONTACTS_TABLE_ID,
+          queries: [
+            Query.equal('ownerId', [currentUser.$id]),
+            Query.equal('status', ['accepted']),
+            Query.limit(500),
+          ],
+        })
+        const contactUserIds = [...new Set(
+          contactsResponse.rows
+            .map((contact) => contact.contactUserId)
+            .filter(Boolean)
+        )]
+        const profilesResponse = contactUserIds.length
+          ? await tablesDB.listRows({
             databaseId: DATABASE_ID,
             tableId: USERS_TABLE_ID,
-            queries: [Query.limit(100)],
-          }),
-        ])
+            queries: [
+              Query.equal('userId', contactUserIds),
+              Query.limit(contactUserIds.length),
+            ],
+          })
+          : { rows: [] }
 
         const profiles = profilesResponse.rows
 

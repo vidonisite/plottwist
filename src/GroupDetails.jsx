@@ -16,7 +16,6 @@ export default function GroupDetails({
   currentUser,
   isActive,
   onClose,
-  onMembersChanged,
   onLeave,
 }) {
   const [members, setMembers] = useState([])
@@ -30,37 +29,45 @@ export default function GroupDetails({
     setErrorMessage('')
 
     try {
-      const [membersResponse, contactsResponse, profilesResponse] =
-        await Promise.all([
-          tablesDB.listRows({
-            databaseId: DATABASE_ID,
-            tableId: CONVERSATION_MEMBERS_TABLE_ID,
-            queries: [
-              Query.equal('conversationId', [group.id]),
-              Query.limit(100),
-            ],
-          }),
-          tablesDB.listRows({
-            databaseId: DATABASE_ID,
-            tableId: CONTACTS_TABLE_ID,
-            queries: [
-              Query.equal('ownerId', [currentUser.$id]),
-              Query.equal('status', ['accepted']),
-              Query.limit(500),
-            ],
-          }),
-          tablesDB.listRows({
-            databaseId: DATABASE_ID,
-            tableId: USERS_TABLE_ID,
-            queries: [Query.limit(100)],
-          }),
-        ])
+      const [membersResponse, contactsResponse] = await Promise.all([
+        tablesDB.listRows({
+          databaseId: DATABASE_ID,
+          tableId: CONVERSATION_MEMBERS_TABLE_ID,
+          queries: [
+            Query.equal('conversationId', [group.id]),
+            Query.limit(100),
+          ],
+        }),
+        tablesDB.listRows({
+          databaseId: DATABASE_ID,
+          tableId: CONTACTS_TABLE_ID,
+          queries: [
+            Query.equal('ownerId', [currentUser.$id]),
+            Query.equal('status', ['accepted']),
+            Query.limit(500),
+          ],
+        }),
+      ])
 
       const memberships = membersResponse.rows
-      const profiles = profilesResponse.rows
       const currentMemberIds = new Set(
         memberships.map((member) => member.userId)
       )
+      const profileUserIds = [...new Set([
+        ...memberships.map((member) => member.userId),
+        ...contactsResponse.rows.map((contact) => contact.contactUserId),
+      ].filter(Boolean))]
+      const profilesResponse = profileUserIds.length
+        ? await tablesDB.listRows({
+          databaseId: DATABASE_ID,
+          tableId: USERS_TABLE_ID,
+          queries: [
+            Query.equal('userId', profileUserIds),
+            Query.limit(profileUserIds.length),
+          ],
+        })
+        : { rows: [] }
+      const profiles = profilesResponse.rows
 
       const groupMembers = memberships.map((member) => {
         const profile = profiles.find(
@@ -124,8 +131,12 @@ export default function GroupDetails({
 
     const unsubscribe = client.subscribe(
       `databases.${DATABASE_ID}.tables.${CONVERSATION_MEMBERS_TABLE_ID}.rows`,
-      ({ payload }) => {
-        if (payload?.conversationId === group.id) {
+      ({ events = [], payload }) => {
+        const membershipChanged = events.some((event) => (
+          event.endsWith('.create') || event.endsWith('.delete')
+        ))
+
+        if (membershipChanged && payload?.conversationId === group.id) {
           loadGroup()
         }
       }
@@ -151,8 +162,6 @@ export default function GroupDetails({
 
     try {
       await executeGroupMembershipAction('add', group.id, contact.userId)
-      onMembersChanged()
-      await loadGroup()
     } catch (error) {
       console.error('Kunde inte lägga till gruppmedlem:', error)
       setErrorMessage(error.message || 'Personen kunde inte läggas till.')
@@ -179,9 +188,6 @@ export default function GroupDetails({
 
       if (isLeaving) {
         onLeave()
-      } else {
-        onMembersChanged()
-        await loadGroup()
       }
     } catch (error) {
       console.error('Kunde inte ändra gruppmedlemskap:', error)

@@ -117,12 +117,15 @@ export default function App() {
   const [authError, setAuthError] = useState('')
 
   const [chats, setChats] = useState([])
+  const chatsRef = useRef(chats)
   const [loadingChats, setLoadingChats] = useState(false)
   const [chatError, setChatError] = useState('')
   const [chatsRefresh, setChatsRefresh] = useState(0)
   const [leaderboard, setLeaderboard] = useState([])
   const [leaderboardLoading, setLeaderboardLoading] = useState(false)
   const [leaderboardError, setLeaderboardError] = useState('')
+  const [rankUpAnnouncement, setRankUpAnnouncement] = useState(null)
+  const leaderboardSnapshotRef = useRef({ userId: null, rows: [] })
   const [gameInvite, setGameInvite] = useState(null)
   const [gameReturnView, setGameReturnView] = useState('camera')
   const [gameTransition, setGameTransition] = useState(null)
@@ -170,6 +173,10 @@ export default function App() {
   useEffect(() => {
     profileRef.current = profile
   }, [profile])
+
+  useEffect(() => {
+    chatsRef.current = chats
+  }, [chats])
 
   useEffect(() => () => {
     scoreToastTimersRef.current.forEach((timer) => window.clearTimeout(timer))
@@ -440,7 +447,7 @@ export default function App() {
   }, [currentUser?.$id])
 
   useEffect(() => {
-    if (activeView !== 'leaderboard') return
+    if (!currentUser?.$id) return
 
     let cancelled = false
 
@@ -453,7 +460,7 @@ export default function App() {
         let cursorAfter = null
 
         while (true) {
-          const queries = [Query.limit(100), Query.orderAsc('$id')]
+          const queries = [Query.limit(5000), Query.orderAsc('$id')]
           if (cursorAfter) queries.push(Query.cursorAfter(cursorAfter))
 
           const response = await tablesDB.listRows({
@@ -463,7 +470,7 @@ export default function App() {
           })
 
           rows.push(...response.rows)
-          if (response.rows.length < 100) break
+          if (response.rows.length < 5000) break
 
           cursorAfter = response.rows[response.rows.length - 1].$id
         }
@@ -484,7 +491,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [activeView])
+  }, [currentUser?.$id])
 
   useEffect(() => {
     if (!currentUser?.$id) return
@@ -493,7 +500,9 @@ export default function App() {
       `databases.${DATABASE_ID}.tables.${MESSAGES_TABLE_ID}.rows`,
       ({ events = [], payload }) => {
         if (events.some((event) => event.endsWith('.delete'))) {
-          setChatsRefresh((value) => value + 1)
+          if (chatsRef.current.some((chat) => chat.id === payload?.conversationId)) {
+            setChatsRefresh((value) => value + 1)
+          }
           return
         }
 
@@ -554,15 +563,32 @@ export default function App() {
     const unsubscribe = client.subscribe(
       `databases.${DATABASE_ID}.tables.${CONVERSATION_MEMBERS_TABLE_ID}.rows`,
       ({ events = [], payload }) => {
-        if (events.some((event) => (
-          event.endsWith('.create') || event.endsWith('.delete')
-        ))) {
+        const wasCreated = events.some((event) => event.endsWith('.create'))
+        const wasDeleted = events.some((event) => event.endsWith('.delete'))
+        const membershipChanged = wasCreated || wasDeleted
+        const isCurrentUserMembership =
+          payload?.userId === currentUser.$id
+        const affectsKnownConversation = chatsRef.current.some(
+          (chat) => chat.id === payload?.conversationId
+        )
+
+        if (
+          wasDeleted &&
+          isCurrentUserMembership
+        ) {
+          setChats((previous) =>
+            previous.filter((chat) => chat.id !== payload.conversationId)
+          )
+        } else if (
+          membershipChanged &&
+          (wasCreated && isCurrentUserMembership || affectsKnownConversation)
+        ) {
           setChatsRefresh((value) => value + 1)
         }
 
         if (
-          events.some((event) => event.endsWith('.delete')) &&
-          payload?.userId === currentUser.$id &&
+          wasDeleted &&
+          isCurrentUserMembership &&
           payload?.conversationId === activeChat?.id &&
           activeChat?.type === 'group'
         ) {
@@ -1033,6 +1059,98 @@ export default function App() {
     }),
     [leaderboard]
   )
+
+  useEffect(() => {
+    const userId = currentUser?.$id
+    if (!userId || sortedLeaderboard.length === 0) return
+
+    const previousSnapshot = leaderboardSnapshotRef.current
+    if (previousSnapshot.userId !== userId) {
+      leaderboardSnapshotRef.current = { userId, rows: sortedLeaderboard }
+      return
+    }
+
+    const previousIndex = previousSnapshot.rows.findIndex(
+      (user) => user.userId === userId
+    )
+    const currentIndex = sortedLeaderboard.findIndex(
+      (user) => user.userId === userId
+    )
+
+    if (previousIndex !== -1 && currentIndex !== -1) {
+      const previousScore = Number(previousSnapshot.rows[previousIndex].twistscore)
+      const currentScore = Number(sortedLeaderboard[currentIndex].twistscore)
+
+      if (currentIndex < previousIndex && currentScore > previousScore) {
+        const firstVisibleIndex = Math.max(0, currentIndex - 1)
+
+        setRankUpAnnouncement({
+          currentRank: currentIndex + 1,
+          firstVisibleRank: firstVisibleIndex + 1,
+          previousRank: previousIndex + 1,
+          rows: sortedLeaderboard.slice(firstVisibleIndex, currentIndex + 2),
+        })
+      }
+    }
+
+    leaderboardSnapshotRef.current = { userId, rows: sortedLeaderboard }
+  }, [currentUser?.$id, sortedLeaderboard])
+
+  useEffect(() => {
+    if (!rankUpAnnouncement) return
+
+    const timeout = window.setTimeout(() => {
+      setRankUpAnnouncement(null)
+    }, 5000)
+
+    return () => window.clearTimeout(timeout)
+  }, [rankUpAnnouncement])
+
+  function showRankClimbPreview() {
+    if (profile?.admin !== true) return
+
+    const userIndex = sortedLeaderboard.findIndex(
+      (user) => user.userId === currentUser.$id
+    )
+    const user = userIndex >= 0
+      ? sortedLeaderboard[userIndex]
+      : {
+        ...profile,
+        $id: profile.$id || currentUser.$id,
+        userId: currentUser.$id,
+        username: profile.username || currentUser.name,
+      }
+    const otherUsers = sortedLeaderboard.filter(
+      (item) => item.userId !== currentUser.$id
+    )
+    const previewOthers = otherUsers.length > 0
+      ? otherUsers
+      : [{
+        $id: 'rank-climb-preview-example',
+        userId: 'rank-climb-preview-example',
+        username: 'Exempelspelare',
+        twistscore: 0,
+      }]
+    const climbedRows = userIndex > 0
+      ? [...sortedLeaderboard]
+      : [user, ...previewOthers]
+    const targetIndex = userIndex > 0 ? userIndex - 1 : 0
+
+    if (userIndex > 0) {
+      climbedRows.splice(userIndex, 1)
+      climbedRows.splice(targetIndex, 0, user)
+    }
+
+    const firstVisibleIndex = Math.max(0, targetIndex - 1)
+
+    setRankUpAnnouncement({
+      currentRank: targetIndex + 1,
+      firstVisibleRank: firstVisibleIndex + 1,
+      isPreview: true,
+      previousRank: userIndex > 0 ? userIndex + 1 : 2,
+      rows: climbedRows.slice(firstVisibleIndex, targetIndex + 2),
+    })
+  }
 
   function openChat(chat) {
     if (voiceCall.call && voiceCall.call.conversationId !== chat.id) {
@@ -1596,10 +1714,11 @@ export default function App() {
                       currentUser={currentUser}
                       isActive={groupDetailsOpen}
                       onClose={closeGroupDetails}
-                      onMembersChanged={() => setChatsRefresh((value) => value + 1)}
                       onLeave={() => {
                         setGroupDetailsOpen(false)
-                        setChatsRefresh((value) => value + 1)
+                        setChats((previous) =>
+                          previous.filter((chat) => chat.id !== activeChat?.id)
+                        )
                         setActiveChat(null)
                         setActiveView('camera')
                         window.history.replaceState(null, '', '/')
@@ -1687,6 +1806,24 @@ export default function App() {
                 <p className="auth-error" role="alert">
                   {notificationError}
                 </p>
+              )}
+
+              {profile?.admin === true && (
+                <div className="settings-card rank-climb-settings-card">
+                  <div>
+                    <strong>Leaderboard-förhandsvisning</strong>
+                    <p className="setting-help">
+                      Se hur det ser ut när du klättrar upp. Inga poäng ändras.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="accent-button rank-climb-preview-button"
+                    onClick={showRankClimbPreview}
+                  >
+                    Visa förhandsvisning
+                  </button>
+                </div>
               )}
 
               <div className="settings-card">
@@ -1870,6 +2007,77 @@ export default function App() {
             </div>
           ))}
         </div>
+
+        {rankUpAnnouncement && (
+          <div className="rank-climb-backdrop">
+            <section
+              className="rank-climb-preview"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="rank-climb-title"
+              aria-describedby="rank-climb-description"
+            >
+              <button
+                type="button"
+                className="rank-climb-close"
+                aria-label="Stäng leaderboard-förhandsvisningen"
+                onClick={() => setRankUpAnnouncement(null)}
+              >
+                ×
+              </button>
+              <span className="rank-climb-label">
+                {rankUpAnnouncement.isPreview ? 'Förhandsvisning' : 'Leaderboard'}
+              </span>
+              <h2 id="rank-climb-title">Du klättrar!</h2>
+              <p id="rank-climb-description">
+                {rankUpAnnouncement.isPreview ? 'Exempel: ' : 'Du gick från '}
+                plats {rankUpAnnouncement.previousRank} till{' '}
+                {rankUpAnnouncement.currentRank}.
+                {rankUpAnnouncement.isPreview && ' Inga poäng har ändrats.'}
+              </p>
+              <ol className="leaderboard-list rank-climb-list">
+                {rankUpAnnouncement.rows.map((user, index) => {
+                  const score = Number(user.twistscore)
+                  const safeScore =
+                    Number.isSafeInteger(score) && score >= 0 ? score : 0
+                  const isCurrentUser = user.userId === currentUser?.$id
+
+                  return (
+                    <li
+                      className={`leaderboard-item rank-climb-item${
+                        isCurrentUser ? ' rank-climb-item--current' : ''
+                      }`}
+                      key={user.$id}
+                    >
+                      <span className="leaderboard-rank">
+                        {rankUpAnnouncement.firstVisibleRank + index}
+                      </span>
+                      <ProfileAvatar
+                        profile={user}
+                        userId={user.userId}
+                        name={user.username || 'Okänd användare'}
+                        size={44}
+                        className="leaderboard-avatar"
+                      />
+                      <span className="leaderboard-username">
+                        @{user.username || 'Okänd användare'}
+                        {isCurrentUser ? ' (du)' : ''}
+                      </span>
+                      <span className="leaderboard-score">
+                        {safeScore} <span aria-label="Twist Score">☀️</span>
+                      </span>
+                    </li>
+                  )
+                })}
+              </ol>
+              <p className="rank-climb-hint">
+                {rankUpAnnouncement.isPreview
+                  ? 'Det här är bara en visning — inga poäng sparas.'
+                  : 'Förhandsvisningen stängs automatiskt.'}
+              </p>
+            </section>
+          </div>
+        )}
       </div>
     </>
   )

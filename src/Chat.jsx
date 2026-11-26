@@ -38,6 +38,9 @@ export default function Chat({
 
   const messagesListRef = useRef(null)
   const knownMessageIdsRef = useRef(new Set())
+  const messagesLoadedRef = useRef(false)
+  const messagesLoadFailedRef = useRef(false)
+  const pendingMessageEventsRef = useRef([])
   const initialPositionDoneRef = useRef(false)
   const shouldAutoScrollRef = useRef(false)
   const isAtBottomRef = useRef(true)
@@ -63,6 +66,8 @@ export default function Chat({
 
   const loadMessages = useCallback(async () => {
     if (!conversationId) return
+
+    messagesLoadFailedRef.current = false
 
     try {
       const lastReadAt = initialLastReadAtRef.current
@@ -110,13 +115,32 @@ export default function Chat({
         rows = response.rows.reverse()
       }
 
-      const uniqueRows = Array.from(
+      let uniqueRows = Array.from(
         new Map(rows.map((message) => [message.$id, message])).values()
       ).sort(
         (a, b) =>
           new Date(a.$createdAt).getTime() -
           new Date(b.$createdAt).getTime()
       )
+
+      for (const event of pendingMessageEventsRef.current) {
+        const row = event.payload
+        if (row?.conversationId !== conversationId || !row.$id) continue
+
+        if (event.events?.some((name) => name.endsWith('.delete'))) {
+          uniqueRows = uniqueRows.filter((message) => message.$id !== row.$id)
+        } else {
+          uniqueRows = [
+            ...uniqueRows.filter((message) => message.$id !== row.$id),
+            row,
+          ].sort(
+            (a, b) =>
+              new Date(a.$createdAt).getTime() -
+              new Date(b.$createdAt).getTime()
+          )
+        }
+      }
+      pendingMessageEventsRef.current = []
 
       const knownIds = knownMessageIdsRef.current
       const addedMessages = uniqueRows.filter(
@@ -134,8 +158,10 @@ export default function Chat({
       )
 
       setMessages(uniqueRows)
+      messagesLoadedRef.current = true
       setErrorMessage('')
     } catch (error) {
+      messagesLoadFailedRef.current = true
       console.error('Kunde inte hämta meddelanden:', error)
       setErrorMessage(
         'Kunde inte hämta meddelandena. Kontrollera anslutningen och behörigheterna.'
@@ -144,6 +170,36 @@ export default function Chat({
       setLoading(false)
     }
   }, [conversationId])
+
+  const applyRealtimeMessage = useCallback((event) => {
+    const row = event.payload
+    if (!row?.$id) return
+
+    if (event.events?.some((name) => name.endsWith('.delete'))) {
+      knownMessageIdsRef.current.delete(row.$id)
+      setMessages((previous) =>
+        previous.filter((message) => message.$id !== row.$id)
+      )
+      return
+    }
+
+    if (!knownMessageIdsRef.current.has(row.$id)) {
+      knownMessageIdsRef.current.add(row.$id)
+      if (initialPositionDoneRef.current && isAtBottomRef.current) {
+        shouldAutoScrollRef.current = true
+      }
+    }
+
+    setMessages((previous) => [
+      ...previous.filter((message) => message.$id !== row.$id),
+      row,
+    ].sort(
+      (a, b) =>
+        new Date(a.$createdAt).getTime() -
+        new Date(b.$createdAt).getTime()
+    ))
+    setErrorMessage('')
+  }, [])
 
   const updateReadPositionFromViewport = useCallback(() => {
     const container = messagesListRef.current
@@ -241,6 +297,8 @@ export default function Chat({
     initialLastReadAtRef.current = chat?.lastReadAt || null
     lastReadAtRef.current = chat?.lastReadAt || null
     knownMessageIdsRef.current = new Set()
+    messagesLoadedRef.current = false
+    pendingMessageEventsRef.current = []
     initialPositionDoneRef.current = false
     shouldAutoScrollRef.current = false
     isAtBottomRef.current = true
@@ -256,21 +314,28 @@ export default function Chat({
       return
     }
 
-    loadMessages()
-
     const unsubscribe = client.subscribe(
       `databases.${DATABASE_ID}.tables.${MESSAGES_TABLE_ID}.rows`,
       (event) => {
         const row = event.payload
 
         if (row?.conversationId === conversationId) {
-          loadMessages()
+          if (!messagesLoadedRef.current) {
+            pendingMessageEventsRef.current.push(event)
+            if (messagesLoadFailedRef.current) {
+              void loadMessages()
+            }
+          } else {
+            applyRealtimeMessage(event)
+          }
         }
       }
     )
 
+    loadMessages()
+
     return () => unsubscribe()
-  }, [conversationId, loadMessages])
+  }, [conversationId, loadMessages, applyRealtimeMessage])
 
   useEffect(() => {
     if (loading || initialPositionDoneRef.current) return

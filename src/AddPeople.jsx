@@ -69,7 +69,13 @@ export default function AddPeople() {
           const response = await tablesDB.listRows({
             databaseId: DATABASE_ID,
             tableId: CONTACTS_TABLE_ID,
-            queries: [Query.limit(500)],
+            queries: [
+              Query.or([
+                Query.equal('ownerId', [user.$id]),
+                Query.equal('contactUserId', [user.$id]),
+              ]),
+              Query.limit(500),
+            ],
           })
 
           contactRows = response.rows
