@@ -245,6 +245,9 @@ export default function Snake({
   const directionsRef = useRef({})
   const processedInputsRef = useRef(new Set())
   const inputPollRef = useRef(false)
+  const pendingInputsRef = useRef(new Map())
+  const syncingStateRef = useRef(false)
+  const sessionSyncGenerationRef = useRef(0)
   const lastBroadcastRef = useRef(0)
   const broadcastingRef = useRef(false)
   const startAppliedRef = useRef(null)
@@ -266,9 +269,19 @@ export default function Snake({
     setCurrentGameState(null)
     directionsRef.current = {}
     processedInputsRef.current.clear()
+    pendingInputsRef.current.clear()
+    inputPollRef.current = false
+    syncingStateRef.current = false
+    sessionSyncGenerationRef.current += 1
     lastBroadcastRef.current = 0
     lastAuthoritativeTickRef.current = -1
-  }, [session?.inviteId, setCurrentGameState])
+  }, [
+    session?.inviteId,
+    session?.conversationId,
+    session?.role,
+    session?.players,
+    setCurrentGameState,
+  ])
 
   useEffect(() => {
     if (!initialInvite?.inviteId || onlineSession || !currentUserId) return
@@ -422,35 +435,47 @@ export default function Snake({
       !session.players?.length
     ) return
 
+    const conversationIds = [...new Set(session.players
+      .filter((player) =>
+        player.userId !== session.hostUserId && player.conversationId
+      )
+      .map((player) => player.conversationId))]
+    if (!conversationIds.length) return
+
+    const generation = sessionSyncGenerationRef.current
     inputPollRef.current = true
+    let messages = []
     try {
-      const responses = await Promise.all(session.players
-        .filter((player) => player.userId !== session.hostUserId && player.conversationId)
-        .map((player) => tablesDB.listRows({
-          databaseId: DATABASE_ID,
-          tableId: MESSAGES_TABLE_ID,
-          queries: [
-            Query.equal('conversationId', [player.conversationId]),
-            Query.equal('type', ['game_snake_input']),
-            Query.orderDesc('$createdAt'),
-            Query.limit(100),
-          ],
-        })))
-      responses.flatMap((response) => response.rows)
-        .sort((a, b) => a.$createdAt.localeCompare(b.$createdAt))
-        .forEach(acceptInputMessage)
+      const response = await tablesDB.listRows({
+        databaseId: DATABASE_ID,
+        tableId: MESSAGES_TABLE_ID,
+        queries: [
+          Query.equal('conversationId', conversationIds),
+          Query.equal('type', ['game_snake_input']),
+          Query.orderDesc('$createdAt'),
+          Query.limit(300),
+        ],
+      })
+      if (generation !== sessionSyncGenerationRef.current) return
+      messages = response.rows
     } catch (error) {
+      if (generation !== sessionSyncGenerationRef.current) return
       console.error('Snake-kommandon kunde inte hämtas:', error)
       setErrorMessage(`Spelet kunde inte uppdateras: ${error.message || 'Okänt fel'}`)
     } finally {
-      inputPollRef.current = false
+      if (generation === sessionSyncGenerationRef.current) {
+        messages.push(...pendingInputsRef.current.values())
+        pendingInputsRef.current.clear()
+        inputPollRef.current = false
+        messages
+          .sort((a, b) => a.$createdAt.localeCompare(b.$createdAt))
+          .forEach(acceptInputMessage)
+      }
     }
   }, [session, acceptInputMessage])
 
   useEffect(() => {
     if (session?.role !== 'host' || !session.players?.length) return
-    refreshInputs()
-    const timer = window.setInterval(refreshInputs, 1500)
     const unsubscribe = client.subscribe(
       `databases.${DATABASE_ID}.tables.${MESSAGES_TABLE_ID}.rows`,
       ({ payload }) => {
@@ -461,13 +486,26 @@ export default function Snake({
           payload?.type === 'game_snake_input' &&
           player?.conversationId === payload.conversationId
         ) {
-          acceptInputMessage(payload)
+          if (inputPollRef.current) {
+            pendingInputsRef.current.set(payload.$id, payload)
+          } else {
+            acceptInputMessage(payload)
+          }
         }
       }
     )
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refreshInputs()
+    }
+    window.addEventListener('online', refreshInputs)
+    window.addEventListener('focus', refreshInputs)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    refreshInputs()
     return () => {
-      window.clearInterval(timer)
       unsubscribe()
+      window.removeEventListener('online', refreshInputs)
+      window.removeEventListener('focus', refreshInputs)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
     }
   }, [session, refreshInputs, acceptInputMessage])
 
@@ -525,20 +563,11 @@ export default function Snake({
     ) return
 
     let cancelled = false
-    const unsubscribe = client.subscribe(
-      `databases.${DATABASE_ID}.tables.${MESSAGES_TABLE_ID}.rows`,
-      ({ payload }) => {
-        if (
-          payload?.conversationId === session.conversationId &&
-          payload.type === 'game_snake_state'
-        ) {
-          applyStateMessage(payload)
-        }
-      }
-    )
-
     async function loadLatestState() {
-      setLoadingGame(true)
+      if (syncingStateRef.current) return
+      const generation = sessionSyncGenerationRef.current
+      syncingStateRef.current = true
+      if (lastAuthoritativeTickRef.current < 0) setLoadingGame(true)
       try {
         const response = await tablesDB.listRows({
           databaseId: DATABASE_ID,
@@ -550,22 +579,47 @@ export default function Snake({
             Query.limit(100),
           ],
         })
+        if (generation !== sessionSyncGenerationRef.current) return
         const latest = response.rows.find((message) =>
           readMessage(message)?.inviteId === session.inviteId
         )
         if (!cancelled && latest) applyStateMessage(latest)
       } catch (error) {
+        if (generation !== sessionSyncGenerationRef.current) return
         console.error('Snake-spelet kunde inte synkroniseras:', error)
         setErrorMessage(`Spelet kunde inte synkroniseras: ${error.message || 'Okänt fel'}`)
       } finally {
-        if (!cancelled) setLoadingGame(false)
+        if (generation === sessionSyncGenerationRef.current) {
+          syncingStateRef.current = false
+          if (!cancelled) setLoadingGame(false)
+        }
       }
     }
 
+    const unsubscribe = client.subscribe(
+      `databases.${DATABASE_ID}.tables.${MESSAGES_TABLE_ID}.rows`,
+      ({ payload }) => {
+        if (
+          payload?.conversationId === session.conversationId &&
+          payload.type === 'game_snake_state'
+        ) {
+          applyStateMessage(payload)
+        }
+      }
+    )
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') loadLatestState()
+    }
+    window.addEventListener('online', loadLatestState)
+    window.addEventListener('focus', loadLatestState)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
     loadLatestState()
     return () => {
       cancelled = true
       unsubscribe()
+      window.removeEventListener('online', loadLatestState)
+      window.removeEventListener('focus', loadLatestState)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
     }
   }, [session?.role, session?.conversationId, session?.inviteId, applyStateMessage])
 

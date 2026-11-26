@@ -187,6 +187,9 @@ export default function Games({
   const selectedGame = GAME_LIST.find((game) => game.id === selectedGameId)
   const inviteGame = GAME_LIST.find((game) => game.id === inviteGameId)
   const currentUserId = currentUser?.$id
+  const inviteeConversationKey = inviteLobby?.invitees
+    .map((invitee) => `${invitee.userId}:${invitee.conversationId || ''}`)
+    .join('|')
 
   useEffect(() => {
     const activeInviteId = onlineSession?.inviteId || initialInvite?.inviteId
@@ -337,55 +340,42 @@ export default function Games({
     }
   }, [currentUserId])
 
-  const refreshInviteResponses = useCallback(async () => {
-    if (!inviteLobby) return
-
-    try {
-      const invitees = await Promise.all(inviteLobby.invitees.map(async (invitee) => {
-        if (!invitee.conversationId || invitee.status === 'failed') return invitee
-
-        const response = await tablesDB.listRows({
-          databaseId: DATABASE_ID,
-          tableId: MESSAGES_TABLE_ID,
-          queries: [
-            Query.equal('conversationId', [invitee.conversationId]),
-            Query.equal('type', ['game_invite_response']),
-            Query.orderDesc('$createdAt'),
-            Query.limit(100),
-          ],
-        })
-        const accepted = response.rows.some((message) => {
-          const content = readMessage(message)
-          return (
-            content?.inviteId === inviteLobby.inviteId &&
-            content.status === 'accepted' &&
-            content.playerId === invitee.userId
-          )
-        })
-        return { ...invitee, status: accepted ? 'accepted' : 'pending' }
-      }))
-      setInviteLobby((current) => {
-        if (current?.inviteId !== inviteLobby.inviteId) return current
-        const hasChanges = invitees.some((invitee, index) =>
-          current.invitees[index]?.status !== invitee.status
-        )
-        return hasChanges ? { ...current, invitees } : current
-      })
-    } catch (error) {
-      console.error('Inbjudningssvaren kunde inte hämtas:', error)
-      setLobbyError(
-        `Inbjudningssvaren kunde inte hämtas: ${error.message || 'Okänt fel'}`
-      )
-    }
-  }, [inviteLobby])
-
   useEffect(() => {
     if (!inviteLobby) return
 
-    refreshInviteResponses()
+    let cancelled = false
+    let loadingSnapshot = false
+    let snapshotInProgress = false
+    const queuedResponses = new Map()
     const inviteConversationIds = new Set(
       inviteLobby.invitees.map((invitee) => invitee.conversationId)
     )
+    const applyResponse = (message) => {
+      const content = readMessage(message)
+      const invitee = inviteLobby.invitees.find((player) =>
+        player.conversationId === message?.conversationId &&
+        player.userId === content?.playerId
+      )
+      if (
+        !invitee ||
+        content?.inviteId !== inviteLobby.inviteId ||
+        content.status !== 'accepted'
+      ) return
+
+      setInviteLobby((current) => {
+        if (current?.inviteId !== inviteLobby.inviteId) return current
+        let changed = false
+        const invitees = current.invitees.map((player) => {
+          if (player.userId !== invitee.userId || player.status === 'accepted') {
+            return player
+          }
+          changed = true
+          return { ...player, status: 'accepted' }
+        })
+        return changed ? { ...current, invitees } : current
+      })
+    }
+
     const unsubscribe = client.subscribe(
       `databases.${DATABASE_ID}.tables.${MESSAGES_TABLE_ID}.rows`,
       ({ payload }) => {
@@ -393,16 +383,100 @@ export default function Games({
           inviteConversationIds.has(payload?.conversationId) &&
           payload.type === 'game_invite_response'
         ) {
-          refreshInviteResponses()
+          if (loadingSnapshot) {
+            queuedResponses.set(payload.$id, payload)
+          } else {
+            applyResponse(payload)
+          }
         }
       }
     )
-    const timer = window.setInterval(refreshInviteResponses, 5000)
-    return () => {
-      unsubscribe()
-      window.clearInterval(timer)
+    const conversationIds = [...inviteConversationIds].filter(Boolean)
+    async function loadResponses() {
+      if (snapshotInProgress) return
+      if (!conversationIds.length) {
+        loadingSnapshot = false
+        return
+      }
+
+      snapshotInProgress = true
+      loadingSnapshot = true
+      try {
+        const response = await tablesDB.listRows({
+          databaseId: DATABASE_ID,
+          tableId: MESSAGES_TABLE_ID,
+          queries: [
+            Query.equal('conversationId', conversationIds),
+            Query.equal('type', ['game_invite_response']),
+            Query.orderDesc('$createdAt'),
+            Query.limit(1000),
+          ],
+        })
+        if (cancelled) return
+        const acceptedPlayers = new Set(response.rows.flatMap((message) => {
+          const content = readMessage(message)
+          return (
+            content?.inviteId === inviteLobby.inviteId &&
+            content.status === 'accepted'
+          )
+            ? [`${message.conversationId}:${content.playerId}`]
+            : []
+        }))
+        setInviteLobby((current) => {
+          if (current?.inviteId !== inviteLobby.inviteId) return current
+          let changed = false
+          const invitees = current.invitees.map((invitee) => {
+            if (
+              !invitee.conversationId ||
+              invitee.status === 'failed' ||
+              (invitee.status === 'accepted') === acceptedPlayers.has(
+                `${invitee.conversationId}:${invitee.userId}`
+              )
+            ) return invitee
+            changed = true
+            return {
+              ...invitee,
+              status: acceptedPlayers.has(
+                `${invitee.conversationId}:${invitee.userId}`
+              ) ? 'accepted' : 'pending',
+            }
+          })
+          return changed ? { ...current, invitees } : current
+        })
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Inbjudningssvaren kunde inte hämtas:', error)
+          setLobbyError(
+            `Inbjudningssvaren kunde inte hämtas: ${error.message || 'Okänt fel'}`
+          )
+        }
+      } finally {
+        loadingSnapshot = false
+        snapshotInProgress = false
+        if (!cancelled) {
+          const responses = Array.from(queuedResponses.values())
+            .sort((a, b) => a.$createdAt.localeCompare(b.$createdAt))
+          responses.forEach(applyResponse)
+        }
+        queuedResponses.clear()
+      }
     }
-  }, [inviteLobby?.inviteId, inviteLobby?.invitees, refreshInviteResponses])
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') loadResponses()
+    }
+    window.addEventListener('online', loadResponses)
+    window.addEventListener('focus', loadResponses)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    loadResponses()
+    return () => {
+      cancelled = true
+      unsubscribe()
+      window.removeEventListener('online', loadResponses)
+      window.removeEventListener('focus', loadResponses)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
+  }, [inviteLobby?.inviteId, inviteeConversationKey])
 
   function openInvitePicker(gameId) {
     setInviteGameId(gameId)

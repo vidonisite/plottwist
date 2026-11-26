@@ -90,6 +90,10 @@ export default function TicTacToe({
   const [errorMessage, setErrorMessage] = useState('')
   const [botGameId, setBotGameId] = useState(null)
   const scoredEventsRef = useRef(new Set())
+  const onlineMessagesRef = useRef(new Map())
+  const pendingOnlineMessagesRef = useRef(new Map())
+  const syncingOnlineGameRef = useRef(false)
+  const onlineGameGenerationRef = useRef(0)
   const winner = getWinner(board)
   const isDraw = board.every(Boolean) && !winner
   const nextSymbol = board.filter(Boolean).length % 2 === 0 ? 'X' : 'O'
@@ -138,9 +142,100 @@ export default function TicTacToe({
     setStartState('started')
   }, [onlineSession])
 
-  const updateOnlineGame = useCallback(async () => {
+  const renderOnlineGame = useCallback((messages) => {
+    const relevantMessages = messages
+      .filter((message) =>
+        ['game_move', 'game_invite_response', 'game_session_start']
+          .includes(message.type) &&
+        parseMessage(message)?.inviteId === session.inviteId
+      )
+      .sort((a, b) => a.$createdAt.localeCompare(b.$createdAt))
+
+    const acceptedResponse = relevantMessages.some((message) =>
+      message.type === 'game_invite_response' &&
+      parseMessage(message)?.status === 'accepted'
+    )
+    const startMessage = relevantMessages.find((message) =>
+      message.type === 'game_session_start' &&
+      parseMessage(message)?.startedBy === session.hostUserId
+    )
+    const startContent = startMessage ? parseMessage(startMessage) : null
+    const onlineMoves = relevantMessages
+      .filter((message) => message.type === 'game_move')
+      .map((message) => ({
+        ...parseMessage(message),
+        senderId: message.senderId,
+        $createdAt: message.$createdAt,
+      }))
+      .filter((move) =>
+        Number.isInteger(move.cell) &&
+        move.cell >= 0 &&
+        move.cell < 9 &&
+        (move.symbol === 'X' || move.symbol === 'O')
+      )
+    const legalMoves = []
+    const moveBoard = Array(9).fill(null)
+    onlineMoves.forEach((move) => {
+      const expectedSymbol = legalMoves.length % 2 === 0 ? 'X' : 'O'
+      const expectedPlayerId = expectedSymbol === 'X'
+        ? session.hostUserId
+        : session.opponentUserId
+
+      if (
+        move.symbol !== expectedSymbol ||
+        move.senderId !== expectedPlayerId ||
+        moveBoard[move.cell] ||
+        getWinner(moveBoard)
+      ) {
+        return
+      }
+
+      moveBoard[move.cell] = move.symbol
+      legalMoves.push(move)
+    })
+
+    setAccepted(
+      acceptedResponse || session.role === 'guest' || session.role === 'host'
+    )
+    if (session.role === 'host') {
+      setStartState('started')
+    } else if (startContent) {
+      setStartState(startContent.playerIds?.includes(currentUserId)
+        ? 'started'
+        : 'excluded')
+    } else {
+      setStartState('waiting')
+    }
+    setMoves(legalMoves)
+    setErrorMessage('')
+  }, [session, currentUserId])
+
+  const addOnlineMessage = useCallback((message) => {
+    if (
+      !message?.$id ||
+      message.conversationId !== session?.conversationId ||
+      !['game_move', 'game_invite_response', 'game_session_start']
+        .includes(message.type) ||
+      parseMessage(message)?.inviteId !== session?.inviteId
+    ) return
+
+    if (syncingOnlineGameRef.current) {
+      pendingOnlineMessagesRef.current.set(message.$id, message)
+      return
+    }
+    if (onlineMessagesRef.current.has(message.$id)) return
+
+    onlineMessagesRef.current.set(message.$id, message)
+    renderOnlineGame([...onlineMessagesRef.current.values()])
+  }, [session, renderOnlineGame])
+
+  const syncOnlineGame = useCallback(async () => {
     if (!session?.conversationId || !session.inviteId) return
-    setLoadingGame(true)
+    if (syncingOnlineGameRef.current) return
+
+    const generation = onlineGameGenerationRef.current
+    syncingOnlineGameRef.current = true
+    if (!onlineMessagesRef.current.size) setLoadingGame(true)
 
     try {
       const response = await tablesDB.listRows({
@@ -157,99 +252,66 @@ export default function TicTacToe({
           Query.limit(500),
         ],
       })
-      const relevantMessages = response.rows.filter((message) => {
-        if (message.type !== 'game_move' &&
-          message.type !== 'game_invite_response' &&
-          message.type !== 'game_session_start') return false
-        return parseMessage(message)?.inviteId === session.inviteId
-      })
-      const acceptedResponse = relevantMessages.some((message) =>
-        message.type === 'game_invite_response' &&
-        parseMessage(message)?.status === 'accepted'
-      )
-      const startMessage = relevantMessages.find((message) =>
-        message.type === 'game_session_start' &&
-        parseMessage(message)?.startedBy === session.hostUserId
-      )
-      const startContent = startMessage ? parseMessage(startMessage) : null
-      const onlineMoves = relevantMessages
-        .filter((message) => message.type === 'game_move')
-        .map((message) => ({
-          ...parseMessage(message),
-          senderId: message.senderId,
-          $createdAt: message.$createdAt,
-        }))
-        .filter((move) =>
-          Number.isInteger(move.cell) &&
-          move.cell >= 0 &&
-          move.cell < 9 &&
-          (move.symbol === 'X' || move.symbol === 'O')
+      if (generation !== onlineGameGenerationRef.current) return
+      const messages = new Map(response.rows
+        .filter((message) =>
+          ['game_move', 'game_invite_response', 'game_session_start']
+            .includes(message.type) &&
+          parseMessage(message)?.inviteId === session.inviteId
         )
-        .sort((a, b) => a.$createdAt.localeCompare(b.$createdAt))
-      const legalMoves = []
-      const moveBoard = Array(9).fill(null)
-      onlineMoves.forEach((move) => {
-        const expectedSymbol = legalMoves.length % 2 === 0 ? 'X' : 'O'
-        const expectedPlayerId = expectedSymbol === 'X'
-          ? session.hostUserId
-          : session.opponentUserId
-
-        if (
-          move.symbol !== expectedSymbol ||
-          move.senderId !== expectedPlayerId ||
-          moveBoard[move.cell] ||
-          getWinner(moveBoard)
-        ) {
-          return
-        }
-
-        moveBoard[move.cell] = move.symbol
-        legalMoves.push(move)
+        .map((message) => [message.$id, message]))
+      pendingOnlineMessagesRef.current.forEach((message, id) => {
+        messages.set(id, message)
       })
-
-      setAccepted(
-        acceptedResponse || session.role === 'guest' || session.role === 'host'
-      )
-      if (session.role === 'host') {
-        setStartState('started')
-      } else if (startContent) {
-        setStartState(startContent.playerIds?.includes(currentUserId)
-          ? 'started'
-          : 'excluded')
-      } else {
-        setStartState('waiting')
-      }
-      setMoves(legalMoves)
-      setErrorMessage('')
+      pendingOnlineMessagesRef.current.clear()
+      onlineMessagesRef.current = messages
+      renderOnlineGame([...messages.values()])
     } catch (error) {
+      if (generation !== onlineGameGenerationRef.current) return
       console.error('Kunde inte uppdatera spelet:', error)
+      pendingOnlineMessagesRef.current.forEach((message, id) => {
+        onlineMessagesRef.current.set(id, message)
+      })
+      pendingOnlineMessagesRef.current.clear()
+      renderOnlineGame([...onlineMessagesRef.current.values()])
       setErrorMessage(
         `Spelet kunde inte uppdateras: ${error.message || 'Okänt fel'}`
       )
     } finally {
-      setLoadingGame(false)
+      if (generation === onlineGameGenerationRef.current) {
+        syncingOnlineGameRef.current = false
+        setLoadingGame(false)
+      }
     }
-  }, [session, currentUserId])
+  }, [session, renderOnlineGame])
 
   useEffect(() => {
     if (!session?.conversationId) return
 
-    updateOnlineGame()
+    onlineGameGenerationRef.current += 1
+    syncingOnlineGameRef.current = false
+    onlineMessagesRef.current = new Map()
+    pendingOnlineMessagesRef.current = new Map()
     const unsubscribe = client.subscribe(
       `databases.${DATABASE_ID}.tables.${MESSAGES_TABLE_ID}.rows`,
       ({ payload }) => {
-        if (
-          payload?.conversationId === session.conversationId &&
-          (payload.type === 'game_move' ||
-            payload.type === 'game_invite_response' ||
-            payload.type === 'game_session_start')
-        ) {
-          updateOnlineGame()
-        }
+        addOnlineMessage(payload)
       }
     )
-    return () => unsubscribe()
-  }, [session?.conversationId, session?.inviteId, updateOnlineGame])
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') syncOnlineGame()
+    }
+    window.addEventListener('online', syncOnlineGame)
+    window.addEventListener('focus', syncOnlineGame)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    syncOnlineGame()
+    return () => {
+      unsubscribe()
+      window.removeEventListener('online', syncOnlineGame)
+      window.removeEventListener('focus', syncOnlineGame)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
+  }, [session?.conversationId, session?.inviteId, addOnlineMessage, syncOnlineGame])
 
   useEffect(() => {
     if (mode === 'bot') {
@@ -298,7 +360,7 @@ export default function TicTacToe({
     const symbol = session.role === 'host' ? 'X' : 'O'
 
     try {
-      await tablesDB.createRow({
+      const createdMessage = await tablesDB.createRow({
         databaseId: DATABASE_ID,
         tableId: MESSAGES_TABLE_ID,
         rowId: ID.unique(),
@@ -318,7 +380,7 @@ export default function TicTacToe({
           Permission.delete(Role.user(currentUserId)),
         ],
       })
-      await updateOnlineGame()
+      addOnlineMessage(createdMessage)
     } catch (error) {
       console.error('Draget kunde inte sparas:', error)
       setErrorMessage(`Draget kunde inte sparas: ${error.message || 'Okänt fel'}`)

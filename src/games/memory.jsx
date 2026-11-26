@@ -139,6 +139,10 @@ export default function Memory({
   const botMemory = useRef(new Map())
   const [botGameId, setBotGameId] = useState(null)
   const scoredEventsRef = useRef(new Set())
+  const onlineMessagesRef = useRef(new Map())
+  const pendingOnlineMessagesRef = useRef(new Map())
+  const syncingOnlineGameRef = useRef(false)
+  const onlineGameGenerationRef = useRef(0)
 
   useEffect(() => {
     if (!onlineSession) return
@@ -149,9 +153,57 @@ export default function Memory({
     setResolvedMoveId(null)
   }, [onlineSession])
 
-  const updateGame = useCallback(async () => {
-    if (!session?.conversationId || !session.inviteId) return
+  const renderGame = useCallback((messages) => {
+    const relevantMessages = messages
+      .filter((message) =>
+        ['game_session_start', 'game_memory_turn'].includes(message.type) &&
+        readMessage(message)?.inviteId === session.inviteId
+      )
+      .sort((a, b) => a.$createdAt.localeCompare(b.$createdAt))
 
+    const startMessage = relevantMessages.find((message) =>
+      message.type === 'game_session_start' &&
+      readMessage(message)?.startedBy === session.hostUserId
+    )
+    const startContent = startMessage ? readMessage(startMessage) : null
+    const players = startContent?.players?.filter((player) =>
+      typeof player?.userId === 'string'
+    ) || session.players || []
+    const validPlayers = players.slice(0, 2)
+
+    if (validPlayers.length === 2) {
+      setStarted(true)
+      const deck = makeDeck(session.inviteId)
+      const nextState = replayTurns(deck, validPlayers, relevantMessages, session.inviteId)
+      setGameState({ ...nextState, deck, players: validPlayers })
+    }
+    setErrorMessage('')
+  }, [session])
+
+  const addOnlineMessage = useCallback((message) => {
+    if (
+      !message?.$id ||
+      message.conversationId !== session?.conversationId ||
+      !['game_memory_turn', 'game_session_start'].includes(message.type) ||
+      readMessage(message)?.inviteId !== session?.inviteId
+    ) return
+
+    if (syncingOnlineGameRef.current) {
+      pendingOnlineMessagesRef.current.set(message.$id, message)
+      return
+    }
+    if (onlineMessagesRef.current.has(message.$id)) return
+
+    onlineMessagesRef.current.set(message.$id, message)
+    renderGame([...onlineMessagesRef.current.values()])
+  }, [session, renderGame])
+
+  const syncGame = useCallback(async () => {
+    if (!session?.conversationId || !session.inviteId) return
+    if (syncingOnlineGameRef.current) return
+
+    const generation = onlineGameGenerationRef.current
+    syncingOnlineGameRef.current = true
     try {
       const response = await tablesDB.listRows({
         databaseId: DATABASE_ID,
@@ -163,50 +215,62 @@ export default function Memory({
           Query.limit(500),
         ],
       })
-      const messages = response.rows.filter((message) =>
-        readMessage(message)?.inviteId === session.inviteId
-      )
-      const startMessage = messages.find((message) =>
-        message.type === 'game_session_start' &&
-        readMessage(message)?.startedBy === session.hostUserId
-      )
-      const startContent = startMessage ? readMessage(startMessage) : null
-      const players = startContent?.players?.filter((player) =>
-        typeof player?.userId === 'string'
-      ) || session.players || []
-      const validPlayers = players.slice(0, 2)
-
-      if (validPlayers.length === 2) {
-        setStarted(true)
-        const deck = makeDeck(session.inviteId)
-        const nextState = replayTurns(deck, validPlayers, messages, session.inviteId)
-        setGameState({ ...nextState, deck, players: validPlayers })
-      }
-      setErrorMessage('')
+      if (generation !== onlineGameGenerationRef.current) return
+      const messages = new Map(response.rows
+        .filter((message) =>
+          ['game_session_start', 'game_memory_turn'].includes(message.type) &&
+          readMessage(message)?.inviteId === session.inviteId
+        )
+        .map((message) => [message.$id, message]))
+      pendingOnlineMessagesRef.current.forEach((message, id) => {
+        messages.set(id, message)
+      })
+      pendingOnlineMessagesRef.current.clear()
+      onlineMessagesRef.current = messages
+      renderGame([...messages.values()])
     } catch (error) {
+      if (generation !== onlineGameGenerationRef.current) return
       console.error('Memory kunde inte synkroniseras:', error)
+      pendingOnlineMessagesRef.current.forEach((message, id) => {
+        onlineMessagesRef.current.set(id, message)
+      })
+      pendingOnlineMessagesRef.current.clear()
+      renderGame([...onlineMessagesRef.current.values()])
       setErrorMessage(`Spelet kunde inte synkroniseras: ${error.message || 'Okänt fel'}`)
+    } finally {
+      if (generation === onlineGameGenerationRef.current) {
+        syncingOnlineGameRef.current = false
+      }
     }
-  }, [session])
+  }, [session, renderGame])
 
   useEffect(() => {
     if (!session?.conversationId) return undefined
 
-    updateGame()
+    onlineGameGenerationRef.current += 1
+    syncingOnlineGameRef.current = false
+    onlineMessagesRef.current = new Map()
+    pendingOnlineMessagesRef.current = new Map()
     const unsubscribe = client.subscribe(
       `databases.${DATABASE_ID}.tables.${MESSAGES_TABLE_ID}.rows`,
       ({ payload }) => {
-        if (
-          payload?.conversationId === session.conversationId &&
-          (payload.type === 'game_memory_turn' ||
-            payload.type === 'game_session_start')
-        ) {
-          updateGame()
-        }
+        addOnlineMessage(payload)
       }
     )
-    return unsubscribe
-  }, [session?.conversationId, session?.inviteId, updateGame])
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') syncGame()
+    }
+    window.addEventListener('online', syncGame)
+    window.addEventListener('focus', syncGame)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    syncGame()
+    return () => {
+      unsubscribe()
+      window.removeEventListener('online', syncGame)
+      window.removeEventListener('focus', syncGame)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
+  }, [session?.conversationId, session?.inviteId, addOnlineMessage, syncGame])
 
   useEffect(() => {
     const lastTurn = gameState?.lastTurn
@@ -350,7 +414,7 @@ export default function Memory({
     setSendingMove(true)
     setErrorMessage('')
     try {
-      await tablesDB.createRow({
+      const createdMessage = await tablesDB.createRow({
         databaseId: DATABASE_ID,
         tableId: MESSAGES_TABLE_ID,
         rowId: ID.unique(),
@@ -372,7 +436,7 @@ export default function Memory({
         ],
       })
       setSelectedCards([])
-      await updateGame()
+      addOnlineMessage(createdMessage)
     } catch (error) {
       console.error('Memory-draget kunde inte sparas:', error)
       setErrorMessage(`Draget kunde inte sparas: ${error.message || 'Okänt fel'}`)

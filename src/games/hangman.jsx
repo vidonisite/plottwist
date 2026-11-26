@@ -102,6 +102,9 @@ export default function Hangman({
   const processedMessageIds = useRef(new Set())
   const actionQueue = useRef(Promise.resolve())
   const startApplied = useRef(null)
+  const syncingSessionRef = useRef(false)
+  const sessionSyncGenerationRef = useRef(0)
+  const pendingSessionMessagesRef = useRef(new Map())
   const scoredEventsRef = useRef(new Set())
 
   useEffect(() => {
@@ -121,6 +124,9 @@ export default function Hangman({
     setCurrentState(null)
     wordRef.current = ''
     processedMessageIds.current.clear()
+    syncingSessionRef.current = false
+    sessionSyncGenerationRef.current += 1
+    pendingSessionMessagesRef.current.clear()
   }, [session?.inviteId, setCurrentState])
 
   useEffect(() => {
@@ -384,29 +390,74 @@ export default function Hangman({
     if (!session?.inviteId || !session.players?.length) return
 
     let cancelled = false
+    const generation = sessionSyncGenerationRef.current + 1
+    sessionSyncGenerationRef.current = generation
+    syncingSessionRef.current = false
+    const flushSessionMessages = (messages = []) => {
+      const pending = new Map(messages.map((message) => [message.$id, message]))
+      pendingSessionMessagesRef.current.forEach((message, id) => {
+        pending.set(id, message)
+      })
+      pendingSessionMessagesRef.current.clear()
+      const orderedMessages = [...pending.values()]
+        .sort((a, b) => a.$createdAt.localeCompare(b.$createdAt))
+
+      if (session.role === 'host') {
+        orderedMessages.forEach((message) => {
+          if (
+            message.senderId !== session.hostUserId &&
+            ['game_hangman_word', 'game_hangman_guess', 'game_hangman_replay']
+              .includes(message.type) &&
+            parseMessage(message)?.inviteId === session.inviteId
+          ) {
+            enqueueHostAction(message)
+          }
+        })
+        return
+      }
+
+      orderedMessages.forEach((message) => {
+        const content = parseMessage(message)
+        if (
+          message.conversationId === session.conversationId &&
+          message.type === 'game_hangman_state' &&
+          content?.inviteId === session.inviteId &&
+          content.state
+        ) {
+          setCurrentState(content.state)
+        }
+      })
+    }
+
     async function initializeSession() {
-      setLoadingGame(true)
+      if (syncingSessionRef.current) return
+      syncingSessionRef.current = true
+      if (!gameStateRef.current) setLoadingGame(true)
+      let missedActions = []
       try {
         const conversations = session.role === 'host'
           ? session.players
             .filter((player) => player.conversationId)
             .map((player) => player.conversationId)
           : [session.conversationId].filter(Boolean)
-        const responses = await Promise.all(conversations.map((conversationId) =>
-          tablesDB.listRows({
+        const response = conversations.length
+          ? await tablesDB.listRows({
             databaseId: DATABASE_ID,
             tableId: MESSAGES_TABLE_ID,
             queries: [
-              Query.equal('conversationId', [conversationId]),
+              Query.equal('conversationId', [...new Set(conversations)]),
               Query.equal('type', GAME_MESSAGE_TYPES),
               Query.orderDesc('$createdAt'),
-              Query.limit(500),
+              Query.limit(5000),
             ],
           })
-        ))
-        if (cancelled) return
+          : { rows: [] }
+        if (
+          cancelled ||
+          generation !== sessionSyncGenerationRef.current
+        ) return
 
-        const messages = responses.flatMap((response) => response.rows)
+        const messages = response.rows
           .filter((message) => parseMessage(message)?.inviteId === session.inviteId)
           .sort((a, b) => a.$createdAt.localeCompare(b.$createdAt))
 
@@ -427,6 +478,8 @@ export default function Hangman({
               )
             })
             if (secret) wordRef.current = parseMessage(secret).word
+            const latestStateIndex = messages.indexOf(latestStateMessage)
+            missedActions = messages.slice(latestStateIndex + 1)
           } else {
             const firstState = initialRound(
               session.inviteId,
@@ -452,20 +505,45 @@ export default function Hangman({
           }
         }
       } catch (error) {
-        console.error('Hangman-statusen kunde inte hämtas:', error)
-        setErrorMessage(
-          `Spelet kunde inte synkroniseras: ${error.message || 'Okänt fel'}`
-        )
+        if (!cancelled && generation === sessionSyncGenerationRef.current) {
+          console.error('Hangman-statusen kunde inte hämtas:', error)
+          setErrorMessage(
+            `Spelet kunde inte synkroniseras: ${error.message || 'Okänt fel'}`
+          )
+        }
       } finally {
-        if (!cancelled) setLoadingGame(false)
+        if (generation === sessionSyncGenerationRef.current) {
+          syncingSessionRef.current = false
+        }
+        if (!cancelled && generation === sessionSyncGenerationRef.current) {
+          setLoadingGame(false)
+          flushSessionMessages(missedActions)
+        }
       }
     }
 
     initializeSession()
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') initializeSession()
+    }
+    window.addEventListener('online', initializeSession)
+    window.addEventListener('focus', initializeSession)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
     return () => {
       cancelled = true
+      window.removeEventListener('online', initializeSession)
+      window.removeEventListener('focus', initializeSession)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
     }
-  }, [session?.inviteId, session?.role, session?.players, broadcastState, setCurrentState])
+  }, [
+    session?.inviteId,
+    session?.role,
+    session?.players,
+    session?.conversationId,
+    broadcastState,
+    enqueueHostAction,
+    setCurrentState,
+  ])
 
   useEffect(() => {
     if (!session?.inviteId) return
@@ -481,7 +559,12 @@ export default function Hangman({
             payload.type === 'game_hangman_guess' ||
             payload.type === 'game_hangman_replay'
           ) {
-            enqueueHostAction(payload)
+            if (parseMessage(payload)?.inviteId !== session.inviteId) return
+            if (syncingSessionRef.current) {
+              pendingSessionMessagesRef.current.set(payload.$id, payload)
+            } else {
+              enqueueHostAction(payload)
+            }
           }
           return
         }
@@ -491,7 +574,11 @@ export default function Hangman({
         ) {
           const content = parseMessage(payload)
           if (content?.inviteId === session.inviteId && content.state) {
-            setCurrentState(content.state)
+            if (syncingSessionRef.current) {
+              pendingSessionMessagesRef.current.set(payload.$id, payload)
+            } else {
+              setCurrentState(content.state)
+            }
           }
         }
       }
