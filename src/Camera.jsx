@@ -193,6 +193,7 @@ async function stableId(value) {
 export default function Camera({
   currentUser,
   isAdmin = false,
+  hasRainbowMouthUnlock = false,
   onScore,
   targetConversation = null,
   onClose,
@@ -254,7 +255,10 @@ export default function Camera({
 
   const currentUserId = currentUser?.$id
   const visibleFilters = FILTERS.filter(
-    (item) => isAdmin || !item.hideForNonAdmins
+    (item) =>
+      isAdmin ||
+      !item.hideForNonAdmins ||
+      (item.id === 'rainbow-mouth' && hasRainbowMouthUnlock)
   )
 
   useEffect(() => {
@@ -262,7 +266,7 @@ export default function Camera({
     setSelectedFilterIndex(
       visibleFilters.findIndex((item) => item.id === filter)
     )
-  }, [filter, isAdmin])
+  }, [filter, isAdmin, hasRainbowMouthUnlock])
 
   useEffect(() => {
     captureRef.current = capture

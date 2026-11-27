@@ -16,7 +16,12 @@ export const ADVENT_REWARDS = [
   { day: 12, type: 'holly-name', text: 'Ditt namn får julens färger!' },
   { day: 13, type: 'twist-score', points: 15 },
   { day: 14, type: 'message', text: 'Skicka lite julglädje vidare!' },
-  { day: 15, type: 'message', text: 'Du har snart öppnat alla luckor!' },
+  {
+    day: 15,
+    type: 'filter-unlock',
+    filterId: 'rainbow-mouth',
+    text: 'Du låser upp Regnbåge ur munnen permanent!',
+  },
   { day: 16, type: 'message', text: 'En extra dos julmys till dig!' },
   { day: 17, type: 'twist-score', points: 15 },
   { day: 18, type: 'message', text: 'Tack för att du firar med oss!' },
@@ -44,6 +49,24 @@ export function getClaimedAdventDoors(profile, year) {
 
   return yearClaims.filter(
     (day) => Number.isInteger(day) && day >= 1 && day <= ADVENT_DOOR_COUNT
+  )
+}
+
+export function hasUnlockedAdventFilter(profile, filterId) {
+  if (typeof filterId !== 'string' || !filterId) return false
+
+  const claims = parseClaims(profile?.[ADVENT_CLAIMS_FIELD])
+
+  return Object.values(claims).some((yearClaims) =>
+    Array.isArray(yearClaims) &&
+    yearClaims.some((day) => {
+      if (!Number.isInteger(day) || day < 1 || day > ADVENT_DOOR_COUNT) {
+        return false
+      }
+
+      const reward = ADVENT_REWARDS[day - 1]
+      return reward?.type === 'filter-unlock' && reward.filterId === filterId
+    })
   )
 }
 

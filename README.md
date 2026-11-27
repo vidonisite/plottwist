@@ -80,8 +80,9 @@ Kalendern är aktiv under Christmas-eventet och låser upp lucka `N` den
 
 Tomteluvan, guldramen och den röd/gröna namntexten beräknas från årets öppnade
 luckor och visas endast medan eventet är aktivt. De ändrar inte avatarens
-sparade inställningar. De fem Twist Score-belöningarna uppdaterar däremot den
-permanenta poängen.
+sparade inställningar. Lucka 15 låser permanent upp kamerafiltret
+`rainbow-mouth`; upplåsningen behålls efter eventet. De fem Twist Score-
+belöningarna uppdaterar också den permanenta poängen.
 
 Anspråk sparas via klienten i användarens egen profilrad. Det hindrar vanlig
 återöppning, men skyddar inte mot samtidiga/manipulerade klientanrop; om

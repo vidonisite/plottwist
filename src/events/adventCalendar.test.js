@@ -7,6 +7,7 @@ import {
   addClaimedAdventDoor,
   getClaimedAdventDoors,
   getChristmasCosmetics,
+  hasUnlockedAdventFilter,
   isAdventDoorUnlocked,
 } from './adventCalendar.js'
 
@@ -72,5 +73,22 @@ test('cosmetics are active only during the event and for the matching year', () 
       year: 2027,
     }),
     { santaHat: false, goldFrame: false, hollyName: false }
+  )
+})
+
+test('rainbow-mouth remains unlocked after the event and in future seasons', () => {
+  const profile = {
+    christmasCalendarClaims: JSON.stringify({ 2026: [15] }),
+  }
+
+  assert.equal(hasUnlockedAdventFilter(profile, 'rainbow-mouth'), true)
+  assert.equal(hasUnlockedAdventFilter(profile, 'unknown-filter'), false)
+  assert.equal(
+    getChristmasCosmetics(profile, {
+      id: 'christmas',
+      phase: 'inactive',
+      year: 2026,
+    }).santaHat,
+    false
   )
 })

@@ -11,6 +11,7 @@ import {
 
 import TwistMessage from './TwistMessage.jsx'
 import Camera from './Camera.jsx'
+import { hasUnlockedAdventFilter } from './events/adventCalendar.js'
 import ProfileAvatar from './components/ProfileAvatar.jsx'
 import ProfileUsername from './components/ProfileUsername.jsx'
 import './Chat.css'
@@ -18,6 +19,7 @@ import './Chat.css'
 export default function Chat({
   chat,
   currentUser,
+  profile,
   onRead,
   onAcceptGameInvite,
   onScore,
@@ -1021,6 +1023,11 @@ export default function Chat({
         >
           <Camera
             currentUser={currentUser}
+            isAdmin={profile?.admin === true}
+            hasRainbowMouthUnlock={hasUnlockedAdventFilter(
+              profile,
+              'rainbow-mouth'
+            )}
             targetConversation={chat}
             onClose={() => setShowTwistCamera(false)}
           />

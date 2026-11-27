@@ -10,6 +10,7 @@ import {
   ADVENT_CLAIMS_FIELD,
   ADVENT_REWARDS,
   addClaimedAdventDoor,
+  hasUnlockedAdventFilter,
   isAdventDoorUnlocked,
 } from './events/adventCalendar.js'
 import {
@@ -1715,6 +1716,10 @@ export default function App() {
               <Camera
                 currentUser={currentUser}
                 isAdmin={profile?.admin === true}
+                hasRainbowMouthUnlock={hasUnlockedAdventFilter(
+                  profile,
+                  'rainbow-mouth'
+                )}
                 onScore={awardTwistScore}
               />
 
@@ -1871,6 +1876,7 @@ export default function App() {
                       <Chat
                         chat={activeChat}
                         currentUser={currentUser}
+                        profile={profile}
                         onRead={handleChatRead}
                         onAcceptGameInvite={joinGameInvite}
                         onScore={awardTwistScore}
