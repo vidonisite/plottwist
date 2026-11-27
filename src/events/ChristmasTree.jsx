@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   ID,
   Permission,
@@ -58,7 +58,11 @@ export default function ChristmasTree({
   pendingPhoto,
   onPendingPhotoChange,
 }) {
+  const panelRef = useRef(null)
   const treeRef = useRef(null)
+  const restingPanelRectRef = useRef(null)
+  const focusedPanelRectRef = useRef(null)
+  const returnTimerRef = useRef(null)
   const localPhotoUrlsRef = useRef(new Set())
   const [ornaments, setOrnaments] = useState([])
   const [localOrnaments, setLocalOrnaments] = useState([])
@@ -69,7 +73,7 @@ export default function ChristmasTree({
   const [failedTreeImage, setFailedTreeImage] = useState(false)
   const [selectedPhoto, setSelectedPhoto] = useState(null)
   const [reloadToken, setReloadToken] = useState(0)
-  const [spotlightCenter, setSpotlightCenter] = useState(null)
+  const [isReturning, setIsReturning] = useState(false)
 
   const conversationId = event ? getTreeConversationId(event.year) : null
 
@@ -173,31 +177,66 @@ export default function ChristmasTree({
     }
   }, [conversationId, event?.testMode, onPendingPhotoChange, reloadToken])
 
-  useEffect(() => {
-    if (!pendingPhoto) return undefined
+  useLayoutEffect(() => {
+    const panel = panelRef.current
+    if (!panel) return
 
-    setErrorMessage('')
-    setStatusMessage('Klicka på en plats på granen där fotot ska hänga.')
+    const isPlacing = Boolean(pendingPhoto)
+    const startRect = isPlacing
+      ? restingPanelRectRef.current
+      : focusedPanelRectRef.current
+    const targetRect = panel.getBoundingClientRect()
 
-    function updateSpotlightPosition() {
-      const bounds = treeRef.current?.getBoundingClientRect()
-      if (!bounds) return
-
-      setSpotlightCenter({
-        x: bounds.left + bounds.width * 0.4,
-        y: bounds.top + bounds.height / 2,
-      })
+    if (isPlacing) {
+      setErrorMessage('')
+      setStatusMessage('Klicka på en plats på granen där fotot ska hänga.')
+      setIsReturning(false)
+      window.clearTimeout(returnTimerRef.current)
+    } else if (focusedPanelRectRef.current) {
+      setIsReturning(true)
+      window.clearTimeout(returnTimerRef.current)
+      returnTimerRef.current = window.setTimeout(() => {
+        setIsReturning(false)
+      }, 520)
     }
 
-    updateSpotlightPosition()
-    window.addEventListener('resize', updateSpotlightPosition)
-    window.addEventListener('scroll', updateSpotlightPosition, true)
+    if (
+      startRect &&
+      targetRect.width > 0 &&
+      targetRect.height > 0 &&
+      !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      const offsetX = startRect.left - targetRect.left
+      const offsetY = startRect.top - targetRect.top
+      const scaleX = startRect.width / targetRect.width
+      const scaleY = startRect.height / targetRect.height
+      const startTransform = isPlacing
+        ? `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px)) scale(${scaleX}, ${scaleY})`
+        : `translate(${offsetX}px, ${offsetY}px) scale(${scaleX}, ${scaleY})`
 
-    return () => {
-      window.removeEventListener('resize', updateSpotlightPosition)
-      window.removeEventListener('scroll', updateSpotlightPosition, true)
+      panel.animate(
+        [
+          { transform: startTransform, transformOrigin: 'top left' },
+          {
+            transform: isPlacing ? 'translate(-50%, -50%)' : 'none',
+            transformOrigin: 'top left',
+          },
+        ],
+        {
+          duration: 520,
+          easing: 'cubic-bezier(0.22, 0.75, 0.22, 1)',
+        }
+      )
     }
-  }, [pendingPhoto])
+
+    if (isPlacing) {
+      focusedPanelRectRef.current = targetRect
+    } else {
+      restingPanelRectRef.current = targetRect
+    }
+  }, [Boolean(pendingPhoto)])
+
+  useEffect(() => () => window.clearTimeout(returnTimerRef.current), [])
 
   useEffect(() => {
     if (!selectedPhoto) return undefined
@@ -336,21 +375,20 @@ export default function ChristmasTree({
   }
 
   return (
-    <aside className="christmas-tree-panel" aria-label="Julgran">
-      {pendingPhoto && spotlightCenter && (
-        <>
-          <div
-            className="christmas-tree-spotlight"
-            style={{
-              '--spotlight-x': `${spotlightCenter.x}px`,
-              '--spotlight-y': `${spotlightCenter.y}px`,
-            }}
-            aria-hidden="true"
-          />
-          <p className="christmas-tree-spotlight-message" role="status">
-            Klicka någonstans på julgranen för att hänga upp bilden
-          </p>
-        </>
+    <>
+      <div
+        className={`christmas-tree-focus-backdrop${pendingPhoto ? ' is-visible' : ''}`}
+        aria-hidden="true"
+      />
+      <aside
+        ref={panelRef}
+        className={`christmas-tree-panel${pendingPhoto ? ' is-placing' : ''}${isReturning ? ' is-returning' : ''}`}
+        aria-label="Julgran"
+      >
+      {pendingPhoto && (
+        <p className="christmas-tree-placement-message" role="status">
+          Klicka på granen där fotot ska hänga
+        </p>
       )}
       <div
         ref={treeRef}
@@ -417,7 +455,9 @@ export default function ChristmasTree({
         ))}
       </div>
 
-      <p className="christmas-tree-sign">Ta bild och häng upp i granen</p>
+      {!pendingPhoto && (
+        <p className="christmas-tree-sign">Ta bild och häng upp i granen</p>
+      )}
 
       <span
         className="christmas-tree-live-region"
@@ -468,6 +508,7 @@ export default function ChristmasTree({
           </div>
         </div>
       )}
-    </aside>
+      </aside>
+    </>
   )
 }

@@ -95,6 +95,8 @@ export function createRainbowMouth() {
     outputContext.globalCompositeOperation = 'source-over'
 
     particles = particles.filter((particle) => {
+      let horizontalVelocity = particle.velocityX
+
       if (particle.born) {
         particle.born = false
       } else {
@@ -107,7 +109,7 @@ export function createRainbowMouth() {
           Math.sin(now * 0.0016 + particle.age * 5) * 105 +
           Math.sin(now * 0.0024 + particle.age * 8 + particle.phase) * 48
         ) * windStrength
-        const horizontalVelocity = particle.velocityX + wind
+        horizontalVelocity = particle.velocityX + wind
 
         particle.x += horizontalVelocity * deltaTime
         particle.y += particle.velocityY * deltaTime
