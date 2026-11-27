@@ -29,7 +29,6 @@
   border-radius: 28px;
   background: #170d1d;
   isolation: isolate;
-  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.2);
 }
 
 .camera-source-video {

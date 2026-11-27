@@ -184,7 +184,7 @@ export default function ChristmasTree({
       if (!bounds) return
 
       setSpotlightCenter({
-        x: bounds.left + bounds.width / 2,
+        x: bounds.left + bounds.width * 0.4,
         y: bounds.top + bounds.height / 2,
       })
     }

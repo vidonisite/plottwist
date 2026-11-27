@@ -4,8 +4,8 @@ const FACE_SHRINK = 0.7
 const SHRINK_RADIUS_X = 0.72
 const SHRINK_RADIUS_Y = 0.7
 const SHRINK_FULL_STRENGTH_RADIUS = 0.5
-const EYE_SCALE = 3.8
-const EYE_SEPARATION = 1.55
+const EYE_SCALE = 3.8 / FACE_SHRINK
+const EYE_SEPARATION = 1.55 / FACE_SHRINK
 
 let shrinkCanvas = null
 let shrinkContext = null

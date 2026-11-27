@@ -60,8 +60,8 @@ export function createRainbowMouth() {
         mouthGap > Math.max(MIN_MOUTH_GAP, mouthWidth * MOUTH_OPEN_RATIO)
       ) {
         emitter = {
-          x: (1 - (upperLip.x + lowerLip.x) / 2) * width,
-          y: ((upperLip.y + lowerLip.y) / 2) * height,
+          x: (1 - (leftCorner.x + rightCorner.x) / 2) * width,
+          y: lowerLip.y * height - 2,
           spread: Math.max(5, mouthWidth * 0.22),
         }
       }

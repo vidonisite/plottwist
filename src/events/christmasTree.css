@@ -81,7 +81,6 @@
   height: 100%;
   object-fit: contain;
   user-select: none;
-  filter: drop-shadow(0 8px 8px rgba(0, 0, 0, .18));
 }
 
 .christmas-tree-fallback {
@@ -98,7 +97,6 @@
   border-right: 95px solid transparent;
   border-bottom: 125px solid #39784e;
   border-left: 95px solid transparent;
-  filter: drop-shadow(0 5px 2px rgba(0, 0, 0, .18));
 }
 
 .christmas-tree-fallback span:nth-child(1) {
@@ -139,7 +137,6 @@
   border: 2px solid #f1d38f;
   border-radius: 50%;
   background: #fff8ed;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, .46);
   cursor: zoom-in;
 }
 
@@ -194,16 +191,12 @@
     radial-gradient(circle at 9px calc(100% - 9px), #d6bd91 0 2px, #624329 2.5px 4px, transparent 4.5px),
     radial-gradient(circle at calc(100% - 9px) calc(100% - 9px), #d6bd91 0 2px, #624329 2.5px 4px, transparent 4.5px),
     repeating-linear-gradient(2deg, #76502f 0 5px, #805a36 6px 9px, #6e492d 10px 13px);
-  box-shadow:
-    inset 0 0 0 1px rgba(240, 211, 159, .28),
-    0 4px 7px rgba(0, 0, 0, .34);
   box-sizing: border-box;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 14px;
   font-weight: 700;
   line-height: 1.25;
   text-align: center;
-  text-shadow: 0 1px 1px rgba(30, 18, 8, .8);
 }
 
 .christmas-tree-live-region {
