@@ -12,6 +12,7 @@ import {
 } from './lib/appwrite.js'
 import { getTwistFile, loadTwistSettings } from './lib/twistMedia.js'
 import ProfileAvatar from './components/ProfileAvatar.jsx'
+import ProfileUsername from './components/ProfileUsername.jsx'
 
 import './TwistMessage.css'
 
@@ -487,7 +488,19 @@ export default function TwistMessage({
                 size={40}
                 className="twist-sender-avatar"
               />
-              <span>{twistSenderLabel}</span>
+              <span>
+                {twistSenderName === 'Okänd användare'
+                  ? twistSenderLabel
+                  : (
+                    <>
+                      @
+                      <ProfileUsername
+                        profile={twistSender?.avatarProfile}
+                        name={twistSenderName}
+                      />
+                    </>
+                  )}
+              </span>
             </div>
             <div className="twist-media-stage">
               {mediaType === 'video' ? (

@@ -11,6 +11,7 @@ import {
 } from './lib/appwrite.js'
 import './AddPeople.css'
 import ProfileAvatar from './components/ProfileAvatar.jsx'
+import ProfileUsername from './components/ProfileUsername.jsx'
 
 // Skapar ett stabilt ID som är högst 32 tecken långt.
 // Samma indata ger alltid samma ID.
@@ -456,7 +457,15 @@ export default function AddPeople() {
 
                 <div className="people-user-info">
                   <strong>
-                    @{sender?.username || request.contactUsername || 'Okänd användare'}
+                    @
+                    <ProfileUsername
+                      profile={sender}
+                      name={
+                        sender?.username ||
+                        request.contactUsername ||
+                        'Okänd användare'
+                      }
+                    />
                   </strong>
                   <span>Vill lägga till dig</span>
                 </div>
@@ -533,7 +542,13 @@ export default function AddPeople() {
                 <ProfileAvatar profile={profile} userId={profile.userId} name={profile.username} className="people-avatar" />
 
                 <div className="people-user-info">
-                  <strong>@{profile.username}</strong>
+                  <strong>
+                    @
+                    <ProfileUsername
+                      profile={profile}
+                      name={profile.username}
+                    />
+                  </strong>
                   <span>
                     {added
                       ? 'Redan kontakt'

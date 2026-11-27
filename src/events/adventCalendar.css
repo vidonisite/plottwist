@@ -1,0 +1,249 @@
+.advent-calendar-launcher {
+  position: absolute;
+  z-index: 8;
+  right: 24px;
+  bottom: 162px;
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border: 2px solid #201827;
+  border-radius: 18px;
+  color: #fff8e8;
+  background: #a83245;
+  box-shadow: 3px 3px 0 #201827;
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s, background .2s;
+}
+
+.advent-calendar-launcher:hover:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 #201827;
+  background: #bd596b;
+}
+
+.advent-calendar-launcher:disabled {
+  cursor: default;
+  opacity: .6;
+}
+
+.advent-calendar-launcher svg {
+  width: 27px;
+  height: 27px;
+}
+
+.advent-calendar-backdrop {
+  position: fixed;
+  z-index: 10001;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(15, 20, 17, .68);
+}
+
+.advent-calendar-dialog {
+  position: relative;
+  width: min(100%, 440px);
+  max-height: min(90dvh, 760px);
+  overflow: auto;
+  padding: 28px;
+  border: 1px solid #eaded4;
+  border-radius: 24px;
+  color: #352630;
+  background:
+    radial-gradient(circle at 100% 0, rgba(201, 156, 88, .16), transparent 34%),
+    #fffaf3;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .35);
+}
+
+.advent-calendar-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid #eaded4;
+  border-radius: 50%;
+  color: #365d48;
+  background: #fffaf3;
+  cursor: pointer;
+}
+
+.advent-calendar-close svg {
+  width: 19px;
+  height: 19px;
+}
+
+.advent-calendar-heading {
+  padding-right: 36px;
+  text-align: center;
+}
+
+.advent-calendar-kicker {
+  color: #a64459;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.advent-calendar-heading h2 {
+  margin: 4px 0 5px;
+  color: #365d48;
+  font-size: 28px;
+}
+
+.advent-calendar-heading p {
+  margin: 0;
+  color: #81717a;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.advent-calendar-notice {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border: 1px solid #ead5a9;
+  border-radius: 12px;
+  color: #60431f;
+  background: #fff2d6;
+  font-size: 12px;
+}
+
+.advent-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 22px;
+}
+
+.advent-calendar-door {
+  display: flex;
+  min-width: 0;
+  aspect-ratio: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid #d5bd99;
+  border-radius: 14px;
+  color: #fffaf3;
+  background: #365d48;
+  cursor: pointer;
+  transition: transform .15s, background .15s, border-color .15s;
+}
+
+.advent-calendar-door.is-unlocked:hover:not(:disabled),
+.advent-calendar-door.is-selected {
+  transform: translateY(-2px);
+  border-color: #c99c58;
+  background: #a64459;
+}
+
+.advent-calendar-door.is-claimed {
+  border-color: #c99c58;
+  color: #60431f;
+  background: #efd19b;
+}
+
+.advent-calendar-door.is-locked {
+  border-color: #e5ddd6;
+  color: #a39499;
+  background: #f1e7df;
+  cursor: default;
+}
+
+.advent-calendar-door-number {
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.advent-calendar-door-status {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.advent-calendar-reward {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid #eaded4;
+  border-radius: 16px;
+  background: #fff;
+  text-align: center;
+}
+
+.advent-calendar-reward strong {
+  color: #365d48;
+}
+
+.advent-calendar-reward p {
+  margin: 7px 0 0;
+  color: #81717a;
+  font-size: 14px;
+}
+
+.advent-calendar-claim {
+  margin-top: 12px;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 999px;
+  color: #fffaf3;
+  background: #a64459;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.advent-calendar-claim:hover:not(:disabled) {
+  background: #8f3549;
+}
+
+.advent-calendar-claim:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
+.advent-calendar-error {
+  margin: 12px 0 0;
+  color: #a64459;
+  font-size: 13px;
+  text-align: center;
+}
+
+.advent-calendar-dialog button:focus-visible {
+  outline: 3px solid #c99c58;
+  outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+  .advent-calendar-launcher {
+    right: 14px;
+    bottom: 162px;
+    width: 54px;
+    height: 54px;
+  }
+
+  .advent-calendar-dialog {
+    padding: 22px 18px;
+  }
+
+  .advent-calendar-grid {
+    gap: 7px;
+  }
+
+  .advent-calendar-door {
+    border-radius: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .advent-calendar-launcher,
+  .advent-calendar-door {
+    transition: none;
+  }
+}

@@ -39,6 +39,7 @@ import {
 } from './lib/twistMedia.js'
 import { encodeVideoAtSpeed } from './lib/videoSpeed.js'
 import ProfileAvatar from './components/ProfileAvatar.jsx'
+import ProfileUsername from './components/ProfileUsername.jsx'
 import GroupAvatar from './components/GroupAvatar.jsx'
 import { addLatestMessageTimes } from './lib/groupMembers.js'
 
@@ -1862,7 +1863,17 @@ export default function Camera({
                                   whiteSpace: 'nowrap',
                                 }}
                               >
-                                {name}
+                                {isGroup
+                                  ? name
+                                  : (
+                                    <>
+                                      @
+                                      <ProfileUsername
+                                        profile={contact.profile}
+                                        name={username}
+                                      />
+                                    </>
+                                  )}
                               </strong>
                               <small style={{ opacity: 0.65 }}>
                                 {isGroup

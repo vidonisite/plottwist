@@ -3,8 +3,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Query } from 'appwrite'
 import { Gamepad2, Phone, Trophy } from 'lucide-react'
 import EventButton from './events/EventButton.jsx'
+import AdventCalendar from './events/AdventCalendar.jsx'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import EventThemeController from './events/EventThemeController.jsx'
+import {
+  ADVENT_CLAIMS_FIELD,
+  ADVENT_REWARDS,
+  addClaimedAdventDoor,
+  isAdventDoorUnlocked,
+} from './events/adventCalendar.js'
+import {
+  getEffectiveNow,
+  getVisibleEvent,
+} from './events/eventManager.js'
 import {
   disablePushNotifications,
   enablePushNotifications,
@@ -32,6 +43,7 @@ import Games from './games.jsx'
 import AddPeople from './AddPeople.jsx'
 import CreateGroup from './CreateGroup.jsx'
 import ProfileAvatar from './components/ProfileAvatar.jsx'
+import ProfileUsername from './components/ProfileUsername.jsx'
 import GroupAvatar from './components/GroupAvatar.jsx'
 import AvatarBuilder from './components/AvatarBuilder.jsx'
 import FeatureAnnouncement from './components/FeatureAnnouncement.jsx'
@@ -256,9 +268,17 @@ export default function App() {
     scoreToastTimersRef.current.clear()
   }, [])
 
-  const awardTwistScore = useCallback((points, eventId) => {
+  const awardTwistScore = useCallback((points, eventId, profileUpdates = {}) => {
     if (!Number.isSafeInteger(points) || points <= 0 || !eventId) {
       return Promise.reject(new Error('Ogiltig Twist Score-händelse.'))
+    }
+
+    if (
+      !profileUpdates ||
+      typeof profileUpdates !== 'object' ||
+      Array.isArray(profileUpdates)
+    ) {
+      return Promise.reject(new Error('Ogiltiga profiluppdateringar.'))
     }
 
     if (scoredEventsRef.current.has(eventId)) {
@@ -293,6 +313,7 @@ export default function App() {
         tableId: USERS_TABLE_ID,
         rowId: currentProfile.$id,
         data: {
+          ...profileUpdates,
           twistscore:
             (Number.isSafeInteger(currentScore) && currentScore >= 0
               ? currentScore
@@ -329,6 +350,56 @@ export default function App() {
       throw error
     })
   }, [currentUser?.name])
+
+  const claimAdventDoor = useCallback(async (day) => {
+    const isAdmin = profileRef.current?.admin === true
+    const realNow = new Date()
+    const event = getVisibleEvent(realNow, isAdmin)
+    const now = getEffectiveNow(realNow, isAdmin)
+
+    if (!event || event.id !== 'christmas' || event.phase !== 'active') {
+      throw new Error('Julkalendern är inte aktiv just nu.')
+    }
+
+    if (event.testMode) {
+      throw new Error('Luckor kan inte hämtas i testläget.')
+    }
+
+    if (!isAdventDoorUnlocked(day, now)) {
+      throw new Error('Den här luckan är inte upplåst ännu.')
+    }
+
+    const reward = ADVENT_REWARDS[day - 1]
+    const currentProfile = profileRef.current
+
+    if (!reward || !currentProfile?.$id) {
+      throw new Error('Din användarprofil kunde inte hittas i Appwrite.')
+    }
+
+    const claims = addClaimedAdventDoor(currentProfile, event.year, day)
+
+    if (reward.type === 'twist-score') {
+      await awardTwistScore(
+        reward.points,
+        `christmas-calendar-${event.year}-${day}`,
+        { [ADVENT_CLAIMS_FIELD]: claims }
+      )
+      return true
+    }
+
+    const updatedProfile = await tablesDB.updateRow({
+      databaseId: DATABASE_ID,
+      tableId: USERS_TABLE_ID,
+      rowId: currentProfile.$id,
+      data: {
+        [ADVENT_CLAIMS_FIELD]: claims,
+      },
+    })
+
+    profileRef.current = updatedProfile
+    setProfile(updatedProfile)
+    return true
+  }, [awardTwistScore])
 
   useEffect(() => {
     let cancelled = false
@@ -1524,7 +1595,14 @@ export default function App() {
 
                 <span className="chat-list-copy">
                   <strong className="chat-name-line">
-                    <span className="chat-name-text">{chat.name}</span>
+                    <span className="chat-name-text">
+                      <ProfileUsername
+                        profile={
+                          chat.type === 'group' ? null : chat.avatarProfile
+                        }
+                        name={chat.name}
+                      />
+                    </span>
                   </strong>
 
                   <small>{chat.preview}</small>
@@ -1612,7 +1690,11 @@ export default function App() {
               <span className="footer-dot" />
 
               <span>
-                @{profile?.username || currentUser.name}
+                @
+                <ProfileUsername
+                  profile={profile}
+                  name={profile?.username || currentUser.name}
+                />
                 {' · Twist Score: '}
                 {twistScore}
               </span>
@@ -1639,6 +1721,13 @@ export default function App() {
               <EventButton
                 disabled={Boolean(gameTransition)}
                 isAdmin={profile?.admin === true}
+              />
+
+              <AdventCalendar
+                profile={profile}
+                isAdmin={profile?.admin === true}
+                disabled={Boolean(gameTransition)}
+                onClaimDoor={claimAdventDoor}
               />
 
               <button
@@ -1703,7 +1792,15 @@ export default function App() {
                           : (
                             <span className="chat-name-line">
                               <span className="chat-name-text">
-                                @{activeChat?.username || activeChat?.name || 'Din chatt'}
+                                @
+                                <ProfileUsername
+                                  profile={activeChat?.avatarProfile}
+                                  name={
+                                    activeChat?.username ||
+                                    activeChat?.name ||
+                                    'Din chatt'
+                                  }
+                                />
                               </span>
 
                               <div
@@ -1934,7 +2031,11 @@ export default function App() {
                 <p>{currentUser.email}</p>
 
                 <p className="setting-help">
-                  Användarnamn: @{profile?.username || currentUser.name}
+                  Användarnamn: @
+                  <ProfileUsername
+                    profile={profile}
+                    name={profile?.username || currentUser.name}
+                  />
                 </p>
 
                 <button
@@ -2018,7 +2119,11 @@ export default function App() {
                           className="leaderboard-avatar"
                         />
                         <span className="leaderboard-username">
-                          @{user.username || 'Okänd användare'}
+                          @
+                          <ProfileUsername
+                            profile={user}
+                            name={user.username || 'Okänd användare'}
+                          />
                         </span>
                         <span className="leaderboard-score">
                           {safeScore} <span aria-label="Twist Score">☀️</span>
@@ -2174,7 +2279,11 @@ export default function App() {
                         className="leaderboard-avatar"
                       />
                       <span className="leaderboard-username">
-                        @{user.username || 'Okänd användare'}
+                        @
+                        <ProfileUsername
+                          profile={user}
+                          name={user.username || 'Okänd användare'}
+                        />
                         {isCurrentUser ? ' (du)' : ''}
                       </span>
                       <span className="leaderboard-score">

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Mic, MicOff, Phone, PhoneOff } from 'lucide-react'
 import ProfileAvatar from './ProfileAvatar.jsx'
+import ProfileUsername from './ProfileUsername.jsx'
 import './VoiceCallOverlay.css'
 
 function formatDuration(seconds) {
@@ -81,7 +82,13 @@ export default function VoiceCallOverlay({
           size={112}
           className="voice-call-avatar"
         />
-        <h2 id="voice-call-name">@{call.remoteName}</h2>
+        <h2 id="voice-call-name">
+          @
+          <ProfileUsername
+            profile={call.remoteProfile}
+            name={call.remoteName}
+          />
+        </h2>
         <p id="voice-call-status" className={`voice-call-status ${isActive ? 'connected' : ''}`}>
           {statusText}
         </p>

@@ -12,6 +12,7 @@ import {
 
 import './CreateGroup.css'
 import ProfileAvatar from './components/ProfileAvatar.jsx'
+import ProfileUsername from './components/ProfileUsername.jsx'
 
 export default function CreateGroup({
   currentUser,
@@ -291,7 +292,11 @@ export default function CreateGroup({
                 />
 
                 <span className="create-group-contact-name">
-                  @{contact.username}
+                  @
+                  <ProfileUsername
+                    profile={contact.avatarProfile}
+                    name={contact.username}
+                  />
                 </span>
 
                 <span className="create-group-checkbox">

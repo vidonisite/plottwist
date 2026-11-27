@@ -10,6 +10,7 @@ import {
 } from './lib/appwrite.js'
 import { executeGroupMembershipAction } from './lib/groupMembership.js'
 import ProfileAvatar from './components/ProfileAvatar.jsx'
+import ProfileUsername from './components/ProfileUsername.jsx'
 
 export default function GroupDetails({
   group,
@@ -250,7 +251,10 @@ export default function GroupDetails({
                     />
 
                     <span className="group-details-person-name">
-                      {member.username}
+                      <ProfileUsername
+                        profile={member.avatarProfile}
+                        name={member.username}
+                      />
                       {isSelf && <small>Du</small>}
                     </span>
 
@@ -292,7 +296,10 @@ export default function GroupDetails({
                   />
 
                   <span className="group-details-person-name">
-                    {contact.username}
+                    <ProfileUsername
+                      profile={contact.avatarProfile}
+                      name={contact.username}
+                    />
                   </span>
 
                   <button

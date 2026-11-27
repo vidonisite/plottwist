@@ -16,6 +16,8 @@ import TicTacToe from './games/tictactoe.jsx'
 import Hangman from './games/hangman.jsx'
 import Memory from './games/memory.jsx'
 import Snake from './games/snake.jsx'
+import ProfileAvatar from './components/ProfileAvatar.jsx'
+import ProfileUsername from './components/ProfileUsername.jsx'
 import './games.css'
 
 const GAME_LIST = [
@@ -312,15 +314,20 @@ export default function Games({
           : { rows: [] }
 
         if (!cancelled) {
-          setFriends(contacts.map((contact) => ({
-            userId: contact.contactUserId,
-            username:
-              profilesResponse.rows.find(
-                (profile) => profile.userId === contact.contactUserId
-              )?.username ||
-              contact.contactUsername ||
-              'Okänd användare',
-          })))
+          setFriends(contacts.map((contact) => {
+            const profile = profilesResponse.rows.find(
+              (row) => row.userId === contact.contactUserId
+            )
+
+            return {
+              userId: contact.contactUserId,
+              username:
+                profile?.username ||
+                contact.contactUsername ||
+                'Okänd användare',
+              profile,
+            }
+          }))
         }
       } catch (error) {
         console.error('Kunde inte hämta kompisar till spelen:', error)
@@ -914,10 +921,20 @@ export default function Games({
                   disabled={!isSelected && selectionFull}
                   aria-pressed={isSelected}
                 >
-                  <span className="game-friend-avatar">
-                    {friend.username.slice(0, 1).toUpperCase()}
-                  </span>
-                  <strong>@{friend.username}</strong>
+                  <ProfileAvatar
+                    profile={friend.profile}
+                    userId={friend.userId}
+                    name={friend.username}
+                    size={38}
+                    className="game-friend-avatar"
+                  />
+                  <strong>
+                    @
+                    <ProfileUsername
+                      profile={friend.profile}
+                      name={friend.username}
+                    />
+                  </strong>
                   <span>{isSelected ? 'Vald' : 'Välj'}</span>
                 </button>
               )
@@ -948,7 +965,13 @@ export default function Games({
             </p>
             {inviteLobby.invitees.map((invitee) => (
               <div className="game-lobby-player" key={invitee.userId}>
-                <strong>@{invitee.username}</strong>
+                <strong>
+                  @
+                  <ProfileUsername
+                    profile={invitee.profile}
+                    name={invitee.username}
+                  />
+                </strong>
                 <span>
                   {invitee.status === 'accepted'
                     ? 'Tackat ja'

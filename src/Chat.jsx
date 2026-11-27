@@ -12,6 +12,7 @@ import {
 import TwistMessage from './TwistMessage.jsx'
 import Camera from './Camera.jsx'
 import ProfileAvatar from './components/ProfileAvatar.jsx'
+import ProfileUsername from './components/ProfileUsername.jsx'
 import './Chat.css'
 
 export default function Chat({
@@ -761,7 +762,10 @@ export default function Chat({
                     >
                       {showSenderName && (
                         <span className="message-sender-name" style={{ fontSize: '11px', opacity: 0.7, marginBottom: '2px', marginLeft: '4px' }}>
-                          {senderName}
+                          <ProfileUsername
+                            profile={senderMember?.avatarProfile}
+                            name={senderName}
+                          />
                         </span>
                       )}
 
