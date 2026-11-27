@@ -3,18 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Query } from 'appwrite'
 import { Gamepad2, Phone, Trophy } from 'lucide-react'
 import EventButton from './events/EventButton.jsx'
-import AdventCalendar from './events/AdventCalendar.jsx'
+import ChristmasTree from './events/ChristmasTree.jsx'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import EventThemeController from './events/EventThemeController.jsx'
 import {
-  ADVENT_CLAIMS_FIELD,
-  ADVENT_REWARDS,
-  addClaimedAdventDoor,
-  hasUnlockedAdventFilter,
-  isAdventDoorUnlocked,
-} from './events/adventCalendar.js'
-import {
-  getEffectiveNow,
+  ADMIN_TEST_TIME_EVENT,
   getVisibleEvent,
 } from './events/eventManager.js'
 import {
@@ -142,6 +135,8 @@ export default function App() {
 
   const [currentUser, setCurrentUser] = useState(null)
   const [profile, setProfile] = useState(null)
+  const [christmasTreePhoto, setChristmasTreePhoto] = useState(null)
+  const [eventNow, setEventNow] = useState(() => new Date())
   const profileRef = useRef(profile)
   const scoreQueueRef = useRef(Promise.resolve())
   const scoredEventsRef = useRef(new Set())
@@ -183,6 +178,27 @@ export default function App() {
   const [twistScoreHovered, setTwistScoreHovered] = useState(false)
   const [twistScorePinned, setTwistScorePinned] = useState(false)
   const voiceCall = useVoiceCall(currentUser)
+  const visibleEvent = getVisibleEvent(eventNow, profile?.admin === true)
+  const activeChristmasEvent =
+    visibleEvent?.id === 'christmas' && visibleEvent.phase === 'active'
+      ? visibleEvent
+      : null
+
+  useEffect(() => {
+    function updateEventTime() {
+      setEventNow(new Date())
+    }
+
+    const interval = window.setInterval(updateEventTime, 30_000)
+    document.addEventListener('visibilitychange', updateEventTime)
+    window.addEventListener(ADMIN_TEST_TIME_EVENT, updateEventTime)
+
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', updateEventTime)
+      window.removeEventListener(ADMIN_TEST_TIME_EVENT, updateEventTime)
+    }
+  }, [])
 
   const checkForAppUpdate = async () => {
     if (checkingForUpdate) return
@@ -351,56 +367,6 @@ export default function App() {
       throw error
     })
   }, [currentUser?.name])
-
-  const claimAdventDoor = useCallback(async (day) => {
-    const isAdmin = profileRef.current?.admin === true
-    const realNow = new Date()
-    const event = getVisibleEvent(realNow, isAdmin)
-    const now = getEffectiveNow(realNow, isAdmin)
-
-    if (!event || event.id !== 'christmas' || event.phase !== 'active') {
-      throw new Error('Julkalendern är inte aktiv just nu.')
-    }
-
-    if (event.testMode) {
-      throw new Error('Luckor kan inte hämtas i testläget.')
-    }
-
-    if (!isAdventDoorUnlocked(day, now)) {
-      throw new Error('Den här luckan är inte upplåst ännu.')
-    }
-
-    const reward = ADVENT_REWARDS[day - 1]
-    const currentProfile = profileRef.current
-
-    if (!reward || !currentProfile?.$id) {
-      throw new Error('Din användarprofil kunde inte hittas i Appwrite.')
-    }
-
-    const claims = addClaimedAdventDoor(currentProfile, event.year, day)
-
-    if (reward.type === 'twist-score') {
-      await awardTwistScore(
-        reward.points,
-        `christmas-calendar-${event.year}-${day}`,
-        { [ADVENT_CLAIMS_FIELD]: claims }
-      )
-      return true
-    }
-
-    const updatedProfile = await tablesDB.updateRow({
-      databaseId: DATABASE_ID,
-      tableId: USERS_TABLE_ID,
-      rowId: currentProfile.$id,
-      data: {
-        [ADVENT_CLAIMS_FIELD]: claims,
-      },
-    })
-
-    profileRef.current = updatedProfile
-    setProfile(updatedProfile)
-    return true
-  }, [awardTwistScore])
 
   useEffect(() => {
     let cancelled = false
@@ -1713,26 +1679,27 @@ export default function App() {
 
           {activeView === 'camera' && (
             <section className="workspace-view camera-view">
-              <Camera
-                currentUser={currentUser}
-                isAdmin={profile?.admin === true}
-                hasRainbowMouthUnlock={hasUnlockedAdventFilter(
-                  profile,
-                  'rainbow-mouth'
-                )}
-                onScore={awardTwistScore}
-              />
+              <div className="camera-christmas-layout">
+                <Camera
+                  currentUser={currentUser}
+                  onScore={awardTwistScore}
+                  onHangPhoto={
+                    activeChristmasEvent && !activeChristmasEvent.testMode
+                      ? setChristmasTreePhoto
+                      : undefined
+                  }
+                />
+                <ChristmasTree
+                  currentUser={currentUser}
+                  event={activeChristmasEvent}
+                  pendingPhoto={christmasTreePhoto}
+                  onPendingPhotoChange={setChristmasTreePhoto}
+                />
+              </div>
 
               <EventButton
                 disabled={Boolean(gameTransition)}
                 isAdmin={profile?.admin === true}
-              />
-
-              <AdventCalendar
-                profile={profile}
-                isAdmin={profile?.admin === true}
-                disabled={Boolean(gameTransition)}
-                onClaimDoor={claimAdventDoor}
               />
 
               <button

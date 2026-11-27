@@ -54,7 +54,6 @@ const FILTERS = [
     label: 'Regnbåge ur munnen',
     symbol: '🌈',
     isNew: true,
-    hideForNonAdmins: true,
   },
   { id: 'emoji', label: 'Emoji', symbol: '😍' },
   { id: 'big-nose', label: 'Big Nose', symbol: '👃' },
@@ -192,9 +191,8 @@ async function stableId(value) {
 
 export default function Camera({
   currentUser,
-  isAdmin = false,
-  hasRainbowMouthUnlock = false,
   onScore,
+  onHangPhoto,
   targetConversation = null,
   onClose,
 }) {
@@ -254,19 +252,14 @@ export default function Camera({
   const [hasSent, setHasSent] = useState(false)
 
   const currentUserId = currentUser?.$id
-  const visibleFilters = FILTERS.filter(
-    (item) =>
-      isAdmin ||
-      !item.hideForNonAdmins ||
-      (item.id === 'rainbow-mouth' && hasRainbowMouthUnlock)
-  )
+  const visibleFilters = FILTERS
 
   useEffect(() => {
     filterRef.current = filter
     setSelectedFilterIndex(
       visibleFilters.findIndex((item) => item.id === filter)
     )
-  }, [filter, isAdmin, hasRainbowMouthUnlock])
+  }, [filter])
 
   useEffect(() => {
     captureRef.current = capture
@@ -1710,6 +1703,20 @@ export default function Camera({
                   >
                     Retake
                   </button>
+
+                  {capture.type === 'photo' && onHangPhoto && (
+                    <button
+                      type="button"
+                      className="capture-secondary-button capture-tree-button"
+                      onClick={() => {
+                        onHangPhoto(capture.blob)
+                        retakeCapture()
+                      }}
+                      disabled={sendingTwist}
+                    >
+                      Häng på julgranen
+                    </button>
+                  )}
 
                   <button
                     className="capture-send-button"

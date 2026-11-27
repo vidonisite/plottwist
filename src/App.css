@@ -621,6 +621,24 @@
   padding: 16px;
 }
 
+.camera-christmas-layout {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.camera-christmas-layout > .camera-page {
+  width: auto;
+  min-width: 0;
+  height: auto;
+  min-height: 0;
+  flex: 1 1 460px;
+  padding: 14px 0;
+}
+
 .camera-view video {
   display: block;
   width: min(100%, 520px, calc(100dvh - 220px));
@@ -1367,6 +1385,15 @@ input:focus-visible {
     padding: 12px;
   }
 
+  .camera-christmas-layout {
+    flex-direction: column;
+  }
+
+  .camera-christmas-layout > .camera-page {
+    width: 100%;
+    flex: 0 1 auto;
+  }
+
   .camera-view video {
     width: min(100%, 440px, calc(100dvh - 200px));
   }
@@ -1516,6 +1543,10 @@ input:focus-visible {
 
   .camera-view {
     padding: 12px;
+  }
+
+  .camera-christmas-layout {
+    gap: 10px;
   }
 
   .camera-view video {

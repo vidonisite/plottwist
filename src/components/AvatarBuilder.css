@@ -19,28 +19,6 @@
   object-fit: cover;
 }
 
-.profile-avatar--christmas-frame {
-  box-shadow:
-    0 0 0 2px #c99c58,
-    0 0 0 4px #fff3da;
-}
-
-.profile-avatar--christmas-hat {
-  overflow: visible;
-}
-
-.profile-avatar-seasonal-hat {
-  position: absolute;
-  z-index: 2;
-  top: -22%;
-  right: -3%;
-  width: 65%;
-  height: auto;
-  overflow: visible;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .35));
-  pointer-events: none;
-}
-
 .avatar-builder {
   display: flex;
   flex-direction: column;

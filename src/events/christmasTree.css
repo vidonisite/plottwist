@@ -1,0 +1,281 @@
+.christmas-tree-panel {
+  position: relative;
+  display: flex;
+  width: min(100%, 330px);
+  min-width: 220px;
+  flex: 0 1 330px;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 16px;
+  border: 1px solid rgba(201, 156, 88, .46);
+  border-radius: 24px;
+  color: #fff8ed;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(201, 156, 88, .16), transparent 55%),
+    linear-gradient(160deg, #193c30, #10271f);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, .22);
+  box-sizing: border-box;
+}
+
+.christmas-tree-heading {
+  width: 100%;
+  text-align: center;
+}
+
+.christmas-tree-kicker {
+  color: #edcc91;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.christmas-tree-heading h2 {
+  margin: 3px 0 4px;
+  color: #fff8ed;
+  font-size: 22px;
+}
+
+.christmas-tree-heading p {
+  margin: 0;
+  color: rgba(255, 248, 237, .76);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.christmas-tree-artwork {
+  position: relative;
+  width: min(100%, 250px);
+  aspect-ratio: 0.72;
+  max-height: min(52dvh, 390px);
+  margin: 4px auto;
+  cursor: default;
+  touch-action: manipulation;
+}
+
+.christmas-tree-artwork.is-placing {
+  cursor: crosshair;
+}
+
+.christmas-tree-place-target:focus-visible {
+  outline: 3px solid #edcc91;
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
+.christmas-tree-place-target {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: crosshair;
+}
+
+.christmas-tree-place-target:disabled {
+  cursor: wait;
+}
+
+.christmas-tree-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  filter: drop-shadow(0 8px 8px rgba(0, 0, 0, .18));
+}
+
+.christmas-tree-fallback {
+  position: absolute;
+  inset: 5% 0 0;
+}
+
+.christmas-tree-fallback span {
+  position: absolute;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-right: 95px solid transparent;
+  border-bottom: 125px solid #39784e;
+  border-left: 95px solid transparent;
+  filter: drop-shadow(0 5px 2px rgba(0, 0, 0, .18));
+}
+
+.christmas-tree-fallback span:nth-child(1) {
+  top: 4%;
+  transform: translateX(-50%) scale(.66);
+  border-bottom-color: #55955b;
+}
+
+.christmas-tree-fallback span:nth-child(2) {
+  top: 20%;
+  transform: translateX(-50%) scale(.84);
+}
+
+.christmas-tree-fallback span:nth-child(3) {
+  top: 39%;
+  border-bottom-color: #286541;
+}
+
+.christmas-tree-fallback i {
+  position: absolute;
+  bottom: 1%;
+  left: 50%;
+  width: 40px;
+  height: 64px;
+  transform: translateX(-50%);
+  border-radius: 4px;
+  background: #8e573d;
+}
+
+.christmas-tree-photo {
+  position: absolute;
+  z-index: 1;
+  width: clamp(26px, 11vw, 42px);
+  height: clamp(26px, 11vw, 42px);
+  overflow: hidden;
+  padding: 2px;
+  transform: translate(-50%, -50%);
+  border: 2px solid #f1d38f;
+  border-radius: 50%;
+  background: #fff8ed;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .46);
+  cursor: zoom-in;
+}
+
+.christmas-tree-artwork.is-placing .christmas-tree-photo {
+  pointer-events: none;
+}
+
+.christmas-tree-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.christmas-tree-notice,
+.christmas-tree-status,
+.christmas-tree-error,
+.christmas-tree-empty {
+  width: 100%;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.christmas-tree-notice {
+  padding: 8px;
+  border: 1px solid rgba(237, 204, 145, .38);
+  border-radius: 10px;
+  color: #f5dfb9;
+  background: rgba(237, 204, 145, .1);
+}
+
+.christmas-tree-status,
+.christmas-tree-empty {
+  color: rgba(255, 248, 237, .8);
+}
+
+.christmas-tree-error {
+  color: #ffb8bd;
+}
+
+.christmas-tree-cancel {
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 248, 237, .3);
+  border-radius: 999px;
+  color: #fff8ed;
+  background: rgba(255, 248, 237, .1);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.christmas-tree-cancel:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
+.christmas-tree-photo-backdrop {
+  position: fixed;
+  z-index: 10002;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(8, 18, 14, .82);
+}
+
+.christmas-tree-photo-dialog {
+  position: relative;
+  width: min(100%, 560px);
+  max-height: 90dvh;
+  padding: 12px;
+  border: 1px solid rgba(237, 204, 145, .5);
+  border-radius: 20px;
+  background: #193c30;
+  box-shadow: 0 20px 70px rgba(0, 0, 0, .5);
+}
+
+.christmas-tree-photo-dialog > button {
+  position: absolute;
+  z-index: 1;
+  top: 18px;
+  right: 18px;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .6);
+  border-radius: 50%;
+  color: white;
+  background: rgba(0, 0, 0, .5);
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.christmas-tree-photo-dialog > img {
+  display: block;
+  width: 100%;
+  max-height: calc(90dvh - 24px);
+  border-radius: 12px;
+  object-fit: contain;
+}
+
+@media (max-width: 800px) {
+  .christmas-tree-panel {
+    width: min(100%, 420px);
+    min-width: 0;
+    flex-basis: auto;
+  }
+
+  .christmas-tree-artwork {
+    width: min(100%, 250px);
+    max-height: 390px;
+  }
+}
+
+@media (max-width: 600px) {
+  .christmas-tree-panel {
+    width: min(100%, 420px);
+    padding: 16px;
+  }
+
+  .christmas-tree-artwork {
+    max-height: 340px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .christmas-tree-photo {
+    transition: none;
+  }
+}

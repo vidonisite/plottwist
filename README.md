@@ -68,26 +68,14 @@ visar DiceBear-stilen `initials` deterministiskt för rader som saknar dessa
 värden, så befintliga konton behöver inte migreras. Anpassade avatarer använder
 DiceBear API v10.
 
-#### Julkalender
+#### Christmas-eventets julgran
 
-Skapa en String-kolumn `christmasCalendarClaims` (max 2048 tecken) i
-`USERS_TABLE_ID`. Kolumnvärdet kan lämnas tomt tills användaren öppnar sin första
-lucka. Den innehåller därefter ett JSON-objekt med listor över
-öppnade luckor per eventår, så luckor inte kan hämtas igen efter omladdning eller
-på en annan enhet.
-Kalendern är aktiv under Christmas-eventet och låser upp lucka `N` den
-`N`:e december; tidigare luckor kan tas igen.
-
-Tomteluvan, guldramen och den röd/gröna namntexten beräknas från årets öppnade
-luckor och visas endast medan eventet är aktivt. De ändrar inte avatarens
-sparade inställningar. Lucka 15 låser permanent upp kamerafiltret
-`rainbow-mouth`; upplåsningen behålls efter eventet. De fem Twist Score-
-belöningarna uppdaterar också den permanenta poängen.
-
-Anspråk sparas via klienten i användarens egen profilrad. Det hindrar vanlig
-återöppning, men skyddar inte mot samtidiga/manipulerade klientanrop; om
-belöningarna behöver vara fusksäkra bör validering och poängutdelning flyttas
-till en Appwrite-funktion.
+Under Christmas-eventet visas en gemensam julgran bredvid kameran. Efter att
+ha tagit ett foto kan användaren välja **Häng på julgranen** och klicka på en
+plats på granen. Fotot och dess placering sparas i den befintliga
+`TWISTS_BUCKET_ID`-bucketen och `MESSAGES_TABLE_ID`-tabellen; inga nya tabeller
+eller kolumner behövs. Bilder som hängs upp är synliga för alla inloggade
+användare.
 
 Twist-text och videohastighet sparas som JSON-sidecar-filer i den befintliga
 `TWISTS_BUCKET_ID`-bucketen. Ingen ny tabell eller kolumn behövs. Om bucketens
