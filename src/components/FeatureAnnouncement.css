@@ -60,3 +60,74 @@
   font-size: 12px;
   line-height: 1.45;
 }
+
+.feature-announcement--update {
+  top: max(16px, env(safe-area-inset-top));
+  right: 16px;
+  left: auto;
+  width: min(340px, calc(100vw - 32px));
+  padding: 18px 20px;
+  border-color: var(--purple-border);
+  border-left: 4px solid var(--pink);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(18, 24, 21, .2);
+}
+
+.feature-announcement--update::after {
+  display: none;
+}
+
+.feature-announcement--update .feature-announcement-label {
+  margin-bottom: 8px;
+  color: var(--purple-dark);
+  background: var(--purple-soft);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.feature-announcement--update .feature-announcement-title {
+  padding-right: 22px;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.feature-announcement--update .feature-announcement-description {
+  margin-top: 7px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.feature-announcement-dismiss {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.feature-announcement-dismiss:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.feature-announcement-dismiss svg {
+  width: 17px;
+  height: 17px;
+}
+
+@media (max-width: 480px) {
+  .feature-announcement--update {
+    top: max(12px, env(safe-area-inset-top));
+    right: 12px;
+    width: calc(100vw - 24px);
+    padding: 16px;
+  }
+}

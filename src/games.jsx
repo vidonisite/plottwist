@@ -162,7 +162,6 @@ function readMessage(message) {
 
 export default function Games({
   currentUser,
-  onScore,
   initialInvite,
   animateIn = false,
   onEntranceAnimationEnd,
@@ -1041,7 +1040,6 @@ export default function Games({
         ) : (
           <selectedGame.Component
             currentUser={currentUser}
-            onScore={onScore}
             initialInvite={initialInvite}
             onlineSession={onlineSession}
             onInviteFriends={() => openInvitePicker(selectedGame.id)}

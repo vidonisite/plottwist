@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { X } from 'lucide-react'
 
 import './FeatureAnnouncement.css'
 
@@ -72,7 +73,75 @@ function getAnnouncementProgress(announcement) {
   return { inScope: true, complete: true, step: null }
 }
 
-export default function FeatureAnnouncement({
+function UpdateFeatureAnnouncement({
+  announcementId,
+  userId,
+  title,
+  description,
+}) {
+  const [seenState, setSeenState] = useState(null)
+  const storageKey = userId
+    ? `plot-twist:feature-announcement:${announcementId}:${userId}`
+    : ''
+
+  useEffect(() => {
+    if (!storageKey) {
+      setSeenState(null)
+      return
+    }
+
+    let seen = false
+    try {
+      seen = window.localStorage.getItem(storageKey) === 'true'
+    } catch (error) {
+      console.error('Kunde inte läsa status för uppdateringsavisering:', error)
+    }
+
+    setSeenState({ storageKey, seen })
+  }, [storageKey])
+
+  function dismissAnnouncement() {
+    try {
+      window.localStorage.setItem(storageKey, 'true')
+    } catch (error) {
+      console.error('Kunde inte spara status för uppdateringsavisering:', error)
+    }
+
+    setSeenState({ storageKey, seen: true })
+  }
+
+  if (
+    !userId ||
+    seenState?.storageKey !== storageKey ||
+    seenState.seen
+  ) {
+    return null
+  }
+
+  return createPortal(
+    <aside
+      className="feature-announcement feature-announcement--update"
+      role="status"
+      aria-live="polite"
+      aria-label="Senaste uppdateringen"
+    >
+      <button
+        type="button"
+        className="feature-announcement-dismiss"
+        onClick={dismissAnnouncement}
+        aria-label="Stäng uppdateringen"
+      >
+        <X aria-hidden="true" />
+      </button>
+      <span className="feature-announcement-label">Senaste uppdateringen</span>
+      <strong className="feature-announcement-title">{title}</strong>
+      <p className="feature-announcement-description">{description}</p>
+    </aside>,
+    document.body,
+  )
+}
+
+function GuidedFeatureAnnouncement({
   announcementId,
   userId,
   active,
@@ -331,4 +400,12 @@ export default function FeatureAnnouncement({
   )
 
   return createPortal(announcement, document.body)
+}
+
+export default function FeatureAnnouncement(props) {
+  if (props.variant === 'update') {
+    return <UpdateFeatureAnnouncement {...props} />
+  }
+
+  return <GuidedFeatureAnnouncement {...props} />
 }

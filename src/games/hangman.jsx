@@ -74,7 +74,6 @@ function getPlayerName(session, userId) {
 
 export default function Hangman({
   currentUser,
-  onScore,
   initialInvite,
   onlineSession,
   onInviteFriends,
@@ -105,7 +104,6 @@ export default function Hangman({
   const syncingSessionRef = useRef(false)
   const sessionSyncGenerationRef = useRef(0)
   const pendingSessionMessagesRef = useRef(new Map())
-  const scoredEventsRef = useRef(new Set())
 
   useEffect(() => {
     sessionRef.current = session
@@ -674,39 +672,6 @@ export default function Hangman({
     gameState.chooserId !== currentUserId &&
     gameState.playerIds.includes(currentUserId)
   )
-
-  function awardScore(eventId) {
-    if (!onScore || scoredEventsRef.current.has(eventId)) return
-    scoredEventsRef.current.add(eventId)
-    Promise.resolve(onScore(1, eventId)).catch((error) => {
-      scoredEventsRef.current.delete(eventId)
-      console.error('Twist Score kunde inte uppdateras efter Hangman:', error)
-      setErrorMessage(
-        `Twist Score kunde inte uppdateras: ${error.message || 'Okänt fel'}`
-      )
-    })
-  }
-
-  useEffect(() => {
-    if (!session?.inviteId || !gameState) return
-    awardScore(`played:${session.inviteId}`)
-  }, [session?.inviteId, gameState, onScore])
-
-  useEffect(() => {
-    if (
-      gameState?.phase !== 'finished' ||
-      gameState.winnerId !== currentUserId ||
-      !session?.inviteId
-    ) return
-    awardScore(`won:${session.inviteId}:${gameState.round}`)
-  }, [
-    gameState?.phase,
-    gameState?.winnerId,
-    gameState?.round,
-    currentUserId,
-    session?.inviteId,
-    onScore,
-  ])
 
   return (
     <div className="hangman">

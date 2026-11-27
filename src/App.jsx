@@ -1630,6 +1630,13 @@ export default function App() {
                   description="Se hur din Twist Score står sig mot andra."
                 />
               </div>
+              <FeatureAnnouncement
+                variant="update"
+                announcementId="memory-bot-recall-v1"
+                userId={currentUser.$id}
+                title="Memory-boten är lite mänskligare"
+                description="Boten minns inte längre alla kort perfekt. Den kan missa ett par och behöver ibland chansa, så matcherna blir jämnare."
+              />
 
               <button
                 type="button"
@@ -1889,7 +1896,6 @@ export default function App() {
           {activeView === 'games' && (
             <Games
               currentUser={currentUser}
-              onScore={awardTwistScore}
               initialInvite={gameInvite}
               animateIn={gameViewEntering}
               onEntranceAnimationEnd={() => setGameViewEntering(false)}

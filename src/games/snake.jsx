@@ -219,7 +219,6 @@ function isValidGameState(state, inviteId) {
 
 export default function Snake({
   currentUser,
-  onScore,
   initialInvite,
   onlineSession,
   onInviteFriends,
@@ -251,7 +250,6 @@ export default function Snake({
   const lastBroadcastRef = useRef(0)
   const broadcastingRef = useRef(false)
   const startAppliedRef = useRef(null)
-  const scoredEventsRef = useRef(new Set())
   const lastAuthoritativeTickRef = useRef(-1)
 
   const setCurrentGameState = useCallback((nextState) => {
@@ -724,32 +722,6 @@ export default function Snake({
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [handleDirection])
-
-  const matchId = session?.inviteId || soloGameId
-  useEffect(() => {
-    if (!matchId || !gameState || scoredEventsRef.current.has(`played:${matchId}`)) return
-    scoredEventsRef.current.add(`played:${matchId}`)
-    Promise.resolve(onScore?.(1, `played:${matchId}`)).catch((error) => {
-      scoredEventsRef.current.delete(`played:${matchId}`)
-      console.error('Twist Score kunde inte uppdateras efter Snake:', error)
-      setErrorMessage(`Twist Score kunde inte uppdateras: ${error.message || 'Okänt fel'}`)
-    })
-  }, [matchId, gameState, onScore])
-
-  useEffect(() => {
-    if (
-      !matchId ||
-      !gameState?.winnerId ||
-      gameState.winnerId !== currentUserId ||
-      scoredEventsRef.current.has(`won:${matchId}`)
-    ) return
-    scoredEventsRef.current.add(`won:${matchId}`)
-    Promise.resolve(onScore?.(1, `won:${matchId}`)).catch((error) => {
-      scoredEventsRef.current.delete(`won:${matchId}`)
-      console.error('Twist Score kunde inte uppdateras efter Snake-vinst:', error)
-      setErrorMessage(`Twist Score kunde inte uppdateras: ${error.message || 'Okänt fel'}`)
-    })
-  }, [matchId, gameState?.winnerId, currentUserId, onScore])
 
   function startSoloGame() {
     const nextId = ID.unique()
