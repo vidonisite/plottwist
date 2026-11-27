@@ -60,8 +60,8 @@ export function createRainbowMouth() {
         mouthGap > Math.max(MIN_MOUTH_GAP, mouthWidth * MOUTH_OPEN_RATIO)
       ) {
         emitter = {
-          x: (1 - (leftCorner.x + rightCorner.x) / 2) * width,
-          y: lowerLip.y * height - 2,
+          x: (1 - (upperLip.x + lowerLip.x) / 2) * width,
+          y: ((upperLip.y + lowerLip.y) / 2) * height,
           spread: Math.max(5, mouthWidth * 0.22),
         }
       }
@@ -81,6 +81,7 @@ export function createRainbowMouth() {
           phase: Math.random() * Math.PI * 2,
           size: 2.5 + Math.random() * 3.5,
           age: 0,
+          born: true,
           color: RAINBOW_COLORS[
             Math.floor(Math.random() * RAINBOW_COLORS.length)
           ],
@@ -94,19 +95,25 @@ export function createRainbowMouth() {
     outputContext.globalCompositeOperation = 'source-over'
 
     particles = particles.filter((particle) => {
-      particle.age += deltaTime
-      if (particle.age >= PARTICLE_LIFETIME) return false
+      if (particle.born) {
+        particle.born = false
+      } else {
+        particle.age += deltaTime
+        if (particle.age >= PARTICLE_LIFETIME) return false
+
+        const progress = particle.age / PARTICLE_LIFETIME
+        const windStrength = progress * progress
+        const wind = (
+          Math.sin(now * 0.0016 + particle.age * 5) * 105 +
+          Math.sin(now * 0.0024 + particle.age * 8 + particle.phase) * 48
+        ) * windStrength
+        const horizontalVelocity = particle.velocityX + wind
+
+        particle.x += horizontalVelocity * deltaTime
+        particle.y += particle.velocityY * deltaTime
+      }
 
       const progress = particle.age / PARTICLE_LIFETIME
-      const windStrength = progress * progress
-      const wind = (
-        Math.sin(now * 0.0016 + particle.age * 5) * 105 +
-        Math.sin(now * 0.0024 + particle.age * 8 + particle.phase) * 48
-      ) * windStrength
-      const horizontalVelocity = particle.velocityX + wind
-
-      particle.x += horizontalVelocity * deltaTime
-      particle.y += particle.velocityY * deltaTime
 
       outputContext.globalAlpha = 0.82 * (1 - progress * 0.45)
       outputContext.fillStyle = particle.color
