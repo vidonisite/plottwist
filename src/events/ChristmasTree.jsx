@@ -69,6 +69,7 @@ export default function ChristmasTree({
   const [failedTreeImage, setFailedTreeImage] = useState(false)
   const [selectedPhoto, setSelectedPhoto] = useState(null)
   const [reloadToken, setReloadToken] = useState(0)
+  const [spotlightCenter, setSpotlightCenter] = useState(null)
 
   const conversationId = event ? getTreeConversationId(event.year) : null
 
@@ -178,7 +179,24 @@ export default function ChristmasTree({
     setErrorMessage('')
     setStatusMessage('Klicka på en plats på granen där fotot ska hänga.')
 
-    return undefined
+    function updateSpotlightPosition() {
+      const bounds = treeRef.current?.getBoundingClientRect()
+      if (!bounds) return
+
+      setSpotlightCenter({
+        x: bounds.left + bounds.width / 2,
+        y: bounds.top + bounds.height / 2,
+      })
+    }
+
+    updateSpotlightPosition()
+    window.addEventListener('resize', updateSpotlightPosition)
+    window.addEventListener('scroll', updateSpotlightPosition, true)
+
+    return () => {
+      window.removeEventListener('resize', updateSpotlightPosition)
+      window.removeEventListener('scroll', updateSpotlightPosition, true)
+    }
   }, [pendingPhoto])
 
   useEffect(() => {
@@ -319,6 +337,21 @@ export default function ChristmasTree({
 
   return (
     <aside className="christmas-tree-panel" aria-label="Julgran">
+      {pendingPhoto && spotlightCenter && (
+        <>
+          <div
+            className="christmas-tree-spotlight"
+            style={{
+              '--spotlight-x': `${spotlightCenter.x}px`,
+              '--spotlight-y': `${spotlightCenter.y}px`,
+            }}
+            aria-hidden="true"
+          />
+          <p className="christmas-tree-spotlight-message" role="status">
+            Klicka någonstans på julgranen för att hänga upp bilden
+          </p>
+        </>
+      )}
       <div
         ref={treeRef}
         className={`christmas-tree-artwork${pendingPhoto ? ' is-placing' : ''}`}

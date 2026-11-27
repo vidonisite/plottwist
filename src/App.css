@@ -639,6 +639,35 @@
   padding: 14px 0;
 }
 
+.camera-christmas-layout.has-christmas-tree > .camera-page {
+  transform: translateY(18px);
+  transition: flex-basis .35s ease, transform .35s ease;
+}
+
+.camera-christmas-layout.is-camera-active {
+  gap: 0;
+}
+
+.camera-christmas-layout.is-camera-active > .camera-page {
+  flex: 1 1 100%;
+  transform: none;
+  transition: flex-basis .35s ease, transform .35s ease;
+}
+
+.camera-christmas-layout.is-camera-active .christmas-tree-panel {
+  width: 0;
+  height: 0;
+  flex: 0 0 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    flex-basis .35s ease,
+    width .35s ease,
+    height .35s ease,
+    opacity .25s ease;
+}
+
 .camera-view video {
   display: block;
   width: min(100%, 520px, calc(100dvh - 220px));
@@ -1392,6 +1421,11 @@ input:focus-visible {
   .camera-christmas-layout > .camera-page {
     width: 100%;
     flex: 0 1 auto;
+    transform: none;
+  }
+
+  .camera-christmas-layout.is-camera-active > .camera-page {
+    flex: 1 1 auto;
   }
 
   .camera-view video {

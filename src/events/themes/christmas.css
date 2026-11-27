@@ -864,6 +864,15 @@ body.christmas-theme::after {
   box-shadow: 3px 3px 0 #201827;
 }
 
+body.christmas-theme .event-button-christmas {
+  border-color: #201827;
+  box-shadow: 3px 3px 0 #201827;
+}
+
+body.christmas-theme .event-button-christmas:focus-visible {
+  outline-color: #fff8e8;
+}
+
 .event-button-christmas:hover:not(:disabled) {
   background: #226447;
 }

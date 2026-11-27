@@ -193,6 +193,7 @@ export default function Camera({
   currentUser,
   onScore,
   onHangPhoto,
+  onCameraActiveChange,
   targetConversation = null,
   onClose,
 }) {
@@ -253,6 +254,18 @@ export default function Camera({
 
   const currentUserId = currentUser?.$id
   const visibleFilters = FILTERS
+
+  useEffect(() => {
+    onCameraActiveChange?.(
+      cameraState === 'loading' ||
+      cameraState === 'live' ||
+      cameraState === 'preview'
+    )
+  }, [cameraState, onCameraActiveChange])
+
+  useEffect(() => () => {
+    onCameraActiveChange?.(false)
+  }, [onCameraActiveChange])
 
   useEffect(() => {
     filterRef.current = filter
@@ -1711,6 +1724,7 @@ export default function Camera({
                       onClick={() => {
                         onHangPhoto(capture.blob)
                         retakeCapture()
+                        void stopCamera()
                       }}
                       disabled={sendingTwist}
                     >

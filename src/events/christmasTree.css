@@ -9,12 +9,44 @@
 
 .christmas-tree-artwork {
   position: relative;
+  z-index: 10001;
   width: min(100%, 250px);
   aspect-ratio: 0.72;
   max-height: min(52dvh, 390px);
   margin: 0 auto 12px;
   cursor: default;
   touch-action: manipulation;
+}
+
+.christmas-tree-spotlight {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  background: radial-gradient(
+    circle at var(--spotlight-x) var(--spotlight-y),
+    rgba(0, 0, 0, .08) 0,
+    rgba(0, 0, 0, .12) 150px,
+    rgba(0, 0, 0, .72) 260px,
+    rgba(0, 0, 0, .78) 100%
+  );
+  pointer-events: none;
+}
+
+.christmas-tree-spotlight-message {
+  position: fixed;
+  z-index: 10002;
+  top: 20px;
+  left: 50%;
+  width: min(calc(100vw - 32px), 540px);
+  margin: 0;
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: clamp(16px, 2.4vw, 22px);
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: center;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, .95);
+  pointer-events: none;
 }
 
 .christmas-tree-artwork.is-placing {

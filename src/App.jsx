@@ -136,6 +136,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [christmasTreePhoto, setChristmasTreePhoto] = useState(null)
+  const [isChristmasCameraActive, setIsChristmasCameraActive] = useState(false)
   const [eventNow, setEventNow] = useState(() => new Date())
   const profileRef = useRef(profile)
   const scoreQueueRef = useRef(Promise.resolve())
@@ -1679,10 +1680,17 @@ export default function App() {
 
           {activeView === 'camera' && (
             <section className="workspace-view camera-view">
-              <div className="camera-christmas-layout">
+              <div
+                className={[
+                  'camera-christmas-layout',
+                  activeChristmasEvent ? 'has-christmas-tree' : '',
+                  isChristmasCameraActive ? 'is-camera-active' : '',
+                ].filter(Boolean).join(' ')}
+              >
                 <Camera
                   currentUser={currentUser}
                   onScore={awardTwistScore}
+                  onCameraActiveChange={setIsChristmasCameraActive}
                   onHangPhoto={activeChristmasEvent ? setChristmasTreePhoto : undefined}
                 />
                 <ChristmasTree
