@@ -16,8 +16,7 @@ import {
 
 import './christmasTree.css'
 
-const TREE_IMAGE_URL =
-  'https://pixabay.com/sv/images/download/clker-free-vector-images-pine-310687_1280.png'
+const TREE_IMAGE_URL = '/julgran.svg'
 const TREE_MESSAGE_TYPE = 'christmas-tree-photo'
 const MAX_PHOTO_SIZE = 8 * 1024 * 1024
 
@@ -60,7 +59,9 @@ export default function ChristmasTree({
   onPendingPhotoChange,
 }) {
   const treeRef = useRef(null)
+  const localPhotoUrlsRef = useRef(new Set())
   const [ornaments, setOrnaments] = useState([])
+  const [localOrnaments, setLocalOrnaments] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -70,6 +71,19 @@ export default function ChristmasTree({
   const [reloadToken, setReloadToken] = useState(0)
 
   const conversationId = event ? getTreeConversationId(event.year) : null
+
+  useEffect(() => {
+    setLocalOrnaments([])
+    setSelectedPhoto(null)
+    setStatusMessage('')
+    localPhotoUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
+    localPhotoUrlsRef.current.clear()
+  }, [event?.testMode, event?.year])
+
+  useEffect(() => () => {
+    localPhotoUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
+    localPhotoUrlsRef.current.clear()
+  }, [])
 
   useEffect(() => {
     if (!event) {
@@ -181,10 +195,10 @@ export default function ChristmasTree({
   if (!event) return null
 
   async function hangPhotoAt(mouseEvent) {
-    if (!pendingPhoto || isUploading || event.testMode) return
+    if (!pendingPhoto || isUploading) return
 
     const bounds = treeRef.current?.getBoundingClientRect()
-    if (!bounds || !currentUser?.$id) {
+    if (!bounds || (!event.testMode && !currentUser?.$id)) {
       setErrorMessage('Kunde inte välja en plats på granen. Försök igen.')
       return
     }
@@ -202,6 +216,30 @@ export default function ChristmasTree({
       : mouseEvent.clientY
     const x = Math.min(92, Math.max(8, ((pointerX - bounds.left) / bounds.width) * 100))
     const y = Math.min(92, Math.max(8, ((pointerY - bounds.top) / bounds.height) * 100))
+
+    if (event.testMode) {
+      try {
+        const url = URL.createObjectURL(pendingPhoto)
+        localPhotoUrlsRef.current.add(url)
+        setLocalOrnaments((items) => [
+          {
+            id: ID.unique(),
+            x,
+            y,
+            url,
+          },
+          ...items,
+        ])
+        onPendingPhotoChange(null)
+        setErrorMessage('')
+        setStatusMessage('Bilden är bara sparad lokalt medan testläget är aktivt.')
+      } catch (error) {
+        console.error('Kunde inte visa testbilden på julgranen:', error)
+        setErrorMessage('Bilden kunde inte visas. Försök igen.')
+      }
+      return
+    }
+
     const fileId = ID.unique()
     const file = new File([pendingPhoto], `christmas-tree-${fileId}.jpg`, {
       type: pendingPhoto.type || 'image/jpeg',
@@ -209,8 +247,6 @@ export default function ChristmasTree({
 
     setIsUploading(true)
     setErrorMessage('')
-    setStatusMessage('Hänger upp fotot…')
-
     try {
       await storage.createFile({
         bucketId: TWISTS_BUCKET_ID,
@@ -282,22 +318,11 @@ export default function ChristmasTree({
   }
 
   return (
-    <aside className="christmas-tree-panel" aria-label="Gemensam julgran">
-      <header className="christmas-tree-heading">
-        <span className="christmas-tree-kicker">Christmas {event.year}</span>
-        <h2>Vår julgran</h2>
-        <p>Häng upp ett foto och dela julstämningen med alla.</p>
-      </header>
-
-      {event.testMode && (
-        <p className="christmas-tree-notice">
-          Testläge: granen visas, men foton kan inte läggas till.
-        </p>
-      )}
-
+    <aside className="christmas-tree-panel" aria-label="Julgran">
       <div
         ref={treeRef}
         className={`christmas-tree-artwork${pendingPhoto ? ' is-placing' : ''}`}
+        aria-busy={isLoading || isUploading}
       >
         {failedTreeImage ? (
           <div className="christmas-tree-fallback" aria-hidden="true">
@@ -322,11 +347,26 @@ export default function ChristmasTree({
             className="christmas-tree-place-target"
             onClick={hangPhotoAt}
             aria-label="Välj plats för fotot på julgranen"
-            disabled={isUploading || event.testMode}
+            disabled={isUploading}
           />
         )}
 
-        {ornaments.map((ornament) => (
+        {pendingPhoto && (
+          <button
+            type="button"
+            className="christmas-tree-cancel"
+            onClick={() => {
+              setStatusMessage('')
+              onPendingPhotoChange(null)
+            }}
+            disabled={isUploading}
+            aria-label="Avbryt foto på julgranen"
+          >
+            ×
+          </button>
+        )}
+
+        {[...ornaments, ...localOrnaments].map((ornament) => (
           <button
             type="button"
             className="christmas-tree-photo"
@@ -344,11 +384,18 @@ export default function ChristmasTree({
         ))}
       </div>
 
-      {isLoading && <p className="christmas-tree-status">Hämtar foton…</p>}
-      {isUploading && <p className="christmas-tree-status">Hänger upp fotot…</p>}
-      {statusMessage && !isUploading && (
-        <p className="christmas-tree-status" role="status">{statusMessage}</p>
-      )}
+      <p className="christmas-tree-sign">Ta bild och häng upp i granen</p>
+
+      <span
+        className="christmas-tree-live-region"
+        role="status"
+        aria-live="polite"
+      >
+        {statusMessage ||
+          (isLoading ? 'Hämtar foton.' : '') ||
+          (isUploading ? 'Hänger upp fotot.' : '')}
+      </span>
+
       {errorMessage && (
         <>
           <p className="christmas-tree-error" role="alert">{errorMessage}</p>
@@ -360,22 +407,6 @@ export default function ChristmasTree({
             Försök igen
           </button>
         </>
-      )}
-      {pendingPhoto && (
-        <button
-          type="button"
-          className="christmas-tree-cancel"
-          onClick={() => {
-            setStatusMessage('')
-            onPendingPhotoChange(null)
-          }}
-          disabled={isUploading}
-        >
-          Avbryt
-        </button>
-      )}
-      {!isLoading && ornaments.length === 0 && (
-        <p className="christmas-tree-empty">Bli först med att hänga upp ett foto!</p>
       )}
 
       {selectedPhoto && (

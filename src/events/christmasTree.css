@@ -1,47 +1,10 @@
 .christmas-tree-panel {
-  position: relative;
   display: flex;
   width: min(100%, 330px);
-  min-width: 220px;
+  min-width: 0;
   flex: 0 1 330px;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 18px 16px;
-  border: 1px solid rgba(201, 156, 88, .46);
-  border-radius: 24px;
-  color: #fff8ed;
-  background:
-    radial-gradient(ellipse at 50% 40%, rgba(201, 156, 88, .16), transparent 55%),
-    linear-gradient(160deg, #193c30, #10271f);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, .22);
-  box-sizing: border-box;
-}
-
-.christmas-tree-heading {
-  width: 100%;
-  text-align: center;
-}
-
-.christmas-tree-kicker {
-  color: #edcc91;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-}
-
-.christmas-tree-heading h2 {
-  margin: 3px 0 4px;
-  color: #fff8ed;
-  font-size: 22px;
-}
-
-.christmas-tree-heading p {
-  margin: 0;
-  color: rgba(255, 248, 237, .76);
-  font-size: 12px;
-  line-height: 1.4;
 }
 
 .christmas-tree-artwork {
@@ -49,7 +12,7 @@
   width: min(100%, 250px);
   aspect-ratio: 0.72;
   max-height: min(52dvh, 390px);
-  margin: 4px auto;
+  margin: 0 auto 12px;
   cursor: default;
   touch-action: manipulation;
 }
@@ -160,48 +123,87 @@
   object-fit: cover;
 }
 
-.christmas-tree-notice,
-.christmas-tree-status,
-.christmas-tree-error,
-.christmas-tree-empty {
-  width: 100%;
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.4;
-  text-align: center;
-}
-
-.christmas-tree-notice {
-  padding: 8px;
-  border: 1px solid rgba(237, 204, 145, .38);
-  border-radius: 10px;
-  color: #f5dfb9;
-  background: rgba(237, 204, 145, .1);
-}
-
-.christmas-tree-status,
-.christmas-tree-empty {
-  color: rgba(255, 248, 237, .8);
-}
-
-.christmas-tree-error {
-  color: #ffb8bd;
-}
-
 .christmas-tree-cancel {
-  padding: 8px 16px;
-  border: 1px solid rgba(255, 248, 237, .3);
-  border-radius: 999px;
-  color: #fff8ed;
-  background: rgba(255, 248, 237, .1);
+  position: absolute;
+  z-index: 3;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, .7);
+  border-radius: 50%;
+  color: white;
+  background: rgba(31, 31, 27, .7);
   font: inherit;
-  font-size: 12px;
+  font-size: 22px;
+  line-height: 1;
   cursor: pointer;
 }
 
 .christmas-tree-cancel:disabled {
   cursor: wait;
   opacity: .6;
+}
+
+.christmas-tree-sign {
+  position: relative;
+  width: min(100%, 250px);
+  margin: 0;
+  padding: 12px 26px;
+  border: 4px solid #694527;
+  border-radius: 3px;
+  color: #f5e8ca;
+  background:
+    radial-gradient(circle at 9px 9px, #d6bd91 0 2px, #624329 2.5px 4px, transparent 4.5px),
+    radial-gradient(circle at calc(100% - 9px) 9px, #d6bd91 0 2px, #624329 2.5px 4px, transparent 4.5px),
+    radial-gradient(circle at 9px calc(100% - 9px), #d6bd91 0 2px, #624329 2.5px 4px, transparent 4.5px),
+    radial-gradient(circle at calc(100% - 9px) calc(100% - 9px), #d6bd91 0 2px, #624329 2.5px 4px, transparent 4.5px),
+    repeating-linear-gradient(2deg, #76502f 0 5px, #805a36 6px 9px, #6e492d 10px 13px);
+  box-shadow:
+    inset 0 0 0 1px rgba(240, 211, 159, .28),
+    0 4px 7px rgba(0, 0, 0, .34);
+  box-sizing: border-box;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  text-shadow: 0 1px 1px rgba(30, 18, 8, .8);
+}
+
+.christmas-tree-live-region {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.christmas-tree-error {
+  width: min(100%, 280px);
+  margin: 8px 0 0;
+  color: #a52c2c;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.christmas-tree-error + .christmas-tree-cancel {
+  position: static;
+  display: inline-flex;
+  width: auto;
+  height: auto;
+  margin-top: 6px;
+  padding: 7px 12px;
+  border-radius: 4px;
+  color: #fff;
+  background: #754a2a;
+  font-size: 12px;
 }
 
 .christmas-tree-photo-backdrop {
@@ -253,7 +255,6 @@
 @media (max-width: 800px) {
   .christmas-tree-panel {
     width: min(100%, 420px);
-    min-width: 0;
     flex-basis: auto;
   }
 
@@ -264,11 +265,6 @@
 }
 
 @media (max-width: 600px) {
-  .christmas-tree-panel {
-    width: min(100%, 420px);
-    padding: 16px;
-  }
-
   .christmas-tree-artwork {
     max-height: 340px;
   }

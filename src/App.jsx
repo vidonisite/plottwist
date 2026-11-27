@@ -1683,11 +1683,7 @@ export default function App() {
                 <Camera
                   currentUser={currentUser}
                   onScore={awardTwistScore}
-                  onHangPhoto={
-                    activeChristmasEvent && !activeChristmasEvent.testMode
-                      ? setChristmasTreePhoto
-                      : undefined
-                  }
+                  onHangPhoto={activeChristmasEvent ? setChristmasTreePhoto : undefined}
                 />
                 <ChristmasTree
                   currentUser={currentUser}
